@@ -60,6 +60,7 @@ class TipoVeiculoController {
                 id,
                 value: data.fields.nome
             }
+            console.log("🚀 ~ values:", values)
 
             return res.status(200).json(values)
 

@@ -92,7 +92,6 @@ const dynamic = async (data, modelo) => {
             sqlQuery = `SELECT  ${columns[i]} FROM recebimentomp WHERE recebimentoMpID = ?`;
         }
         const [queryResult] = await db.promise().query(sqlQuery, [data.id]);
-        console.log("🚀 ~ queryResult:", queryResult)
 
         resultData.push({
             name: titleColumns[i],

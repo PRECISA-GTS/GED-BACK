@@ -74,6 +74,7 @@ class RecebimentoMpController {
     async getModels(req, res) {
         const { unidadeID } = req.params;
         console.log("🚀 ~ unidadeID:", unidadeID)
+        if (!unidadeID) return
 
         const sql = `
         SELECT a.parRecebimentoMpModeloID AS id, a.nome, a.ciclo, a.cabecalho
@@ -107,7 +108,10 @@ class RecebimentoMpController {
     async getData(req, res) {
         try {
             const { id } = req.params; // id do formulário
+            console.log("🚀 ~ id do get:", id)
             const { unidadeID, profissionalID } = req.body;
+            console.log("🚀 ~ unidadeID, profissionalID:", unidadeID, profissionalID)
+            // if (id == true) return
 
             if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
 
@@ -945,107 +949,120 @@ const getNcDynamicProfessionals = async (parRecebimentoMpNaoConformidadeModeloID
 
 //* Obtém colunas
 const getFields = async (parRecebimentoMpModeloID, unidadeID) => {
-    const sqlFields = `
-    SELECT * 
-    FROM par_recebimentomp AS pl
-        JOIN par_recebimentomp_modelo_cabecalho AS plmc ON (plmc.parRecebimentoMpID = pl.parRecebimentoMpID)
-        JOIN par_recebimentomp_modelo AS plm ON (plm.parRecebimentoMpModeloID = plmc.parRecebimentoMpModeloID)
-    WHERE plm.parRecebimentoMpModeloID = ?`
-    const [resultFields] = await db.promise().query(sqlFields, [parRecebimentoMpModeloID])
-    if (resultFields.length === 0) { return res.json({ message: 'Nenhum campo encontrado' }) }
+    if (!parRecebimentoMpModeloID) return
+    try {
+        const sqlFields = `
+        SELECT * 
+        FROM par_recebimentomp AS pl
+            JOIN par_recebimentomp_modelo_cabecalho AS plmc ON (plmc.parRecebimentoMpID = pl.parRecebimentoMpID)
+            JOIN par_recebimentomp_modelo AS plm ON (plm.parRecebimentoMpModeloID = plmc.parRecebimentoMpModeloID)
+        WHERE plm.parRecebimentoMpModeloID = ?`
+        const [resultFields] = await db.promise().query(sqlFields, [parRecebimentoMpModeloID])
+        if (resultFields.length === 0) { return res.json({ message: 'Nenhum campo encontrado' }) }
 
-    // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
-    for (const alternatives of resultFields) {
-        if (alternatives.tipo === 'int' && alternatives.tabela) {
-            // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
-            let sqlOptions = ``
-            if (alternatives.tabela == 'fornecedor') {
-                // sqlOptions = `
-                // SELECT MAX(fornecedorID) AS id, nome, cnpj
-                // FROM fornecedor
-                // WHERE status >= 60 AND unidadeID = ${unidadeID}
-                // GROUP BY cnpj
-                // ORDER BY nome ASC`
-            } else {
-                sqlOptions = `
-                SELECT ${alternatives.tabela}ID AS id, nome
-                FROM ${alternatives.tabela} 
-                WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidadeID} ` : ``}
-                ORDER BY nome ASC`
+        // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
+        for (const alternatives of resultFields) {
+            if (alternatives.tipo === 'int' && alternatives.tabela) {
+                // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
+                let sqlOptions = ``
+                if (alternatives.tabela == 'fornecedor') {
+                    // sqlOptions = `
+                    // SELECT MAX(fornecedorID) AS id, nome, cnpj
+                    // FROM fornecedor
+                    // WHERE status >= 60 AND unidadeID = ${unidadeID}
+                    // GROUP BY cnpj
+                    // ORDER BY nome ASC`
+                } else {
+                    sqlOptions = `
+                    SELECT ${alternatives.tabela}ID AS id, nome
+                    FROM ${alternatives.tabela} 
+                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidadeID} ` : ``}
+                    ORDER BY nome ASC`
+                }
+
+                // Executar select e inserir no objeto alternatives
+                const [resultOptions] = await db.promise().query(sqlOptions)
+                alternatives.options = resultOptions
             }
-
-            // Executar select e inserir no objeto alternatives
-            const [resultOptions] = await db.promise().query(sqlOptions)
-            alternatives.options = resultOptions
         }
+
+        return resultFields
+
+    } catch (error) {
+        console.log(error)
     }
 
-    return resultFields
 }
 
 
 //* Obtém estrutura dos blocos e itens
 const getBlocks = async (id, parRecebimentoMpModeloID) => {
-    const sqlBlocos = `
-    SELECT * 
-    FROM par_recebimentomp_modelo_bloco
-    WHERE parRecebimentoMpModeloID = ? AND status = 1
-    ORDER BY ordem ASC`
-    const [resultBlocos] = await db.promise().query(sqlBlocos, [parRecebimentoMpModeloID])
+    if (!parRecebimentoMpModeloID) return
+    try {
+        const sqlBlocos = `
+        SELECT * 
+        FROM par_recebimentomp_modelo_bloco
+        WHERE parRecebimentoMpModeloID = ? AND status = 1
+        ORDER BY ordem ASC`
+        const [resultBlocos] = await db.promise().query(sqlBlocos, [parRecebimentoMpModeloID])
 
-    // Itens
-    const sqlItem = `
-    SELECT plmbi.*, i.*, a.nome AS alternativa,
-	
-        (SELECT lr.respostaID
-        FROM recebimentomp_resposta AS lr 
-        WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
-        LIMIT 1) AS respostaID,
+        // Itens
+        const sqlItem = `
+        SELECT plmbi.*, i.*, a.nome AS alternativa,
         
-        (SELECT lr.resposta
-        FROM recebimentomp_resposta AS lr 
-        WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
-        LIMIT 1) AS resposta,
-        
-        (SELECT lr.obs
-        FROM recebimentomp_resposta AS lr 
-        WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
-        LIMIT 1) AS observacao
+            (SELECT lr.respostaID
+            FROM recebimentomp_resposta AS lr 
+            WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
+            LIMIT 1) AS respostaID,
+            
+            (SELECT lr.resposta
+            FROM recebimentomp_resposta AS lr 
+            WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
+            LIMIT 1) AS resposta,
+            
+            (SELECT lr.obs
+            FROM recebimentomp_resposta AS lr 
+            WHERE lr.recebimentoMpID = 1 AND lr.parRecebimentoMpModeloBlocoID = plmbi.parRecebimentoMpModeloBlocoID AND lr.itemID = plmbi.itemID
+            LIMIT 1) AS observacao
+    
+        FROM par_recebimentomp_modelo_bloco_item AS plmbi
+            LEFT JOIN item AS i ON (plmbi.itemID = i.itemID)
+            LEFT JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
+        WHERE plmbi.parRecebimentoMpModeloBlocoID = ? AND plmbi.status = 1
+        ORDER BY plmbi.ordem ASC`
+        for (const item of resultBlocos) {
+            const [resultItem] = await db.promise().query(sqlItem, [id, id, id, item.parRecebimentoMpModeloBlocoID])
 
-    FROM par_recebimentomp_modelo_bloco_item AS plmbi
-        LEFT JOIN item AS i ON (plmbi.itemID = i.itemID)
-        LEFT JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
-    WHERE plmbi.parRecebimentoMpModeloBlocoID = ? AND plmbi.status = 1
-    ORDER BY plmbi.ordem ASC`
-    for (const item of resultBlocos) {
-        const [resultItem] = await db.promise().query(sqlItem, [id, id, id, item.parRecebimentoMpModeloBlocoID])
+            // Obter alternativas para cada item 
+            for (const item2 of resultItem) {
 
-        // Obter alternativas para cada item 
-        for (const item2 of resultItem) {
-
-            // Cria objeto da resposta (se for de selecionar)
-            if (item2?.respostaID > 0) {
-                item2.resposta = {
-                    id: item2.respostaID,
-                    nome: item2.resposta
+                // Cria objeto da resposta (se for de selecionar)
+                if (item2?.respostaID > 0) {
+                    item2.resposta = {
+                        id: item2.respostaID,
+                        nome: item2.resposta
+                    }
                 }
+
+                const sqlAlternativa = `
+                SELECT ai.alternativaItemID AS id, ai.nome
+                FROM par_recebimentomp_modelo_bloco_item AS plmbi 
+                    JOIN item AS i ON (plmbi.itemID = i.itemID)
+                    JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
+                    JOIN alternativa_item AS ai ON (a.alternativaID = ai.alternativaID)
+                WHERE plmbi.parRecebimentoMpModeloBlocoItemID = ?`
+                const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item2.parRecebimentoMpModeloBlocoItemID])
+                item2.alternativas = resultAlternativa
             }
 
-            const sqlAlternativa = `
-            SELECT ai.alternativaItemID AS id, ai.nome
-            FROM par_recebimentomp_modelo_bloco_item AS plmbi 
-                JOIN item AS i ON (plmbi.itemID = i.itemID)
-                JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
-                JOIN alternativa_item AS ai ON (a.alternativaID = ai.alternativaID)
-            WHERE plmbi.parRecebimentoMpModeloBlocoItemID = ?`
-            const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item2.parRecebimentoMpModeloBlocoItemID])
-            item2.alternativas = resultAlternativa
+            item.itens = resultItem
         }
 
-        item.itens = resultItem
+        return resultBlocos
+    } catch (error) {
+        console.log(error)
     }
 
-    return resultBlocos
 }
 
 const getSqlBloco = () => {
