@@ -1,0 +1,9 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* adicione seu próprio CSS abaixo desta linha */
+
+.teste{
+    background-color: red;
+}

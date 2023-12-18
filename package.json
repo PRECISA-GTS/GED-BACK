@@ -1,0 +1,38 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "dev": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "bootstrap": "^5.3.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "formdata-node": "^6.0.3",
+    "html-pdf": "^3.0.1",
+    "html-pdf-node": "^1.0.8",
+    "jsdom": "^22.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "moment": "^2.29.4",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.1.0",
+    "nodemailer": "^6.9.2",
+    "nodemon": "^2.0.20",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.13.0",
+    "pdfmake": "^0.2.7",
+    "phantom": "^6.3.0",
+    "puppeteer": "^19.11.1",
+    "sharp": "^0.32.5",
+    "wkhtmltopdf": "^0.4.0"
+  }
+}
