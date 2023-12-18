@@ -36,13 +36,14 @@ class TipoVeiculoController {
     }
 
     async insertData(req, res) {
-        const values = req.body
+        const data = req.body
+        console.log("🚀 ~ data:", data)
         try {
 
             //* Valida conflito
             const validateConflicts = {
                 columns: ['nome'],
-                values: [values.fields.nome],
+                values: [data.fields.nome],
                 table: 'tipoveiculo',
                 id: null
             }
@@ -50,12 +51,17 @@ class TipoVeiculoController {
                 return res.status(409).json({ message: "Dados já cadastrados!" });
             }
 
-            const logID = await executeLog('Criação de tipo veículo', values.usuarioID, values.unidadeID, req)
+            const logID = await executeLog('Criação de tipo veículo', data.usuarioID, data.unidadeID, req)
 
             const sqlInsert = 'INSERT INTO tipoveiculo (nome, status) VALUES (?, ?)'
-            const id = await executeQuery(sqlInsert, [values.fields.nome, values.fields.status], 'insert', 'tipoveiculo', 'tipoveiculoID', null, logID)
+            const id = await executeQuery(sqlInsert, [data.fields.nome, data.fields.status], 'insert', 'tipoveiculo', 'tipoveiculoID', null, logID)
 
-            return res.status(200).json(id)
+            const values = {
+                id,
+                value: data.fields.nome
+            }
+
+            return res.status(200).json(values)
 
         } catch (error) {
             console.log(error)
