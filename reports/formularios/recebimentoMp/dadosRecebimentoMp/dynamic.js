@@ -92,7 +92,11 @@ const dynamic = async (data, modelo) => {
             sqlQuery = `SELECT  ${columns[i]} FROM recebimentomp WHERE recebimentoMpID = ?`;
         }
         const [queryResult] = await db.promise().query(sqlQuery, [data.id]);
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> 38e6b9f6207cd92d6943f0d841f1bca1fb6a826b
         resultData.push({
             name: titleColumns[i],
             value: typeColumns[i] === 'date' && queryResult[0][columns[i]] !== null

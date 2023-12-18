@@ -45,13 +45,12 @@ class TransportadorController {
 
     async insertData(req, res) {
         try {
-            const values = req.body
-            console.log("🚀 ~ values:", values)
+            const data = req.body
 
             //* Valida conflito
             const validateConflicts = {
                 columns: ['nome', 'unidadeID'],
-                values: [values.fields.nome, values.fields.unidadeID],
+                data: [data.fields.nome, data.fields.unidadeID],
                 table: 'transportador',
                 id: null
             }
@@ -59,12 +58,18 @@ class TransportadorController {
                 return res.status(409).json({ message: "Dados já cadastrados!" });
             }
 
-            const logID = await executeLog('Criação de transportador', values.usuarioID, values.unidadeID, req)
+            const logID = await executeLog('Criação de transportador', data.usuarioID, data.unidadeID, req)
 
             const sqlInsert = 'INSERT INTO transportador (nome, status, unidadeID) VALUES (?, ?, ?)'
-            const id = await executeQuery(sqlInsert, [values.fields.nome, values.fields.status, values.unidadeID], 'insert', 'transportador', 'transportadorID', null, logID)
+            const id = await executeQuery(sqlInsert, [data.fields.nome, data.fields.status, data.unidadeID], 'insert', 'transportador', 'transportadorID', null, logID)
 
-            return res.status(200).json(id)
+
+            const values = {
+                id,
+                value: data.fields.nome
+            }
+
+            return res.status(200).json(values)
         } catch (error) {
             console.log(error)
         }
@@ -73,30 +78,35 @@ class TransportadorController {
     async updateData(req, res) {
         try {
             const { id } = req.params
-            const values = req.body
+            const data = req.body
 
             //* Valida conflito
             const validateConflicts = {
                 columns: ['transportadorID', 'nome'],
-                values: [id, values.fields.nome],
+                data: [id, data.fields.nome],
                 table: 'transportador',
                 id: id
             }
+
             if (await hasConflict(validateConflicts)) {
                 return res.status(409).json({ message: "Dados já cadastrados!" });
             }
-            const logID = await executeLog('Atualização de transportador', values.usuarioID, values.unidadeID, req)
 
-            const sqlUpdate = `UPDATE transportador SET nome = ?, status = ? WHERE transportadorID = ?`
+            const logID = await executeLog('Atualização de transportador', data.usuarioID, data.unidadeID, req)
 
-            await executeQuery(sqlUpdate, [values.fields.nome, values.fields.status, values.unidadeID], 'update', 'transportador', 'transportadorID', id, logID)
+            const sqlUpdate = `UPDATE transportador SET nome = ?, status = ?, unidadeID = ? WHERE transportadorID = ?`
+
+            await executeQuery(sqlUpdate, [data.fields.nome, data.fields.status, data.unidadeID, id], 'update', 'transportador', 'transportadorID', id, logID)
 
 
-            return res.status(200).json({ message: 'Dados atualizados com sucesso' })
+
+            return res.status(200).json({ message: 'Dados atualizados com sucesso' });
         } catch (error) {
-            console.log(error)
+            console.log(error);
+            return res.status(500).json({ message: "Erro interno no servidor" });
         }
     }
+
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
