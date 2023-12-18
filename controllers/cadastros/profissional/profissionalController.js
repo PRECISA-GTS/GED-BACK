@@ -10,6 +10,8 @@ const newUser = require('../../../email/template/user/newUser');
 const sendMailConfig = require('../../../config/email');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
+
+
 class ProfissionalController {
     //? Obtém os profissionais pra assinatura
     async getProfissionaisAssinatura(req, res) {
@@ -20,92 +22,21 @@ class ProfissionalController {
         }
 
         try {
-            let resultProfissionalPreenche = []
-            let resultProfissionalAprova = []
-
+            let result = null
+            
             switch (formularioID) {
                 case 1: //* Fornecedor
-                    //? Profissional que preenche
-                    const sqlProfissionalPreenche = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_fornecedor_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parFornecedorModeloID = ? AND a.tipo = 1
-                    ORDER BY b.nome ASC`
-                    const [tempResultPreenche] = await db.promise().query(sqlProfissionalPreenche, [modeloID])
-                    resultProfissionalPreenche = tempResultPreenche
-
-                    //? Profissional que aprova
-                    const sqlProfissionalAprova = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_fornecedor_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parFornecedorModeloID = ? AND a.tipo = 2
-                    ORDER BY b.nome ASC`
-                    const [tempResultAprova] = await db.promise().query(sqlProfissionalAprova, [modeloID])
-                    resultProfissionalAprova = tempResultAprova
-                    break;
-
+                    result = await getProfissionalPreenchimento('par_fornecedor_modelo_profissional', 'parFornecedorModeloID', modeloID)
+                break;
                 case 2: //* Recebimento de MP
-                    //? Profissional que preenche
-                    const sqlProfissionalPreencheMP = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_recebimentomp_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parRecebimentoMpModeloID = ? AND a.tipo = 1
-                    ORDER BY b.nome ASC`
-                    const [tempResultPreencheMP] = await db.promise().query(sqlProfissionalPreencheMP, [modeloID])
-                    resultProfissionalPreenche = tempResultPreencheMP
-
-                    //? Profissional que aprova
-                    const sqlProfissionalAprovaMP = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_recebimentomp_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parRecebimentoMpModeloID = ? AND a.tipo = 2
-                    ORDER BY b.nome ASC`
-                    const [tempResultAprovaMP] = await db.promise().query(sqlProfissionalAprovaMP, [modeloID])
-                    resultProfissionalAprova = tempResultAprovaMP
-                    break;
-
-                case 3: //* Não conformidade do recebimento de MP
-                    //? Profissional que preenche
-                    const sqlProfissionalNCPreencheMP = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_recebimentomp_naoconformidade_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parRecebimentoMpNaoConformidadeModeloID = ? AND a.tipo = 1
-                    ORDER BY b.nome ASC`
-                    const [tempResultNCPreencheMP] = await db.promise().query(sqlProfissionalNCPreencheMP, [modeloID])
-                    resultProfissionalPreenche = tempResultNCPreencheMP
-
-                    //? Profissional que aprova
-                    const sqlProfissionalNCAprovaMP = `
-                    SELECT
-                        b.profissionalID AS id, 
-                        b.nome
-                    FROM par_recebimentomp_naoconformidade_modelo_profissional AS a
-                        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.parRecebimentoMpNaoConformidadeModeloID = ? AND a.tipo = 2
-                    ORDER BY b.nome ASC`
-                    const [tempResultNCAprovaMP] = await db.promise().query(sqlProfissionalNCAprovaMP, [modeloID])
-                    resultProfissionalAprova = tempResultNCAprovaMP
-                    break;
-            }
-
-            const result = {
-                preenche: resultProfissionalPreenche ?? [],
-                aprova: resultProfissionalAprova ?? []
+                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloID', modeloID)                    
+                break;
+                    case 3: //* Não conformidade do recebimento de MP
+                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)                                        
+                break;
+                case 4: //* Limpeza
+                    result = await getProfissionalPreenchimento('par_limpeza_modelo_profissional', 'parLimpezaModeloID', modeloID)                                                           
+                break;
             }
 
             return res.status(200).json(result)
@@ -813,6 +744,33 @@ const hasCargosEdit = (cargos) => {
     return hasEdit
 }
 
+const getProfissionalPreenchimento = async (table, key, modeloID) => {    
+    const sqlPreenche = `
+    SELECT
+        b.profissionalID AS id, 
+        b.nome
+    FROM ${table} AS a
+        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
+    WHERE a.${key} = ? AND a.tipo = 1
+    ORDER BY b.nome ASC`
+    const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
+    
+    const sqlAprova = `
+    SELECT
+        b.profissionalID AS id, 
+        b.nome
+    FROM ${table} AS a
+        JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
+    WHERE a.${key} = ? AND a.tipo = 2
+    ORDER BY b.nome ASC`
+    const [resultAprova] = await db.promise().query(sqlAprova, [modeloID])
 
+    const result = {
+        preenche: resultPreenche ?? [],
+        aprova: resultAprova ?? []
+    }
+
+    return result
+}
 
 module.exports = ProfissionalController;
