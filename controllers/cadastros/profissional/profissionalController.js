@@ -442,6 +442,7 @@ class ProfissionalController {
         try {
             const { id } = req.params
             const data = req.body
+            console.log("🚀 ~ data:", data)
             // //* Valida conflito
             // const validateConflicts = {
             //     columns: ['profissionalID', 'cpf', 'unidadeID'],
@@ -459,6 +460,12 @@ class ProfissionalController {
             delete data.fields.imagem
             const UpdateUser = `UPDATE profissional SET ? WHERE profissionalID = ?`
             await executeQuery(UpdateUser, [data.fields, id], 'update', 'profissional', 'profissionalID', id, logID)
+
+            //Atualiza dados do usuário
+            // if (data.fields.usuarioID > 0) {
+            //     const UpdateUser = `UPDATE usuario SET nome = ?, cpf = ?, cnpj = ?,  email = ? WHERE usuarioID = ?`
+            //     await executeQuery(UpdateUser, [data.fields.nome, data.fields.cpf], 'update', 'usuario', 'usuarioID', data.fields.usuarioID, logID)
+            // }
 
             // Exclui cargos / função
             if (data.removedItems.length > 0) {
@@ -645,24 +652,9 @@ class ProfissionalController {
             //   Obtem dados da fabrica
             const sqlUnity = `
             SELECT a.*   
-            FROM unidade AS a
+            FROM unidade AS' a
             WHERE a.unidadeID = ?`
             const [resultUnity] = await db.promise().query(sqlUnity, [data.unidadeID])
-
-            const endereco = {
-                logradouro: resultUnity[0].logradouro,
-                numero: resultUnity[0].numero,
-                complemento: resultUnity[0].complemento,
-                bairro: resultUnity[0].bairro,
-                cidade: resultUnity[0].cidade,
-                uf: resultUnity[0].uf,
-            }
-
-            const enderecoCompleto = Object.entries(endereco).map(([key, value]) => {
-                if (value) {
-                    return `${value}, `;
-                }
-            }).join('').slice(0, -2) + '.'; // Remove a última vírgula e adiciona um ponto final
 
             if (resultAdmin && resultAdmin[0].admin == 1) { //? ADMIN do sistema (não tem profissional) (não envia email)
 
@@ -682,14 +674,12 @@ class ProfissionalController {
                 let assunto = 'GEDagro - Senha Alterada'
                 const values = {
                     // fabrica
-                    enderecoCompletoFabrica: enderecoCompleto,
                     nomeFantasiaFabrica: data.papelID == 1 ? resultUnity[0].nomeFantasia : resultUnity[0].nomeFantasia,
                     cnpjFabrica: data.papelID == 1 ? resultUnity[0].cnpj : resultUnity[0].cnpj,
 
                     // outros
                     nome: data.papelID == 1 ? resultProfessional[0].nome : resultUnity[0].nomeFantasia,
                     papelID: data.papelID,
-                    noBaseboard: false, // Se falso mostra o rodapé com os dados da fabrica, senão mostra dados do GEDagro,
                 }
 
                 const html = await alterPassword(values);

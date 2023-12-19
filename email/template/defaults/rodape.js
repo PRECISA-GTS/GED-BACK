@@ -29,7 +29,7 @@ const rodape = async (values) => {
         // Rodapé com dados da unidade (fábrica)
         `<div class="box rodape">
             <p class="textSmall">Este é um e-mail automático, não responda.</p>
-            <p style="font-size: 14px;">${resultUnity[0].nomeFantasia ?? ''}<br/>
+            <p style="font-size: 14px;">${resultUnity[0]?.nomeFantasia ?? ''}<br/>
             ${enderecoCompleto ?? ''}</p>
         </div>`
     ) : (
