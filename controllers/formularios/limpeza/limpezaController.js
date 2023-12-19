@@ -117,7 +117,7 @@ class LimpezaController {
 
             const unidade = {
                 modelo: {
-                    id: result[0]['parLimpezaModeloID'] ?? 0,
+                    id: result[0].parLimpezaModeloID ?? 0,
                     nome: result[0]['modeloNome'],
                     ciclo: result[0]['modeloCiclo']
                 },
