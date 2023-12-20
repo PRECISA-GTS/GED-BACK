@@ -8,7 +8,6 @@ const authFornecedor = require("./auth/authFornecedorRoutes");
 routes.use(urlBase + '/', authFornecedor);
 routes.use(urlBase + '/', auth);
 
-
 // Dashborards
 const fabricaRouter = require("./dashboard/fabricaRoutes")
 const fornecedorDashboardRouter = require("./dashboard/fornecedorDashboardRoutes")
@@ -46,6 +45,10 @@ const ProfissaoRouter = require("./cadastros/profissao/profissaoRoutes");
 const GrupoAnexosRouter = require("./cadastros/grupoAnexos/grupoAnexosRoutes");
 const ProdutoRoutes = require("./cadastros/produto/produtoRoutes");
 const ProfissionalRouter = require("./cadastros/profissional/profissionalRoutes")
+
+// Calendario
+const calendarioRouter = require("./calendario/calendarioRoutes");
+routes.use(urlBase, calendarioRouter);
 
 routes.use(urlBase + '/cadastros', atividadeRouter);
 routes.use(urlBase + '/cadastros', itemRouter);
