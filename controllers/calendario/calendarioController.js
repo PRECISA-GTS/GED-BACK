@@ -6,7 +6,6 @@ class CalendarioController {
     async getEvents(req, res) {
         try {
             const { unidadeID, usuarioID, papelID } = req.body
-
             if (!unidadeID || !usuarioID || !papelID) return res.status(500).json({ message: 'Parâmetros incorretos!' })
 
             const sql = `
