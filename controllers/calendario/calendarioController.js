@@ -20,7 +20,7 @@ class CalendarioController {
                 c.rotaID, 
                 c.status
             FROM calendario AS c
-                JOIN permissao AS p ON (c.rota = p.rota)
+                LEFT JOIN permissao AS p ON (c.rota = p.rota)
             WHERE c.unidadeID = ? AND p.usuarioID = ? AND p.papelID = ? AND p.unidadeID = ? AND p.ler = ?`
             const [resultCalendar] = await db.promise().query(sql, [unidadeID, usuarioID, papelID, unidadeID, 1])
 
