@@ -15,14 +15,13 @@ class UnidadeController {
             a.unidadeID AS id, a.nomeFantasia AS nome, e.nome AS status, e.cor
             FROM unidade AS a
             JOIN status AS e ON (a.status = e.statusID)
-            WHERE a.unidadeID = ${unidadeID}`
+            WHERE ${admin == 1 ? `a.unidadeID > 0` : `a.unidadeID = ${unidadeID}`}`
 
             const [resultGetList] = await db.promise().query(sqlGetList)
             res.status(200).json(resultGetList);
         } catch (error) {
             console.log(error)
         }
-
     }
 
     async getData(req, res) {

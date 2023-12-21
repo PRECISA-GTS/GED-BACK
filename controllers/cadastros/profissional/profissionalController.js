@@ -23,20 +23,20 @@ class ProfissionalController {
 
         try {
             let result = null
-            
+
             switch (formularioID) {
                 case 1: //* Fornecedor
                     result = await getProfissionalPreenchimento('par_fornecedor_modelo_profissional', 'parFornecedorModeloID', modeloID)
-                break;
+                    break;
                 case 2: //* Recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloID', modeloID)                    
-                break;
-                    case 3: //* Não conformidade do recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)                                        
-                break;
+                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloID', modeloID)
+                    break;
+                case 3: //* Não conformidade do recebimento de MP
+                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
+                    break;
                 case 4: //* Limpeza
-                    result = await getProfissionalPreenchimento('par_limpeza_modelo_profissional', 'parLimpezaModeloID', modeloID)                                                           
-                break;
+                    result = await getProfissionalPreenchimento('par_limpeza_modelo_profissional', 'parLimpezaModeloID', modeloID)
+                    break;
             }
 
             return res.status(200).json(result)
@@ -46,7 +46,8 @@ class ProfissionalController {
     }
 
     async getList(req, res) {
-        const { unidadeID, papelID } = req.query
+        const { unidadeID, papelID, admin } = req.query
+        console.log("🚀 ~ unidadeID, papelID:", unidadeID, papelID, admin)
 
         if (!unidadeID || !papelID) {
             return res.status(400).json({ message: "Dados inválidos!" });
@@ -64,13 +65,25 @@ class ProfissionalController {
             WHERE a.unidadeID = ?`
         const [result] = await db.promise().query(sql, [unidadeID])
 
+        if (admin == 1) { //? Lista profissional Administrador
+            result.push({
+                id: 1,
+                nome: 'Administrador do Sistema',
+                status: 'Ativo',
+                cor: 'success'
+            })
+        }
+
         res.status(200).json(result)
     }
 
     async getData(req, res) {
         const { id } = req.params
-        const { unidadeID } = req.query
+        let { unidadeID, admin } = req.query
+        console.log("🚀 ~ unidadeID, admin:", unidadeID, admin)
         try {
+
+            if (id == 1 && admin == 1) { unidadeID = 0 }
 
             // Dados do profissional
             const dataUser = `
@@ -103,7 +116,7 @@ class ProfissionalController {
             const [resultProfessional] = await db.promise().query(getProfessional, [unidadeID, id])
 
             const values = {
-                imagem: resultDataUser[0].imagem ? `${process.env.BASE_URL_API}${resultDataUser[0].imagem}` : null,
+                imagem: resultDataUser[0]?.imagem ? `${process.env.BASE_URL_API}${resultDataUser[0].imagem}` : null,
                 fields: resultDataUser[0],
                 cargosFuncoes: resultFormacaoCargo,
                 menu: await getMenuPermissions(1, resultDataUser[0].usuarioID, unidadeID),
@@ -372,31 +385,17 @@ class ProfissionalController {
     async updateData(req, res) {
         try {
             const { id } = req.params
-            const data = req.body
-            console.log("🚀 ~ data:", data)
-            // //* Valida conflito
-            // const validateConflicts = {
-            //     columns: ['profissionalID', 'cpf', 'unidadeID'],
-            //     values: [id, data.fields.cpf, data.fields.unidadeID],
-            //     table: 'profissional',
-            //     id: id
-            // }
-            // if (await hasConflict(validateConflicts)) {
-            //     return res.status(409).json({ message: "Dados já cadastrados!" });
-            // }
+            let data = req.body
+            console.log("🚀 ~ admin ??", data.admin)
 
-            const logID = await executeLog('Edição do profissional', data.usualioLogado, data.unidadeID, req)
+            if (id == 1 && data.admin == 1) data.fields.unidadeID = 0
+
+            const logID = await executeLog('Edição do profissional', data.usualioLogado, data.fields.unidadeID, req)
 
             // Atualiza dados do profissional
             delete data.fields.imagem
             const UpdateUser = `UPDATE profissional SET ? WHERE profissionalID = ?`
             await executeQuery(UpdateUser, [data.fields, id], 'update', 'profissional', 'profissionalID', id, logID)
-
-            //Atualiza dados do usuário
-            // if (data.fields.usuarioID > 0) {
-            //     const UpdateUser = `UPDATE usuario SET nome = ?, cpf = ?, cnpj = ?,  email = ? WHERE usuarioID = ?`
-            //     await executeQuery(UpdateUser, [data.fields.nome, data.fields.cpf], 'update', 'usuario', 'usuarioID', data.fields.usuarioID, logID)
-            // }
 
             // Exclui cargos / função
             if (data.removedItems.length > 0) {
@@ -419,9 +418,7 @@ class ProfissionalController {
                     } else if (row && !row.id) {    //? Novo, insere
                         const sqlInsertItem = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, status, profissionalID) VALUES (?, ?, ?, ?, ?, ?)`
 
-
                         await executeQuery(sqlInsertItem, [formatedData, row.formacaoCargo, row.conselho, (row.dataInativacao), (row.status ? '1' : '0'), data.fields.profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
-
                     }
                 })
             }
@@ -441,27 +438,25 @@ class ProfissionalController {
                     const UpdateUser = `UPDATE profissional SET usuarioID = ? WHERE profissionalID = ?`
                     await executeQuery(UpdateUser, [usuarioID, id], 'update', 'profissional', 'profissionalID', id, logID)
 
-                    // Verifica se já esta cadastrado na unidade
-                    const sqlUnityCheck = `SELECT * FROM usuario_unidade WHERE usuarioID = ? AND unidadeID = ?`
-                    const [resultUnityCheck] = await db.promise().query(sqlUnityCheck, [usuarioID, data.fields.unidadeID])
+                    if (id > 1) { //? Ignora administrador
+                        // Verifica se já esta cadastrado na unidade
+                        const sqlUnityCheck = `SELECT * FROM usuario_unidade WHERE usuarioID = ? AND unidadeID = ?`
+                        const [resultUnityCheck] = await db.promise().query(sqlUnityCheck, [usuarioID, data.fields.unidadeID])
 
-                    //? Já está cadastrado na unidade
-                    if (resultUnityCheck.length > 0) {
-                        const sqlUpdateUsuarioUnity = `UPDATE usuario_unidade SET status = ? WHERE usuarioID = ? AND unidadeID = ? `
-                        console.log("entrou no update")
+                        //? Já está cadastrado na unidade
+                        if (resultUnityCheck.length > 0) {
+                            const sqlUpdateUsuarioUnity = `UPDATE usuario_unidade SET status = ? WHERE usuarioID = ? AND unidadeID = ? `
+                            await executeQuery(sqlUpdateUsuarioUnity, [1, usuarioID, data.fields.unidadeID], 'update', 'usuario_unidade', 'usuarioID', usuarioID, logID)
+                        } else {
+                            // Insere usuário na unidade
+                            const sqlInsertUsuarioUnity = `INSERT INTO usuario_unidade (usuarioID, unidadeID, papelID) VALUES (?,?,?)`
+                            await executeQuery(sqlInsertUsuarioUnity, [usuarioID, data.fields.unidadeID, 1], 'insert', 'usuario_unidade', 'usuarioUnidadeID', null, logID)
+                        }
 
-                        await executeQuery(sqlUpdateUsuarioUnity, [1, usuarioID, data.fields.unidadeID], 'update', 'usuario_unidade', 'usuarioID', usuarioID, logID)
-                    } else {
-                        // Insere usuário na unidade
-                        const sqlInsertUsuarioUnity = `INSERT INTO usuario_unidade (usuarioID, unidadeID, papelID) VALUES (?,?,?)`
-                        console.log("entrou no insert")
-
-
-                        await executeQuery(sqlInsertUsuarioUnity, [usuarioID, data.fields.unidadeID, 1], 'insert', 'usuario_unidade', 'usuarioUnidadeID', null, logID)
+                        //* PERMISSÕES DE ACESSO
+                        accessPermissions(data)
                     }
 
-                    //* PERMISSÕES DE ACESSO
-                    accessPermissions(data)
                     res.status(200).json({ message: 'Dados atualizados com sucesso!' })
                 }
                 //? Ainda não existe o usuario com esse CPF, cria novo
@@ -734,7 +729,7 @@ const hasCargosEdit = (cargos) => {
     return hasEdit
 }
 
-const getProfissionalPreenchimento = async (table, key, modeloID) => {    
+const getProfissionalPreenchimento = async (table, key, modeloID) => {
     const sqlPreenche = `
     SELECT
         b.profissionalID AS id, 
@@ -744,7 +739,7 @@ const getProfissionalPreenchimento = async (table, key, modeloID) => {
     WHERE a.${key} = ? AND a.tipo = 1
     ORDER BY b.nome ASC`
     const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
-    
+
     const sqlAprova = `
     SELECT
         b.profissionalID AS id, 
