@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling } = require('../../../defaults/functions');
 const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { send } = require('process');
@@ -33,12 +33,12 @@ class LimpezaController {
         ORDER BY l.limpezaID DESC, l.status ASC`
 
         const [result] = await db.promise().query(sql, [unidadeID])
-        return res.json(result);        
+        return res.json(result);
     }
 
     async getModels(req, res) {
         const { unidadeID } = req.params;
-        
+
         const sql = `
         SELECT a.parLimpezaModeloID AS id, a.nome, a.ciclo, a.cabecalho
         FROM par_limpeza_modelo AS a 
@@ -112,7 +112,7 @@ class LimpezaController {
                 LEFT JOIN profissional AS pap ON(r.aprovaProfissionalID = pap.profissionalID)
                 LEFT JOIN profissional AS pf ON(r.finalizaProfissionalID = pf.profissionalID)
                 LEFT JOIN par_limpeza_modelo AS prm ON (prm.parLimpezaModeloID = r.parLimpezaModeloID)
-            WHERE r.limpezaID = ? `            
+            WHERE r.limpezaID = ? `
             const [result] = await db.promise().query(sqlResult, [id])
 
             const unidade = {
@@ -145,7 +145,6 @@ class LimpezaController {
                     FROM ${alternatives.tabela} 
                     WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidade.unidadeID} ` : ``}
                     ORDER BY nome ASC`
-
                     // Executar select e inserir no objeto alternatives
                     const [resultOptions] = await db.promise().query(sqlOptions)
                     alternatives.options = resultOptions
@@ -333,7 +332,7 @@ class LimpezaController {
                     concluido: result[0].concluido == 1 ? true : false,
                     cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
                 },
-                link: `${process.env.BASE_URL}formularios/limpeza?id=${id}`                
+                link: `${process.env.BASE_URL}formularios/limpeza?id=${id}`
             }
 
             res.status(200).json(data);
@@ -450,6 +449,11 @@ class LimpezaController {
             if (result[0]['status'] != newStatus) {
                 const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
                 if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+            }
+
+            //? Cria agendamento no calendário com a data de vencimento
+            if (concluido == '1' && newStatus >= 40) {
+                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data.unidade?.modelo?.ciclo, unidadeID)
             }
 
             res.status(200).json({ message: 'Dados atualizados!' })
@@ -583,7 +587,7 @@ class LimpezaController {
     async saveRelatorio(req, res) {
         const pathDestination = req.pathDestination
         const files = req.files;
-    }    
+    }
 }
 
 //* Obtém colunas
@@ -638,17 +642,17 @@ class LimpezaController {
 //     // Itens
 //     const sqlItem = `
 //     SELECT plmbi.*, i.*, a.nome AS alternativa,
-	
+
 //         (SELECT lr.respostaID
 //         FROM recebimentomp_resposta AS lr 
 //         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID
 //         LIMIT 1) AS respostaID,
-        
+
 //         (SELECT lr.resposta
 //         FROM recebimentomp_resposta AS lr 
 //         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID
 //         LIMIT 1) AS resposta,
-        
+
 //         (SELECT lr.obs
 //         FROM recebimentomp_resposta AS lr 
 //         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID

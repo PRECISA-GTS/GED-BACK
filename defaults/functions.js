@@ -256,8 +256,14 @@ const createScheduling = async (id, type, name, cycle, unityID) => {
             break;
         case 'recebimentoMP':
             calendar = {
-                type: 'Recebimento MP',
+                type: 'Recebimento de MP',
                 route: '/formularios/recebimento-mp'
+            }
+            break;
+        case 'limpeza':
+            calendar = {
+                type: 'Limpeza',
+                route: '/formularios/limpeza'
             }
             break;
         default:
