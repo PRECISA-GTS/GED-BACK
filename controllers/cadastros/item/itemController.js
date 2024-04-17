@@ -113,6 +113,23 @@ class ItemController {
                 resultOpcoes[i].anexos = resultAnexos.length > 0 ? resultAnexos : [{ nome: '' }]
             }
 
+            const arrPending = [
+                {
+                    table: 'fornecedor_resposta',
+                    column: ['itemID'],
+                },
+                {
+                    table: 'recebimentomp_resposta',
+                    column: ['itemID'],
+                },
+                {
+                    table: 'limpeza_resposta',
+                    column: ['itemID'],
+                },
+            ]
+
+            const pending = await hasPending(id, arrPending)
+
             const result = {
                 fields: {
                     formulario: {
@@ -128,7 +145,8 @@ class ItemController {
                         opcoes: resultOptionsAlternativa ?? []
                     },
                     ajuda: resultData[0].ajuda ?? '',
-                    opcoes: resultOpcoes ?? []
+                    opcoes: resultOpcoes ?? [],
+                    pending: pending
                 }
             };
             res.status(200).json(result);

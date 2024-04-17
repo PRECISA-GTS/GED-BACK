@@ -6,7 +6,6 @@ const axios = require('axios');
 const FormData = require('form-data');
 const path = require('path');
 
-
 const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAnterior, statusAtual, observacao) => {
 
     if (parFormularioID && id && usuarioID && unidadeID && papelID && statusAnterior && statusAtual) {
@@ -244,5 +243,82 @@ const signedReport = async (pathReport) => {
 
 }
 
+//? Cria agendamento no calendário na conclusão do formulário, na data de vencimento do formulário
+const createScheduling = async (id, type, name, cycle, unityID) => {
+    let calendar = null
 
-module.exports = { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, accessPermissions, createDocument, getDocumentSignature, signedReport };
+    switch (type) {
+        case 'fornecedor':
+            calendar = {
+                type: 'Fornecedor',
+                route: '/formularios/fornecedor'
+            }
+            break;
+        case 'recebimentoMP':
+            calendar = {
+                type: 'Recebimento MP',
+                route: '/formularios/recebimento-mp'
+            }
+            break;
+        default:
+            calendar = {
+                type: 'Desconhecido',
+                route: '/'
+            }
+            break;
+    }
+
+    const sqlCalendar = `INSERT INTO calendario(titulo, tipo, dataHora, rota, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+    await db.promise().query(sqlCalendar, [
+        `Renovação ${name}`,
+        calendar.type,
+        getVencimento(cycle),
+        calendar.route,
+        '0',
+        id,
+        '0',
+        unityID
+    ])
+}
+
+const deleteScheduling = async (type, id, unityID, logID) => {
+    let route = ''
+    switch (type) {
+        case 'fornecedor':
+            route = '/formularios/fornecedor'
+            break;
+        default:
+            route = '/'
+            break;
+    }
+
+    const sqlDeleteScheduling = `DELETE FROM calendario WHERE unidadeID = ? AND origemID = ? AND rota = ?`
+    await executeQuery(sqlDeleteScheduling, [unityID, id, route], 'delete', 'calendario', 'origemID', id, logID)
+}
+
+const getVencimento = (ciclo) => {
+    // Soma hoje mais a quantidade de dias do ciclo
+    const today = new Date();
+    const vencimento = new Date(today.getTime() + (ciclo * 24 * 60 * 60 * 1000));
+    // formata para YYYY-mm-dd HH:ii:ss
+    const year = vencimento.getFullYear();
+    const month = vencimento.getMonth() + 1;
+    const day = vencimento.getDate();
+    const hour = vencimento.getHours();
+    const minute = vencimento.getMinutes();
+    const formattedDate = `${year}-${month < 10 ? `0${month}` : month}-${day < 10 ? `0${day}` : day} ${hour < 10 ? `0${hour}` : hour}:${minute < 10 ? `0${minute}` : minute}:00`;
+    return formattedDate
+}
+
+
+module.exports = {
+    addFormStatusMovimentation,
+    formatFieldsToTable,
+    hasUnidadeID,
+    accessPermissions,
+    createDocument,
+    getDocumentSignature,
+    signedReport,
+    createScheduling,
+    deleteScheduling
+};

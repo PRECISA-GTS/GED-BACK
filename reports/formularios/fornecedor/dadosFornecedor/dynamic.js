@@ -23,43 +23,43 @@ async function dynamic(data, modelo) {
     const header = [
         {
             'name': 'CNPJ',
-            'value': resultFornecedorFixos.cnpj
+            'value': resultFornecedorFixos?.cnpj
         },
         {
             'name': 'Nome Fantasia',
-            'value': resultFornecedorFixos.nome
+            'value': resultFornecedorFixos?.nome
         },
         {
             'name': 'Razao Social',
-            'value': resultFornecedorFixos.razaoSocial
+            'value': resultFornecedorFixos?.razaoSocial
         },
         {
             'name': 'Quem Abriu',
-            'value': resultFornecedorFixos.quemAbriu
+            'value': resultFornecedorFixos?.quemAbriu
         },
         {
             'name': 'Data Inicio',
-            'value': resultFornecedorFixos.dataInicio
+            'value': resultFornecedorFixos?.dataInicio
         },
         {
             'name': 'Data Fim',
-            'value': resultFornecedorFixos.dataFim
+            'value': resultFornecedorFixos?.dataFim
         },
         {
             'name': 'Hora Inicio',
-            'value': resultFornecedorFixos.horaInicio
+            'value': resultFornecedorFixos?.horaInicio
         },
         {
             'name': 'Hora Fim',
-            'value': resultFornecedorFixos.horaFim
+            'value': resultFornecedorFixos?.horaFim
         },
         {
             'name': 'Quem prenche',
-            'value': resultFornecedorFixos.quemPreenche == 2 ? 'Fornecedor' : 'Fabrica'
+            'value': resultFornecedorFixos?.quemPreenche == 2 ? 'Fornecedor' : 'Fabrica'
         },
         {
             'name': 'Aprova Profissional',
-            'value': resultFornecedorFixos.aprovaProfissional
+            'value': resultFornecedorFixos?.aprovaProfissional
         },
     ]
 

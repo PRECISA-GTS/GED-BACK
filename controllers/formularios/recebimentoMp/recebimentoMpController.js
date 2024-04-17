@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling } = require('../../../defaults/functions');
 const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { send } = require('process');
@@ -438,7 +438,7 @@ class RecebimentoMpController {
                     concluido: result[0].concluido == 1 ? true : false,
                     cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
                 },
-                link: `${process.env.BASE_URL} formularios / recebimento - mp ? id = ${id} `,
+                link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
                 naoConformidade: {
                     itens: await getNaoConformidades(id),
                     // varrer array resultProdutos e retornar somente o objeto produto 
@@ -533,14 +533,6 @@ class RecebimentoMpController {
 
                             if (resposta && resultVerificaResposta.length === 0) {
                                 const sqlInsert = `INSERT INTO recebimentomp_resposta(recebimentoMpID, parRecebimentoMpModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
-                                // const [resultInsert] = await db.promise().query(sqlInsert, [
-                                //     id,
-                                //     bloco.parRecebimentoMpModeloBlocoID,
-                                //     item.itemID,
-                                //     resposta,
-                                //     respostaID,
-                                //     observacao
-                                // ])
                                 const resultInsert = await executeQuery(sqlInsert, [
                                     id,
                                     bloco.parRecebimentoMpModeloBlocoID,
@@ -556,15 +548,6 @@ class RecebimentoMpController {
                             UPDATE recebimentomp_resposta 
                             SET resposta = ?, respostaID = ?, obs = ?, recebimentoMpID = ?
                             WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
-                                // const [resultUpdate] = await db.promise().query(sqlUpdate, [
-                                //     resposta,
-                                //     respostaID,
-                                //     observacao,
-                                //     id,
-                                //     id,
-                                //     bloco.parRecebimentoMpModeloBlocoID,
-                                //     item.itemID
-                                // ])
                                 const resultUpdate = await executeQuery(sqlUpdate, [
                                     resposta,
                                     respostaID,
@@ -578,7 +561,6 @@ class RecebimentoMpController {
                             }
                             else if (!resposta) {
                                 const sqlDelete = `DELETE FROM recebimentomp_resposta WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
-                                // const [resultDelete] = await db.promise().query(sqlDelete, [id, bloco.parRecebimentoMpModeloBlocoID, item.itemID])
                                 const resultDelete = await executeQuery(sqlDelete, [id, bloco.parRecebimentoMpModeloBlocoID, item.itemID], 'delete', 'recebimentomp_resposta', 'recebimentoMpID', id, logID)
                             }
                         }
@@ -623,6 +605,11 @@ class RecebimentoMpController {
             if (result[0]['status'] != newStatus) {
                 const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
                 if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+            }
+
+            //? Cria agendamento no calendário com a data de vencimento
+            if (concluido == '1' && newStatus >= 40) {
+                createScheduling(id, 'recebimentoMP', data.unidade?.modelo?.nome, data.unidade?.modelo?.ciclo, unidadeID)
             }
 
             res.status(200).json({ message: 'Função do email sucesso' })

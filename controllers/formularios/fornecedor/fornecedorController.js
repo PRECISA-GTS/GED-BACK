@@ -7,7 +7,16 @@ require('dotenv/config')
 const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const conclusionFormFornecedor = require('../../../email/template/fornecedor/conclusionFormFornecedor');
 const sendMailConfig = require('../../../config/email');
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createDocument, getDocumentSignature, signedReport } = require('../../../defaults/functions');
+const {
+    addFormStatusMovimentation,
+    formatFieldsToTable,
+    hasUnidadeID,
+    createDocument,
+    getDocumentSignature,
+    signedReport,
+    createScheduling,
+    deleteScheduling
+} = require('../../../defaults/functions');
 
 //? Email
 const layoutNotification = require('../../../email/template/notificacao');
@@ -519,6 +528,7 @@ class FornecedorController {
                 f.aprovaProfissionalID,
                 pa.nome AS profissionalAprova,
                 p.nome AS modelo,
+                p.ciclo,
 
                 u.nomeFantasia, 
                 u.cnpj, 
@@ -537,6 +547,7 @@ class FornecedorController {
                 unidadeID: resultFornecedor[0]['unidadeID'],
                 nomeFantasia: resultFornecedor[0]['nomeFantasia'],
                 modelo: resultFornecedor[0].modelo,
+                ciclo: resultFornecedor[0].ciclo,
                 cnpj: resultFornecedor[0]['cnpj'],
                 obrigatorioProdutoFornecedor: resultFornecedor[0]['obrigatorioProdutoFornecedor'] == 1 ? true : false
             }
@@ -861,7 +872,7 @@ class FornecedorController {
         const { id } = req.params
         const data = req.body.form
         const { usuarioID, papelID, unidadeID } = req.body.auth
-
+        // const { ciclo } = req.body.form.unidade
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
 
         if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -879,17 +890,12 @@ class FornecedorController {
         const sqlStaticlHeader = `
         UPDATE fornecedor SET data = ?, usuarioID = ?, razaoSocial = ?, nome = ? 
         WHERE fornecedorID = ${id}`
-        // const [resultStaticHeader] = await db.promise().query(sqlStaticlHeader, [
-        //     data.fieldsHeader?.data ? `${data.fieldsHeader.data} ${data.fieldsHeader.hora}` : null,
-        //     usuarioID,
-        //     data.fieldsHeader.razaoSocial ?? null,
-        //     data.fieldsHeader.nomeFantasia ?? null
-        // ])
-
-        const resultStaticHeader = await executeQuery(sqlStaticlHeader, [data.fieldsHeader?.data ? `${data.fieldsHeader.data} ${data.fieldsHeader.hora}` : null,
+        const resultStaticHeader = await executeQuery(sqlStaticlHeader, [
+            data.fieldsHeader?.data ? `${data.fieldsHeader.data} ${data.fieldsHeader.hora}` : null,
             usuarioID,
-        data.fieldsHeader.razaoSocial ?? null,
-        data.fieldsHeader.nomeFantasia ?? null], 'update', 'fornecedor', 'fornecedorID', id, logID)
+            data.fieldsHeader.razaoSocial ?? null,
+            data.fieldsHeader.nomeFantasia ?? null
+        ], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
         //? Atualizar o header dinâmico e setar o status     
         if (data.fields.length > 0) {
@@ -992,16 +998,14 @@ class FornecedorController {
             const sqlStaticlFooter = `
             UPDATE fornecedor SET dataFim = ?, aprovaProfissionalID = ?
             WHERE fornecedorID = ?`
-            // const [resultStaticFooter] = await db.promise().query(sqlStaticlFooter, [
-            //     new Date(),
-            //     resultProfissional[0].profissionalID ?? 0,
-            //     id
-            // ])
             const resultStaticFooter = await executeQuery(sqlStaticlFooter, [
                 new Date(),
-                resultProfissional[0].profissionalID ?? 0,
+                resultProfissional[0]?.profissionalID ?? 0,
                 id
             ], 'update', 'fornecedor', 'fornecedorID', id, logID)
+
+            //? Cria agendamento no calendário com a data de vencimento
+            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, data.unidade.ciclo, unidadeID)
         }
 
         //? Gera histórico de alteração de status (se houve alteração)
@@ -1065,16 +1069,18 @@ class FornecedorController {
         const sqlSelect = `SELECT status FROM fornecedor WHERE fornecedorID = ? `
         const [resultFornecedor] = await db.promise().query(sqlSelect, [id])
 
-        // //? É uma fábrica, e formulário já foi concluído pelo fornecedor
+        //? É uma fábrica, e formulário já foi concluído pelo fornecedor
         if (status && papelID == 1) {
             const sqlUpdateStatus = `UPDATE fornecedor SET status = ?, dataFim = ?, aprovaProfissionalID = ? WHERE fornecedorID = ? `
-            // const [resultUpdateStatus] = await db.promise().query(sqlUpdateStatus, [status, null, null, id])
             const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, null, null, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', status, observacao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
         }
+
+        //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
+        deleteScheduling('fornecedor', id, unidadeID, logID)
 
         res.status(200).json({ message: 'Ok' })
     }
