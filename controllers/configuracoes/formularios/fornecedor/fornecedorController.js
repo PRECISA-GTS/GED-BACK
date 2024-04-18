@@ -137,7 +137,20 @@ class FornecedorController {
             const result = {
                 model: resultModel[0],
                 header: resultHeader ?? [],
-                blocks: blocks ?? [],
+                blocks: blocks.length > 0 ? blocks : [{
+                    dados: { ordem: 1, nome: 'Itens', status: 1 },
+                    categorias: [],
+                    atividades: [],
+                    optionsBlock: objOptionsBlock,
+                    itens: [{
+                        parFormularioID: 1,
+                        new: true,
+                        ordem: '1',
+                        nome: '',
+                        status: 1,
+                        item: null
+                    }]
+                }],
                 options: objOptions ?? [],
                 orientations: resultOrientacoes[0] ?? null
             }

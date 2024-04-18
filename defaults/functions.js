@@ -276,7 +276,7 @@ const createScheduling = async (id, type, name, cycle, unityID) => {
 
     const sqlCalendar = `INSERT INTO calendario(titulo, tipo, dataHora, rota, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
     await db.promise().query(sqlCalendar, [
-        `Renovação ${name}`,
+        name,
         calendar.type,
         getVencimento(cycle),
         calendar.route,

@@ -62,17 +62,17 @@ class ProfissionalController {
             e.cor
         FROM profissional AS a 
             JOIN status AS e ON (a.status = e.statusID)
-            WHERE a.unidadeID = ?`
+        WHERE a.unidadeID = ?`
         const [result] = await db.promise().query(sql, [unidadeID])
 
-        if (admin == 1) { //? Lista profissional Administrador
-            result.push({
-                id: 1,
-                nome: 'Administrador do Sistema',
-                status: 'Ativo',
-                cor: 'success'
-            })
-        }
+        // if (admin == 1) { //? Lista profissional Administrador
+        //     result.push({
+        //         id: 1,
+        //         nome: 'Administrador do Sistema',
+        //         status: 'Ativo',
+        //         cor: 'success'
+        //     })
+        // }
 
         res.status(200).json(result)
     }
@@ -83,7 +83,7 @@ class ProfissionalController {
         console.log("🚀 ~ unidadeID, admin:", unidadeID, admin)
         try {
 
-            if (id == 1 && admin == 1) { unidadeID = 0 }
+            // if (id == 1 && admin == 1) { unidadeID = 0 }
 
             // Dados do profissional
             const dataUser = `
@@ -388,7 +388,7 @@ class ProfissionalController {
             let data = req.body
             console.log("🚀 ~ admin ??", data.admin)
 
-            if (id == 1 && data.admin == 1) data.fields.unidadeID = 0
+            // if (id == 1 && data.admin == 1) data.fields.unidadeID = 0
 
             const logID = await executeLog('Edição do profissional', data.usualioLogado, data.fields.unidadeID, req)
 

@@ -137,7 +137,20 @@ class LimpezaController {
             const result = {
                 model: resultModel[0],
                 header: resultHeader ?? [],
-                blocks: blocks ?? [],
+                blocks: blocks.length > 0 ? blocks : [{
+                    dados: { ordem: 1, nome: 'Itens', status: 1 },
+                    categorias: [],
+                    atividades: [],
+                    optionsBlock: objOptionsBlock,
+                    itens: [{
+                        parFormularioID: 4,
+                        new: true,
+                        ordem: '1',
+                        nome: '',
+                        status: 1,
+                        item: null
+                    }]
+                }],
                 options: objOptions ?? [],
                 orientations: resultOrientacoes[0] ?? null
             }
@@ -180,12 +193,10 @@ class LimpezaController {
             UPDATE par_limpeza_modelo
             SET nome = ?, ciclo = ?, cabecalho = ?, status = ?
             WHERE parLimpezaModeloID = ?`
-            // const [resultModel] = await db.promise().query(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id])
             await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_limpeza_modelo', 'parLimpezaModeloID', id, logID)
 
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_limpeza_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_limpeza_modelo_profissional WHERE parLimpezaModeloID = ?`
-            // const [resultDeleteProfissionaisModelo] = await db.promise().query(sqlDeleteProfissionaisModelo, [id])
             await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_limpeza_modelo_profissional', 'parLimpezaModeloID', id, logID)
 
             //? Insere profissionais que preenchem
@@ -195,7 +206,6 @@ class LimpezaController {
                         const sqlInsertProfissionalModelo = `
                         INSERT INTO par_limpeza_modelo_profissional(parLimpezaModeloID, profissionalID, tipo) 
                         VALUES (?, ?, ?)`
-                        // const [resultInsertProfissionalModelo] = await db.promise().query(sqlInsertProfissionalModelo, [id, model.profissionaisPreenchem[i].id, 1])
                         await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_profissional', 'parLimpezaModeloProfissionalID', null, logID)
                     }
                 }
@@ -207,7 +217,6 @@ class LimpezaController {
                         const sqlInsertProfissionalModelo = `
                         INSERT INTO par_limpeza_modelo_profissional(parLimpezaModeloID, profissionalID, tipo) 
                         VALUES (?, ?, ?)`
-                        // const [resultInsertProfissionalModelo] = await db.promise().query(sqlInsertProfissionalModelo, [id, model.profissionaisAprovam[i].id, 2])
                         await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisAprovam[i].id, 2], 'insert', 'par_limpeza_modelo_profissional', 'parLimpezaModeloProfissionalID', null, logID)
                     }
                 }
@@ -229,20 +238,17 @@ class LimpezaController {
                         UPDATE par_limpeza_modelo_cabecalho
                         SET obrigatorio = ?, ordem = ?
                         WHERE parLimpezaModeloID = ? AND parLimpezaID = ?`
-                        // const [resultUpdate] = await db.promise().query(sqlUpdate, [(item.obrigatorio ? '1' : '0'), (item.ordem ?? '0'), id, item.parLimpezaID]);
                         await executeQuery(sqlUpdate, [(item.obrigatorio ? '1' : '0'), (item.ordem ?? '0'), id, item.parLimpezaID], 'update', 'par_limpeza_modelo_cabecalho', 'parLimpezaModeloID', id, logID)
                     } else {                            // Insert
                         const sqlInsert = `
                         INSERT INTO par_limpeza_modelo_cabecalho (parLimpezaModeloID, parLimpezaID, obrigatorio, ordem)
                         VALUES (?, ?, ?, ?)`
-                        // const [resultInsert] = await db.promise().query(sqlInsert, [id, item.parLimpezaID, (item.obrigatorio ? '1' : '0'), (item.ordem ?? '0')]);
                         await executeQuery(sqlInsert, [id, item.parLimpezaID, (item.obrigatorio ? '1' : '0'), (item.ordem ?? '0')], 'insert', 'par_limpeza_modelo_cabecalho', 'parLimpezaModeloCabecalhoID', null, logID)
                     }
                 } else if (item) { // Deleta
                     const sqlDelete = `
                     DELETE FROM par_limpeza_modelo_cabecalho
                     WHERE parLimpezaModeloID = ? AND parLimpezaID = ?`
-                    // const [resultDelete] = await db.promise().query(sqlDelete, [id, item.parLimpezaID])
                     await executeQuery(sqlDelete, [id, item.parLimpezaID], 'delete', 'par_limpeza_modelo_cabecalho', 'parLimpezaModeloID', id, logID)
                 }
             })
@@ -252,12 +258,10 @@ class LimpezaController {
                 if (block && block > 0) {
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`
-                    // const [resultDeleteBlock] = await db.promise().query(sqlDeleteBlock, [block])
                     await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_limpeza_modelo_bloco', 'parLimpezaModeloID', id, logID)
 
                     // Itens do bloco
                     const sqlDeleteBlockItems = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`
-                    // const [resultDeleteBlockItems] = await db.promise().query(sqlDeleteBlockItems, [block])
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', id, logID)
                 }
             })
@@ -266,7 +270,6 @@ class LimpezaController {
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
                     const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoItemID = ?`
-                    // const [resultDelete] = await db.promise().query(sqlDelete, [item.parLimpezaModeloBlocoItemID])
                     await executeQuery(sqlDelete, [item.parLimpezaModeloBlocoItemID], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', id, logID)
                 }
             })
@@ -280,13 +283,6 @@ class LimpezaController {
                         UPDATE par_limpeza_modelo_bloco
                         SET ordem = ?, nome = ?, obs = ?, status = ?
                         WHERE parLimpezaModeloBlocoID = ?`
-                        // const [resultUpdateBlock] = await db.promise().query(sqlUpdateBlock, [
-                        //     block.dados.ordem,
-                        //     block.dados.nome,
-                        //     (block.dados.obs ? 1 : 0),
-                        //     (block.dados.status ? 1 : 0),
-                        //     block.dados.parLimpezaModeloBlocoID
-                        // ])
                         const resultUpdateBlock = await executeQuery(sqlUpdateBlock, [block.dados.ordem,
                         block.dados.nome,
                         (block.dados.obs ? 1 : 0),
@@ -319,14 +315,6 @@ class LimpezaController {
                             UPDATE par_limpeza_modelo_bloco_item
                             SET ordem = ?, ${item.item.id ? 'itemID = ?, ' : ''} obs = ?, obrigatorio = ?, status = ?
                             WHERE parLimpezaModeloBlocoItemID = ?`
-                            // const [resultUpdate] = await db.promise().query(sqlUpdate, [
-                            //     item.ordem,
-                            //     ...(item.item.id ? [item.item.id] : []),
-                            //     (item.obs ? 1 : 0),
-                            //     (item.obrigatorio ? 1 : 0),
-                            //     (item.status ? 1 : 0),
-                            //     item.parLimpezaModeloBlocoItemID
-                            // ])
 
                             await executeQuery(sqlUpdate, [item.ordem,
                             ...(item.item.id ? [item.item.id] : []),
@@ -346,14 +334,6 @@ class LimpezaController {
                                 const sqlInsert = `
                                 INSERT INTO par_limpeza_modelo_bloco_item (parLimpezaModeloBlocoID, ordem, itemID, obs, obrigatorio, status)
                                 VALUES (?, ?, ?, ?, ?, ?)`
-                                // const [resultInsert] = await db.promise().query(sqlInsert, [
-                                //     block.dados.parLimpezaModeloBlocoID,
-                                //     item.ordem,
-                                //     item.item.id,
-                                //     (item.obs ? 1 : 0),
-                                //     (item.obrigatorio ? 1 : 0),
-                                //     (item.status ? 1 : 0)
-                                // ])
 
                                 await executeQuery(sqlInsert, [block.dados.parLimpezaModeloBlocoID,
                                 item.ordem,
