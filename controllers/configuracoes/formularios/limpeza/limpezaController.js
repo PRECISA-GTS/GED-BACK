@@ -270,7 +270,7 @@ class LimpezaController {
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
                     const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoItemID = ?`
-                    await executeQuery(sqlDelete, [item.parLimpezaModeloBlocoItemID], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', id, logID)
+                    await executeQuery(sqlDelete, [item], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoItemID', id, logID)
                 }
             })
 

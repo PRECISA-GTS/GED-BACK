@@ -44,7 +44,7 @@ class FornecedorController {
                 WHERE pfmc.parFornecedorID = pf.parFornecedorID AND pfm.parFornecedorModeloID = ${id}
                 LIMIT 1
                 ) AS mostra, 
-                
+
                 COALESCE((SELECT pfmc.obrigatorio
                 FROM par_fornecedor_modelo AS pfm 
                     JOIN par_fornecedor_modelo_cabecalho AS pfmc ON (pfm.parFornecedorModeloID = pfmc.parFornecedorModeloID)
@@ -165,7 +165,6 @@ class FornecedorController {
         try {
             const { unidadeID, usuarioID, model } = req.body
 
-
             if (!unidadeID || unidadeID == 'undefined') { return res.json({ message: 'Erro ao receber ID!' }) }
 
             const logID = await executeLog('Criação modelo fornecedor', usuarioID, unidadeID, req)
@@ -174,9 +173,7 @@ class FornecedorController {
             const sqlModel = `INSERT INTO par_fornecedor_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parFornecedorModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_fornecedor_modelo', 'parFornecedorModeloID', null, logID)
 
-
             return res.status(200).json({ id: parFornecedorModeloID });
-
         } catch (error) {
             return res.json({ message: 'Erro ao receber dados!' })
         }
@@ -243,7 +240,7 @@ class FornecedorController {
                         WHERE parFornecedorModeloID = ? AND parFornecedorID = ?`
 
                         await executeQuery(sqlUpdate, [(item.obrigatorio ? '1' : '0'), (item.ordem ?? '0'), id, item.parFornecedorID], 'update', 'par_fornecedor_modelo_cabecalho', 'parFornecedorModeloID', id, logID)
-                    } else {                            // Insert
+                    } else { // Insert
                         const sqlInsert = `
                         INSERT INTO par_fornecedor_modelo_cabecalho (parFornecedorModeloID, parFornecedorID, obrigatorio, ordem)
                         VALUES (?, ?, ?, ?)`
@@ -277,9 +274,9 @@ class FornecedorController {
             //? Itens removidos dos blocos 
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
+                    console.log("🚀 ~ item:", item)
                     const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoItemID = ?`
-
-                    await executeQuery(sqlDelete, [item.parFornecedorModeloBlocoItemID], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloID', id, logID)
+                    await executeQuery(sqlDelete, [item], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoItemID', id, logID)
                 }
             })
 
@@ -326,12 +323,12 @@ class FornecedorController {
                             SET ordem = ?, ${item.item.id ? 'itemID = ?, ' : ''} obs = ?, obrigatorio = ?, status = ?
                             WHERE parFornecedorModeloBlocoItemID = ?`
 
-                            await executeQuery(sqlUpdate, [item.ordem,
-                            ...(item.item.id ? [item.item.id] : []),
-                            (item.obs ? 1 : 0),
-                            (item.obrigatorio ? 1 : 0),
-                            (item.status ? 1 : 0),
-                            item.parFornecedorModeloBlocoItemID], 'update', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
+                            // await executeQuery(sqlUpdate, [item.ordem,
+                            // ...(item.item.id ? [item.item.id] : []),
+                            // (item.obs ? 1 : 0),
+                            // (item.obrigatorio ? 1 : 0),
+                            // (item.status ? 1 : 0),
+                            // item.parFornecedorModeloBlocoItemID], 'update', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
 
                         } else if (item && item.new && !item.parFornecedorModeloBlocoItemID) { //? Insert                            
                             // Valida duplicidade do item 
