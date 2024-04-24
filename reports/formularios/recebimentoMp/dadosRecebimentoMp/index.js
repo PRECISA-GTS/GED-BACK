@@ -10,7 +10,7 @@ const dadosRecebimentoMp = async (req, res) => {
     const [resultSqlStatus] = await db.promise().query(sqlStatus, [data.id])
     // const status = resultSqlStatus[0].status
     const status = 20
-    const modelo = resultSqlStatus[0].parRecebimentoMpModeloID
+    const modelo = resultSqlStatus[0]?.parRecebimentoMpModeloID
 
     // Dados da unidade fabrica
     const sqlDataUnity = 'SELECT * FROM unidade WHERE unidadeID = ?'
