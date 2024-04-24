@@ -22,7 +22,7 @@ class FabricaController {
             ORDER BY a.statusID ASC`
             const [resultSqlTotalSupplier] = await db.promise().query(sqlTotalSupplier, [unidadeID])
 
-            //? Traz o total de recebimentoBP agrupado por status
+            //? Traz o total de recebimentoMP agrupado por status
             const sqlTotalRecebimentoNC = `
             SELECT 
                 CONCAT(

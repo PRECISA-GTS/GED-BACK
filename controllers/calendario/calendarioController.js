@@ -5,8 +5,7 @@ const { executeLog, executeQuery } = require('../../config/executeQuery');
 class CalendarioController {
     async getEvents(req, res) {
         try {
-            const { unidadeID, usuarioID, papelID } = req.body
-
+            const { unidadeID, usuarioID, papelID, admin } = req.body
 
             if (!unidadeID || !usuarioID || !papelID) return res.status(500).json({ message: 'Parâmetros incorretos!' })
 
@@ -22,8 +21,14 @@ class CalendarioController {
                 c.status
             FROM calendario AS c
                 JOIN permissao AS p ON (c.rota = p.rota)
-            WHERE c.unidadeID = ? AND p.usuarioID = ? AND p.papelID = ? AND p.unidadeID = ? AND p.ler = ?`
-            const [resultCalendar] = await db.promise().query(sql, [unidadeID, usuarioID, papelID, unidadeID, 1])
+            WHERE c.unidadeID = ? AND p.unidadeID = ? `
+
+            //? Não é ADMIN
+            if (admin != 1) {
+                sql += ` AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND  AND p.ler = 1 `
+            }
+
+            const [resultCalendar] = await db.promise().query(sql, [unidadeID, unidadeID])
 
             const result = resultCalendar.map(item => {
                 var { variant, rgb } = defineEventColor(item)
