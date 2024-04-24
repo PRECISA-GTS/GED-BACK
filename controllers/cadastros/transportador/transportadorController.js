@@ -20,8 +20,7 @@ class TransportadorController {
             FROM transportador AS a 
                 LEFT JOIN status AS e ON (a.status = e.statusID)
             WHERE unidadeID = ?
-            ORDER BY a.nome ASC;
-            `
+            ORDER BY a.nome ASC`
             const [resultGetList] = await db.promise().query(getList, [unidadeID]);
             res.status(200).json(resultGetList);
         } catch (error) {

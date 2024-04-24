@@ -210,6 +210,7 @@ class LimpezaController {
                     }
                 }
             }
+
             //? Insere profissionais que aprovam
             if (model && model.profissionaisAprovam && model.profissionaisAprovam.length > 0) {
                 for (let i = 0; i < model.profissionaisAprovam.length; i++) {

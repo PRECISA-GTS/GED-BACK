@@ -615,7 +615,7 @@ class RecebimentoMpController {
             res.status(200).json({ message: 'Função do email sucesso' })
 
         } catch (error) {
-            console.log({ error, message: 'Função email errrooo' })
+            console.log({ error, message: 'Função email erro' })
         }
     }
 
