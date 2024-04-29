@@ -25,6 +25,26 @@ const instructionsExistFornecedor = require('../../../email/template/fornecedor/
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class FornecedorController {
+
+    async getMapaSipeAgro(req, res) {
+        let { cnpj } = req.body
+
+        if (!cnpj) return res.status(400).json({ message: 'CNPJ inválido' })
+
+        // CNPJ está na tabela em 2 formatos 00.000.000/0000-00 e 00000000000000
+        const cnpjOnlyNumber = onlyNumbers(cnpj);
+
+        const sql = `
+        SELECT 
+            s.*, 
+            DATE_FORMAT(s.dataImportacao, '%d/%m/%Y') AS dataImportacao 
+        FROM sipeagro AS s 
+        WHERE s.cnpj = ? OR s.cnpj = ?`;
+        const [result] = await db.promise().query(sql, [cnpjOnlyNumber, cnpj]);
+        return res.status(200).json(result[0]);
+    }
+
+
     async createDocumentAutentique(req, res) {
         const { id, usuarioID, unidadeID } = req.params
 
@@ -459,7 +479,7 @@ class FornecedorController {
                 IF(f.quemPreenche = 1, 'Fábrica', 'Fornecedor') as quemPreenche,
                 IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
                 IF(f.cnpj <> '', f.cnpj, '--') AS cnpj,
-                IF(f.cidade <> '', CONCAT(f.cidade, '/', f.estado), '--') AS cidade,
+                CONCAT_WS('/', f.cidade, f.estado) AS cidade,
                 e.nome AS status,
                 e.cor
             FROM fornecedor AS f

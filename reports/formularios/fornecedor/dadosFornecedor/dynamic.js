@@ -14,7 +14,7 @@ async function dynamic(data, modelo) {
         DATE_FORMAT(a.dataFim, '%d/%m/%Y') AS dataFim,
         DATE_FORMAT(a.dataFim, '%H:%i:%s') AS horaFim    
     FROM fornecedor AS a
-    JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
+    LEFT JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
     LEFT JOIN profissional AS c ON (a.aprovaProfissionalID = c.profissionalID)
     WHERE a.fornecedorID = ?`
     const [resultSqlFornecedor] = await db.promise().query(sqlFornecedorFixos, [data.id])

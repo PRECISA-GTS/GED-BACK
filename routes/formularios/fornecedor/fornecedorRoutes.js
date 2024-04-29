@@ -22,6 +22,7 @@ fornecedorRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, fornecedorC
 // Específicos
 fornecedorRoutes.post(`${route}/getFabricas`, fornecedorController.getFabricas);
 fornecedorRoutes.post(`${route}/cnpj`, fornecedorController.getFornecedorByCnpj);
+fornecedorRoutes.post(`${route}/mapaSipeAgro`, fornecedorController.getMapaSipeAgro);
 
 // Verifica quem preenche o formulario do fornecedor
 fornecedorRoutes.post(`${route}/paramsNewFornecedor`, fornecedorController.paramsNewFornecedor);

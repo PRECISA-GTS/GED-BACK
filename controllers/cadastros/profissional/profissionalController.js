@@ -561,7 +561,6 @@ class ProfissionalController {
     async updatePassword(req, res) {
         const { id } = req.params;
         const data = req.body;
-        console.log("🚀 ~ ProfissionalController ~ updatePassword ~ data", data)
         try {
             if (!id || id <= 0) {
                 throw new Error("Dados incorretos");
