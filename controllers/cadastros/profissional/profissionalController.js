@@ -561,6 +561,7 @@ class ProfissionalController {
     async updatePassword(req, res) {
         const { id } = req.params;
         const data = req.body;
+        console.log("🚀 ~ ProfissionalController ~ updatePassword ~ data", data)
         try {
             if (!id || id <= 0) {
                 throw new Error("Dados incorretos");
@@ -571,16 +572,17 @@ class ProfissionalController {
             const sqlAdmin = `SELECT admin FROM usuario WHERE usuarioID = ?`
             const [resultAdmin] = await db.promise().query(sqlAdmin, [id])
 
-            // dados do profissional
+            // // dados do profissional
             const getProfessional = "SELECT * FROM profissional WHERE usuarioID = ?"
             const [resultProfessional] = await db.promise().query(getProfessional, [id])
 
-            //   Obtem dados da fabrica
+            // //   Obtem dados da fabrica
             const sqlUnity = `
             SELECT a.*   
-            FROM unidade AS' a
+            FROM unidade AS a
             WHERE a.unidadeID = ?`
             const [resultUnity] = await db.promise().query(sqlUnity, [data.unidadeID])
+            // console.log("ta aki")
 
             if (resultAdmin && resultAdmin[0].admin == 1) { //? ADMIN do sistema (não tem profissional) (não envia email)
 
