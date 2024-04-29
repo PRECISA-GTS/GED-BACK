@@ -9,7 +9,7 @@ class CalendarioController {
 
             if (!unidadeID || !usuarioID || !papelID) return res.status(500).json({ message: 'Parâmetros incorretos!' })
 
-            const sql = `
+            let sql = `
             SELECT 
                 c.calendarioID, 
                 c.titulo, 
@@ -25,7 +25,7 @@ class CalendarioController {
 
             //? Não é ADMIN
             if (admin != 1) {
-                sql += ` AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND  AND p.ler = 1 `
+                sql += ` AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
             }
 
             const [resultCalendar] = await db.promise().query(sql, [unidadeID, unidadeID])

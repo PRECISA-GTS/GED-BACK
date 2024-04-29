@@ -581,7 +581,6 @@ class ProfissionalController {
             FROM unidade AS a
             WHERE a.unidadeID = ?`
             const [resultUnity] = await db.promise().query(sqlUnity, [data.unidadeID])
-            // console.log("ta aki")
 
             if (resultAdmin && resultAdmin[0].admin == 1) { //? ADMIN do sistema (não tem profissional) (não envia email)
 
