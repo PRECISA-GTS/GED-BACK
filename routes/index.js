@@ -88,4 +88,8 @@ routes.use(urlBase + '/configuracoes', LogRouter);
 const notificacao = require('./notificacao/notificacaoRoutes');
 routes.use(urlBase + '/notificacao', notificacao);
 
+// CommonData
+const commonData = require('./commonData/commonDataRoutes');
+routes.use(urlBase + '/commonData', commonData);
+
 module.exports = routes;
