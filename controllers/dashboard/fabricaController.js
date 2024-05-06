@@ -13,7 +13,7 @@ class FabricaController {
                 a.cor AS color,
                 a.icone AS icon,
                 a.statusID,
-                COUNT(DISTINCT b.cnpj) AS stats
+                COUNT(b.cnpj) AS stats
             FROM
                 status AS a 
                 LEFT JOIN fornecedor AS b ON (a.statusID = b.status AND b.unidadeID = ?)
