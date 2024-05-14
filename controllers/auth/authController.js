@@ -44,7 +44,6 @@ class AuthController {
     //     const files = req.files;
 
     //     for (const file of files) {
-    //         console.log("🚀 ~ file:", file)
     //         const base64 = file.binary.toString('base64');
     //         // Gravar arquivos no banco de dados no formato blob
     //         const sql = `INSERT INTO fotos (url, tipo, unidadeID) VALUES (?, ?, ?)`
@@ -71,6 +70,7 @@ class AuthController {
             LEFT JOIN papel AS p ON (uu.papelID = p.papelID)
             LEFT JOIN profissional AS pr ON (u.usuarioID = pr.usuarioID)
         WHERE u.cpf = ? AND u.senha = ? AND uu.status = 1
+        GROUP BY pr.profissionalID
         ORDER BY un.nomeFantasia ASC`;
 
         try {

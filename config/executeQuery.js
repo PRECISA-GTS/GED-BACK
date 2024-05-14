@@ -1,8 +1,6 @@
 const db = require('./db');
 
 const executeLog = async (nome, usuarioID, unidadeID, req) => {
-
-
     try {
         // Simule o cabeçalho x-forwarded-for para ambiente local
         const ip = (req && req.headers && req.headers['x-forwarded-for']) || (req && req.connection && req.connection.remoteAddress) || 'localhost';

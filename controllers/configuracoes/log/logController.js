@@ -11,6 +11,7 @@ class LogController {
                 a.nome, 
                 a.ip,
                 DATE_FORMAT(a.dataHora, '%d/%m/%Y %h:%i') AS dataHora,
+                DATE_FORMAT(a.dataHora, '%d/%m/%Y') AS data,
                 b.nome AS usuario,
                 (
                     SELECT GROUP_CONCAT(ls.tabela SEPARATOR ', ')
