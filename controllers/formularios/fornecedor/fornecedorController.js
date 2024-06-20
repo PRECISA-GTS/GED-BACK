@@ -1384,6 +1384,7 @@ class FornecedorController {
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(1, fornecedorID, usuarioID, unidadeID, papelID, '0', initialStatus, '')
+
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário!" }) }
 
             res.status(200).json({ fornecedorID, message: "Dados salvos com sucesso!" })

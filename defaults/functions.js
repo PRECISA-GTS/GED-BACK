@@ -9,6 +9,7 @@ const path = require('path');
 const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAnterior, statusAtual, observacao) => {
 
     if (parFormularioID && id && usuarioID && unidadeID && papelID && statusAnterior && statusAtual) {
+        console.log("🚀 ~ parFormularioID && id && usuarioID && unidadeID && papelID && statusAnterior && statusAtual:", parFormularioID && id && usuarioID && unidadeID && papelID && statusAnterior && statusAtual)
         const sql = `
         INSERT INTO 
         movimentacaoformulario (parFormularioID, id, usuarioID, unidadeID, papelID, dataHora, statusAnterior, statusAtual, observacao) 
@@ -24,6 +25,8 @@ const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidad
             statusAtual,
             observacao ?? ''
         ])
+
+        return result
 
         if (result.length === 0) { return false; }
 
