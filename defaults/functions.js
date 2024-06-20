@@ -26,8 +26,6 @@ const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidad
             observacao ?? ''
         ])
 
-        return result
-
         if (result.length === 0) { return false; }
 
         return true;
