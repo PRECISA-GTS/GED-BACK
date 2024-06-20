@@ -472,11 +472,11 @@ class RecebimentoMpController {
             UPDATE recebimentomp SET data = ?, preencheProfissionalID = ?, fornecedorID = ?, dataConclusao = ?, aprovaProfissionalID = ?
             WHERE recebimentoMpID = ? `
             const resultStaticHeader = await executeQuery(sqlStaticlHeader, [
-                data.fieldsHeader?.data ? `${data?.fieldsHeader?.data} ${data?.fieldsHeader?.hora}` : null,
-                data.fieldsHeader?.profissional?.id ?? null,
-                data.fieldsHeader?.fornecedor?.id ?? null,
-                data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : null,
-                data.fieldsFooter?.profissional?.id ?? null,
+                data.fieldsHeader?.data ? `${data?.fieldsHeader?.data} ${data?.fieldsHeader?.hora}` : new Date(),
+                data.fieldsHeader?.profissional?.id ?? 1,
+                data.fieldsHeader?.fornecedor?.id ?? 1,
+                data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : '00:00',
+                data.fieldsFooter?.profissional?.id ?? 1,
                 id
             ], 'update', 'recebimentomp', 'recebimentompID', id, logID)
 
