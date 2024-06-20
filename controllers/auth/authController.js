@@ -70,10 +70,10 @@ class AuthController {
             p.papelID, 
             p.nome as papel,
             
-            (SELECT COALESCE(pi.profissionalID, 0)
+            COALESCE(((SELECT COALESCE(pi.profissionalID, 0)
             FROM profissional AS pi 
             WHERE pi.usuarioID = u.usuarioID AND pi.unidadeID = uu.unidadeID
-            ) AS profissaoID,
+    )), 1) AS profissionalID,
             
             (SELECT pi.imagem
             FROM profissional AS pi 
