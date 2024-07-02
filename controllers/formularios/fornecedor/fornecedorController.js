@@ -481,10 +481,13 @@ class FornecedorController {
                 IF(f.cnpj <> '', f.cnpj, '--') AS cnpj,
                 CONCAT_WS('/', f.cidade, f.estado) AS cidade,
                 e.nome AS status,
-                e.cor
+                e.cor,
+                COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos
             FROM fornecedor AS f
                 LEFT JOIN unidade AS u ON(f.unidadeID = u.unidadeID)
                 LEFT JOIN status AS e ON (f.status = e.statusID)
+                LEFT JOIN fornecedor_produto AS fp ON (f.fornecedorID = fp.fornecedorID)
+                LEFT JOIN produto AS p ON (fp.produtoID = p.produtoID)
             WHERE f.unidadeID = ?
             GROUP BY f.fornecedorID
             ORDER BY f.fornecedorID DESC, f.status ASC`
@@ -502,10 +505,13 @@ class FornecedorController {
                 IF(u.cidade <> '', CONCAT(u.cidade, '/', u.uf), '--') AS cidade,
                 IF(u.responsavel <> '', u.responsavel, '--') AS responsavel,
                 e.nome AS status,   
-                e.cor
+                e.cor,
+                COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos
             FROM fornecedor AS f
                 LEFT JOIN unidade AS u ON(f.unidadeID = u.unidadeID)
                 LEFT JOIN status AS e  ON(f.status = e.statusID)
+                LEFT JOIN fornecedor_produto AS fp ON (f.fornecedorID = fp.fornecedorID)
+                LEFT JOIN produto AS p ON (fp.produtoID = p.produtoID)
             WHERE f.cnpj = "${cnpj}"
             ORDER BY f.fornecedorID DESC, f.status ASC`
             const [result] = await db.promise().query(sql)

@@ -73,7 +73,7 @@ class AuthController {
             COALESCE(((SELECT COALESCE(pi.profissionalID, 0)
             FROM profissional AS pi 
             WHERE pi.usuarioID = u.usuarioID AND pi.unidadeID = uu.unidadeID
-    )), 1) AS profissionalID,
+        )), 1) AS profissionalID,
             
             (SELECT pi.imagem
             FROM profissional AS pi 
@@ -82,7 +82,7 @@ class AuthController {
         FROM usuario AS u 
             LEFT JOIN usuario_unidade AS uu ON (u.usuarioID = uu.usuarioID)
             LEFT JOIN unidade AS un ON (uu.unidadeID = un.unidadeID)
-            LEFT JOIN papel AS p ON (uu.papelID = p.papelID)            
+            LEFT JOIN papel AS p ON (uu.papelID = p.papelID)
         WHERE u.cpf = ? AND u.senha = ? AND uu.status = 1
         ORDER BY un.nomeFantasia ASC`;
 

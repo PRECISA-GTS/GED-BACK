@@ -458,6 +458,7 @@ class RecebimentoMpController {
         const { id } = req.params
         const data = req.body.form
         const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
+        console.log("🚀 ~ usuarioID, profissionalID, papelID, unidadeID:", usuarioID, profissionalID, papelID, unidadeID)
 
         try {
             if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -615,7 +616,7 @@ class RecebimentoMpController {
             res.status(200).json({ message: 'Função do email sucesso' })
 
         } catch (error) {
-            console.log({ error, message: 'Função email erro' })
+            console.log({ error, message: 'Erro ao salvar dados!' })
         }
     }
 
