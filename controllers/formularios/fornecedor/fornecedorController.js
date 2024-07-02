@@ -46,7 +46,7 @@ class FornecedorController {
 
 
     async createDocumentAutentique(req, res) {
-        const { id, usuarioID, unidadeID } = req.params
+        const { id, usuarioID } = req.params
 
         // Dados usuario
         const sqlUser = `SELECT email FROM usuario WHERE usuarioID = ?`
@@ -155,7 +155,7 @@ class FornecedorController {
         const sql = `
         SELECT 
             f.fornecedorID AS id,
-            CONCAT(f.nome, " (", f.cnpj, ")") AS nome,
+            NULLIF(CONCAT_WS(" - ", f.cnpj, f.nome, NULLIF(CONCAT_WS("/", f.cidade, f.estado), '')), '') AS nome,
             f.nome AS nome_, 
             f.cnpj,
             f.cnpj AS cnpj_,
@@ -928,7 +928,6 @@ class FornecedorController {
             //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
             let dataHeader = await formatFieldsToTable('par_fornecedor', data.fields)
             const sqlHeader = `UPDATE fornecedor SET ? WHERE fornecedorID = ${id} `;
-
             const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'fornecedor', 'fornecedorID', id, logID)
             if (!resultHeader) { return res.status(500).json('Error'); }
         }

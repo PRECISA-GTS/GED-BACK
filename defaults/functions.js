@@ -247,6 +247,7 @@ const signedReport = async (pathReport) => {
 //? Cria agendamento no calendário na conclusão do formulário, na data de vencimento do formulário.........................
 const createScheduling = async (id, type, name, cycle, unityID) => {
     let calendar = null
+    if (!cycle || cycle == '0') return
 
     switch (type) {
         case 'fornecedor':

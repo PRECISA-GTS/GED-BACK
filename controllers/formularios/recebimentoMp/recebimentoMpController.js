@@ -26,7 +26,8 @@ class RecebimentoMpController {
                 IF(l.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
                 s.nome AS status,
                 s.cor,
-                l.concluido
+                l.concluido,
+                l.naoConformidade
             FROM recebimentomp AS l
                 JOIN par_recebimentomp_modelo AS plm ON (l.parRecebimentoMpModeloID = plm.parRecebimentoMpModeloID)
                 JOIN status AS s ON (l.status = s.statusID)
@@ -54,7 +55,8 @@ class RecebimentoMpController {
                 CONCAT(u.nomeFantasia, ' (', u.cnpj, ')') AS fabrica,
                 s.nome AS status,
                 s.cor,
-                l.concluido
+                l.concluido,
+                l.naoConformidade
             FROM recebimentomp AS l
                 JOIN recebimentomp_naoconformidade AS rnc ON (l.recebimentoMpID = rnc.recebimentoMpID)
                 JOIN par_recebimentomp_modelo AS plm ON (l.parRecebimentoMpModeloID = plm.parRecebimentoMpModeloID)
@@ -108,10 +110,7 @@ class RecebimentoMpController {
     async getData(req, res) {
         try {
             const { id } = req.params; // id do formulário
-            console.log("🚀 ~ id do get:", id)
             const { unidadeID, profissionalID } = req.body;
-            console.log("🚀 ~ unidadeID, profissionalID:", unidadeID, profissionalID)
-            // if (id == true) return
 
             if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
 

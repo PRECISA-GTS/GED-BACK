@@ -1,6 +1,4 @@
 const db = require('../../config/db');
-const { hasConflict, hasPending, deleteItem } = require('../../config/defaultConfig');
-const { executeLog, executeQuery } = require('../../config/executeQuery');
 
 class CalendarioController {
     async getEvents(req, res) {
@@ -27,6 +25,8 @@ class CalendarioController {
             if (admin != 1) {
                 sql += ` AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
             }
+
+            sql += ` GROUP BY c.calendarioID `
 
             const [resultCalendar] = await db.promise().query(sql, [unidadeID, unidadeID])
 
