@@ -7,8 +7,8 @@ const headerReport = require('./layouts/headerReport');
 routerReports.post(`${urlBase}/header`, headerReport);
 
 // Fornecedor
-const dadosFornecedor = require('./formularios/fornecedor/dadosFornecedor');
-routerReports.post(`${urlBase}/fornecedor/dadosFornecedor`, dadosFornecedor);
+const formulario = require('./formularios/fornecedor/formulario');
+routerReports.post(`${urlBase}/fornecedor/formulario`, formulario);
 
 // Recebimento MP
 const dadosRecebimentoMp = require('./formularios/recebimentoMp/dadosRecebimentoMp');

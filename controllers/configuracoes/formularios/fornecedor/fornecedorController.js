@@ -6,6 +6,33 @@ require('dotenv/config')
 const { executeLog, executeQuery } = require('../../../../config/executeQuery');
 
 class FornecedorController {
+    async getCategories(req, res) {
+        const unityID = 1;
+
+        const sql = `
+        SELECT *
+        FROM fornecedorcategoria`;
+        const [result] = await db.promise().query(sql);
+
+        // Criando um array de promessas para aguardar todas as operações assíncronas
+        const promises = result.map(async item => {
+            const sql = `
+            SELECT fcr.fornecedorCategoriaRiscoID, fcr.nome AS risco, fcr.status, pf.parFornecedorModeloID, pf.nome AS modelo, pf.ciclo
+            FROM fornecedorcategoria_risco AS fcr
+                LEFT JOIN fornecedorcategoria_risco_modelo AS fcrm ON (fcr.fornecedorCategoriaRiscoID = fcrm.fornecedorCategoriaRiscoID AND fcrm.unidadeID = ?)
+                LEFT JOIN par_fornecedor_modelo AS pf ON (pf.parFornecedorModeloID = fcrm.parFornecedorModeloID)
+            WHERE fcr.fornecedorCategoriaID = ? 
+            ORDER BY fcr.nome ASC`;
+            const [resultRisco] = await db.promise().query(sql, [unityID, item.fornecedorCategoriaID]);
+            item.riscos = resultRisco;
+        });
+
+        // Aguardando todas as promessas serem resolvidas
+        await Promise.all(promises);
+
+        return res.json(result);
+    }
+
     async getList(req, res) {
         const { unidadeID } = req.params;
 

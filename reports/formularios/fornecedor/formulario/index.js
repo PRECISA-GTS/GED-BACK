@@ -3,10 +3,8 @@ const { arraysIguais } = require('../../../configs/config');
 const db = require('../../../../config/db');
 const dynamic = require('./dynamic');
 require('dotenv/config')
-const fs = require('fs');
-const path = require('path');
 
-const dadosFornecedor = async (req, res) => {
+const formulario = async (req, res) => {
     const data = req.body
 
     // Dados do fornecedor
@@ -40,4 +38,4 @@ const dadosFornecedor = async (req, res) => {
 }
 
 
-module.exports = dadosFornecedor;
+module.exports = formulario;

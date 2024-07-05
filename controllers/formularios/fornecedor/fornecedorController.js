@@ -265,7 +265,7 @@ class FornecedorController {
 
     async getModels(req, res) {
         const { unidadeID } = req.body
-        const sql = `SELECT parFornecedorModeloID AS id, nome FROM par_fornecedor_modelo WHERE unidadeID = ? AND status = 1 ORDER BY nome ASC`;
+        const sql = `SELECT parFornecedorModeloID AS id, nome AS name FROM par_fornecedor_modelo WHERE unidadeID = ? AND status = 1 ORDER BY nome ASC`;
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.status(200).json(result);
     }
@@ -316,7 +316,7 @@ class FornecedorController {
 
     //* Salva os anexos do formulário na pasta uploads/anexo e insere os dados na tabela anexo
 
-
+    // Salva relatório quando o status for maior ou igual a 40 e tipo igual fabrica
     async saveRelatorio(req, res) {
         const pathDestination = req.pathDestination
         const { id, usuarioID, unidadeID } = req.params;
@@ -513,6 +513,7 @@ class FornecedorController {
                 LEFT JOIN fornecedor_produto AS fp ON (f.fornecedorID = fp.fornecedorID)
                 LEFT JOIN produto AS p ON (fp.produtoID = p.produtoID)
             WHERE f.cnpj = "${cnpj}"
+            GROUP BY f.fornecedorID
             ORDER BY f.fornecedorID DESC, f.status ASC`
             const [result] = await db.promise().query(sql)
             return res.status(200).json(result);
