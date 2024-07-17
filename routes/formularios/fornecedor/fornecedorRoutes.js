@@ -44,7 +44,7 @@ fornecedorRoutes.post(`${route}/changeFormStatus/:id`, fornecedorController.chan
 fornecedorRoutes.post(`${route}/getGruposAnexo`, fornecedorController.getGruposAnexo);
 fornecedorRoutes.post(`${route}/sendNotification`, fornecedorController.sendNotification);
 fornecedorRoutes.post(`${route}/getFornecedoresAprovados`, fornecedorController.getFornecedoresAprovados);
-
+fornecedorRoutes.get(`${route}/verifyIfHasModel/:id`, fornecedorController.verifyIfHasModel);
 
 //Envia email baseado no status do fornecedor
 fornecedorRoutes.post(`${route}/sendEmailBasedStatus`, fornecedorController.sendEmailBasedStatus);

@@ -6,24 +6,141 @@ require('dotenv/config')
 const { executeLog, executeQuery } = require('../../../../config/executeQuery');
 
 class FornecedorController {
-    async getCategories(req, res) {
-        const unityID = 1;
+
+    async getLinkingForms(req, res) {
+        const { unidadeID } = req.body
 
         const sql = `
-        SELECT *
-        FROM fornecedorcategoria`;
+        SELECT 
+            a.fornecedorCategoriaRiscoID,
+            b.parFornecedorModeloID AS id,
+            CONCAT(b.parFornecedorModeloID, ' - ', b.nome) AS nome
+        FROM fornecedorcategoria_risco_modelo AS a
+            JOIN par_fornecedor_modelo AS b ON (a.parFornecedorModeloID = b.parFornecedorModeloID)
+        WHERE a.unidadeID = ? AND a.status = 1`;
+        const [result] = await db.promise().query(sql, [unidadeID]);
+
+        const formatData = result.reduce((acc, { fornecedorCategoriaRiscoID, id, nome }) => {
+            acc[`fornecedorCategoriaRiscoID${fornecedorCategoriaRiscoID}`] = { id, name: nome };
+            return acc;
+        }, {});
+
+        return res.json(formatData);
+    }
+
+    async updateLinkingForms(req, res) {
+        const { riscos: data, unidadeID } = req.body;
+
+        try {
+            if (!unidadeID || unidadeID == 'undefined') {
+                return res.status(400).json({ message: 'Erro ao receber ID da unidade!' });
+            }
+
+            // Inicializa uma lista de promessas para executar as consultas
+            const updatePromises = [];
+
+            // Construa uma lista dos IDs presentes na carga de dados (exceto null)
+            const idsPresentes = Object.keys(data)
+                .filter(key => data[key] !== null)
+                .map(key => parseInt(key.replace('fornecedorCategoriaRiscoID', '')));
+
+            // Construa a consulta SQL para deletar registros onde fornecedorCategoriaRiscoID é null
+            const deleteSql = `
+                DELETE FROM fornecedorcategoria_risco_modelo
+                WHERE fornecedorCategoriaRiscoModeloID IN (?) AND fornecedorCategoriaRiscoID IS NULL;
+            `;
+
+            // Adicione a promessa de execução da consulta de deleção à lista
+            updatePromises.push(
+                db.promise().query(deleteSql, [idsPresentes])
+            );
+
+            // Itera sobre cada chave no objeto data
+            for (const key in data) {
+                if (data.hasOwnProperty(key)) {
+                    const id = data[key]?.id;
+                    const fornecedorCategoriaRiscoModeloID = parseInt(key.replace('fornecedorCategoriaRiscoID', ''));
+
+                    // Se o id for null, construa a consulta de deleção para remover o registro existente
+                    if (!data[key]) {
+                        const deleteRecordSql = `
+                            DELETE FROM fornecedorcategoria_risco_modelo
+                            WHERE fornecedorCategoriaRiscoModeloID = ?;
+                        `;
+                        updatePromises.push(
+                            db.promise().query(deleteRecordSql, [fornecedorCategoriaRiscoModeloID])
+                        );
+                    } else {
+                        // Construa a consulta de verificação de existência
+                        const checkExistenceSql = `
+                            SELECT COUNT(*) AS count FROM fornecedorcategoria_risco_modelo
+                            WHERE fornecedorCategoriaRiscoModeloID = ? AND unidadeID = ?;
+                        `;
+
+                        // Adicione a promessa de execução da consulta de verificação à lista
+                        updatePromises.push(
+                            db.promise().query(checkExistenceSql, [fornecedorCategoriaRiscoModeloID, unidadeID])
+                                .then(([rows]) => {
+                                    const count = rows[0].count;
+                                    if (count > 0) {
+                                        // Se o registro existir, construa a consulta de atualização
+                                        const updateSql = `
+                                            UPDATE fornecedorcategoria_risco_modelo
+                                            SET parFornecedorModeloID = ?
+                                            WHERE fornecedorCategoriaRiscoModeloID = ?;
+                                        `;
+                                        return db.promise().query(updateSql, [id, fornecedorCategoriaRiscoModeloID]);
+                                    } else {
+                                        // Se o registro não existir, construa a consulta de inserção
+                                        const insertSql = `
+                                            INSERT INTO fornecedorcategoria_risco_modelo (fornecedorCategoriaRiscoID, parFornecedorModeloID, fornecedorCategoriaRiscoModeloID, unidadeID)
+                                            VALUES (?, ?, ?, ?);
+                                        `;
+                                        return db.promise().query(insertSql, [fornecedorCategoriaRiscoModeloID, id, fornecedorCategoriaRiscoModeloID, unidadeID]);
+                                    }
+                                })
+                        );
+                    }
+                }
+            }
+
+            // Aguarda todas as consultas serem executadas
+            const results = await Promise.all(updatePromises);
+            res.status(200).json({ message: "Dados atualizados com sucesso", results });
+
+        } catch (error) {
+            console.error("Erro ao processar operação", error);
+            res.status(500).json({ message: "Erro ao processar operação", error });
+        }
+    }
+
+    async getCategories(req, res) {
+        const { unidadeID, allRisks } = req.body;
+
+        const sql = `
+        SELECT 
+            a.*,
+            a.fornecedorCategoriaID AS id,
+            a.nome,
+            a.nome AS name
+        FROM fornecedorcategoria AS a
+            LEFT JOIN fornecedorcategoria_risco AS b ON (a.fornecedorCategoriaID = b.fornecedorCategoriaID)
+            LEFT JOIN fornecedorcategoria_risco_modelo AS c ON (b.fornecedorCategoriaRiscoID = c.fornecedorCategoriaRiscoID)
+        WHERE a.status = 1 ${!allRisks ? ` AND c.unidadeID = ${unidadeID}` : ``}
+        GROUP BY a.fornecedorCategoriaID
+        ORDER BY a.nome ASC`;
         const [result] = await db.promise().query(sql);
 
         // Criando um array de promessas para aguardar todas as operações assíncronas
         const promises = result.map(async item => {
             const sql = `
-            SELECT fcr.fornecedorCategoriaRiscoID, fcr.nome AS risco, fcr.status, pf.parFornecedorModeloID, pf.nome AS modelo, pf.ciclo
+            SELECT fcr.fornecedorCategoriaRiscoID, fcr.fornecedorCategoriaRiscoID AS id, fcr.nome AS risco, fcr.nome, fcr.nome AS name, fcr.status, pf.parFornecedorModeloID, pf.nome AS modelo, pf.ciclo
             FROM fornecedorcategoria_risco AS fcr
-                LEFT JOIN fornecedorcategoria_risco_modelo AS fcrm ON (fcr.fornecedorCategoriaRiscoID = fcrm.fornecedorCategoriaRiscoID AND fcrm.unidadeID = ?)
+                LEFT JOIN fornecedorcategoria_risco_modelo AS fcrm ON (fcr.fornecedorCategoriaRiscoID = fcrm.fornecedorCategoriaRiscoID)
                 LEFT JOIN par_fornecedor_modelo AS pf ON (pf.parFornecedorModeloID = fcrm.parFornecedorModeloID)
-            WHERE fcr.fornecedorCategoriaID = ? 
+            WHERE fcr.fornecedorCategoriaID = ? ${!allRisks ? ` AND fcrm.unidadeID = ${unidadeID}` : ``} 
             ORDER BY fcr.nome ASC`;
-            const [resultRisco] = await db.promise().query(sql, [unityID, item.fornecedorCategoriaID]);
+            const [resultRisco] = await db.promise().query(sql, [item.fornecedorCategoriaID]);
             item.riscos = resultRisco;
         });
 

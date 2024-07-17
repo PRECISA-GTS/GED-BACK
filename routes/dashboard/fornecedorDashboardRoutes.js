@@ -7,9 +7,7 @@ const fornecedorDashboardController = new FornecedorDashboardController();
 
 const route = '/fornecedor';
 
-
 FornecedorDashboardRoutes.post(`${route}/getData`, fornecedorDashboardController.getData);
-
-
+FornecedorDashboardRoutes.post(`${route}/myData`, fornecedorDashboardController.myData);
 
 module.exports = FornecedorDashboardRoutes;

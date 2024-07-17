@@ -12,9 +12,9 @@ class UnidadeController {
             const { admin, unidadeID, usuarioID } = req.query;
             const sqlGetList = `
             SELECT 
-            a.unidadeID AS id, a.nomeFantasia AS nome, e.nome AS status, e.cor
+                a.unidadeID AS id, a.nomeFantasia AS nome, e.nome AS status, e.cor
             FROM unidade AS a
-            JOIN status AS e ON (a.status = e.statusID)
+                JOIN status AS e ON (a.status = e.statusID)
             WHERE ${admin == 1 ? `a.unidadeID > 0` : `a.unidadeID = ${unidadeID}`}`
 
             const [resultGetList] = await db.promise().query(sqlGetList)
@@ -27,7 +27,17 @@ class UnidadeController {
     async getData(req, res) {
         try {
             const { id } = req.params
-            const sqlGetData = 'SELECT * FROM unidade WHERE unidadeID = ?'
+            const sqlGetData = `
+            SELECT 
+                a.*,
+                b.fornecedorCategoriaID AS categoriaID,
+                b.nome AS categoriaNome,
+                c.fornecedorCategoriaRiscoID AS riscoID,
+                c.nome AS riscoNome
+            FROM unidade AS a
+                LEFT JOIN fornecedorcategoria AS b ON (a.fornecedorCategoriaID = b.fornecedorCategoriaID)
+                LEFT JOIN fornecedorcategoria_risco  AS c ON (a.fornecedorCategoriaRiscoID = c.fornecedorCategoriaRiscoID)
+            WHERE a.unidadeID = ?`
             const [resultSqlGetData] = await db.promise().query(sqlGetData, id)
 
             //? Todas as extensões da unidade
@@ -43,6 +53,14 @@ class UnidadeController {
                     ...resultSqlGetData[0],
                     cabecalhoRelatorio: resultSqlGetData[0].cabecalhoRelatorio ? `${process.env.BASE_URL_API}${resultSqlGetData[0].cabecalhoRelatorio}` : null,
                     cabecalhoRelatorioTitle: resultSqlGetData[0].cabecalhoRelatorio,
+                    categoria: resultSqlGetData[0].categoriaID > 0 ? {
+                        id: resultSqlGetData[0].categoriaID,
+                        nome: resultSqlGetData[0].categoriaNome
+                    } : null,
+                    risco: resultSqlGetData[0].riscoID > 0 ? {
+                        id: resultSqlGetData[0].riscoID,
+                        nome: resultSqlGetData[0].riscoNome
+                    } : null,
                     extensoes: resultExtensions.length > 0 ? resultExtensions : [],
                     allExtensions: resultAllExtensions.length > 0 ? resultAllExtensions : []
                 }
@@ -68,7 +86,6 @@ class UnidadeController {
                 const sqlInsert = 'INSERT INTO unidade SET ?'
                 const id = await executeQuery(sqlInsert, [data.fields], 'insert', 'unidade', 'unidadeID', null, logID)
                 return res.status(200).json(id)
-
             }
         } catch (error) {
             console.log(error)
@@ -86,6 +103,8 @@ class UnidadeController {
             delete data.fields.extensoes
             delete data.fields.allExtensions
             delete data.fields.cabecalhoRelatorioTitle
+            delete data.fields.categoria
+            delete data.fields.risco
 
             const sqlExist = 'SELECT * FROM unidade'
             const [resultSqlExist] = await db.promise().query(sqlExist)
@@ -94,6 +113,7 @@ class UnidadeController {
             if (rows > 0) return res.status(409).json({ message: "CNPJ já cadastrado!" });
 
             delete data.fields.cabecalhoRelatorio
+
             const sqlUpdate = 'UPDATE unidade SET ? WHERE unidadeID = ?'
             // const resultSqlUpdate = await db.promise().query(sqlUpdate, [data.fields, id])
             const resultSqlUpdate = await executeQuery(sqlUpdate, [data.fields, id], 'update', 'unidade', 'unidadeID', id, logID)

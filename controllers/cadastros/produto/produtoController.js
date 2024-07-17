@@ -134,11 +134,13 @@ class ProdutoController {
                 a.produtoID AS id,
                 CONCAT(a.nome, ' (', b.nome, ')') AS nome,
                 b.nome AS unidadeMedida,
+                d.nome as classificacao,
                 c.nome as status,
                 c.cor
             FROM produto AS a 
                 JOIN unidademedida AS b ON (a.unidadeMedidaID = b.unidadeMedidaID)
                 JOIN status AS c ON (a.status = c.statusID)
+                JOIN classificacao_produto AS d ON (a.classificacaoProdutoID = d.classificacaoProdutoID)
             WHERE a.unidadeID = ?`
             const resultSqlGetList = await db.promise().query(sqlGetList, [unidadeID])
             return res.status(200).json(resultSqlGetList[0])
@@ -148,8 +150,8 @@ class ProdutoController {
     }
 
     async getData(req, res) {
+        const { id, unidadeID } = req.params;
         try {
-            const { id } = req.params;
             const sqlData = `SELECT * FROM produto WHERE produtoID = ?`
             const [resultData] = await db.promise().query(sqlData, id);
 
@@ -163,6 +165,15 @@ class ProdutoController {
                 JOIN unidademedida AS pf ON (gp.unidadeMedidaID  = pf.unidadeMedidaID )
             WHERE gp.produtoID = ?`
             const [resultUnidadeMedida] = await db.promise().query(sqlUnidadeMedida, [id]);
+
+            const sqlClassificacao = `
+            SELECT 
+                pf.nome, 
+                pf.classificacaoProdutoID AS id
+            FROM produto AS gp 
+                JOIN classificacao_produto AS pf ON (gp.classificacaoProdutoID  = pf.classificacaoProdutoID )
+            WHERE gp.produtoID = ?`
+            const [resultClassificacao] = await db.promise().query(sqlClassificacao, [id]);
 
             const sqlAnexos = `
             SELECT pa.*, f.nome AS formularioNome
@@ -181,12 +192,19 @@ class ProdutoController {
             const sqlOptionsUnidadeMedida = `SELECT nome, unidadeMedidaID AS id FROM unidademedida`
             const [resultOptionsUnidadeMedida] = await db.promise().query(sqlOptionsUnidadeMedida);
 
+            const sqlOptionsClassificacao = `SELECT nome, classificacaoProdutoID AS id FROM classificacao_produto WHERE unidadeID = ?`;
+            const [resultOptionsClassificacao] = await db.promise().query(sqlOptionsClassificacao, [unidadeID]);
+
             const result = {
                 fields: resultData[0],
                 anexos: resultAnexos,
                 unidadeMedida: {
                     fields: resultUnidadeMedida[0],
                     options: resultOptionsUnidadeMedida
+                },
+                classificacao: {
+                    fields: resultClassificacao[0],
+                    options: resultOptionsClassificacao
                 },
             };
             res.status(200).json(result);
@@ -198,8 +216,11 @@ class ProdutoController {
 
     async getNewData(req, res) {
         try {
-            const sqlForms = 'SELECT nome, unidadeMedidaID AS id FROM unidademedida'
-            const [resultForms] = await db.promise().query(sqlForms)
+            const sqlUnidadeMedida = 'SELECT nome, unidadeMedidaID AS id FROM unidademedida'
+            const [resultUnidadeMedida] = await db.promise().query(sqlUnidadeMedida)
+
+            const sqlClassificacao = 'SELECT nome, classificacaoProdutoID AS id FROM classificacao_produto WHERE unidadeID = ?'
+            const [resultClassificacao] = await db.promise().query(sqlClassificacao, [req.params.unidadeID])
 
             const result = {
                 fields: {
@@ -208,7 +229,11 @@ class ProdutoController {
                 anexos: [],
                 unidadeMedida: {
                     fields: null,
-                    options: resultForms
+                    options: resultUnidadeMedida
+                },
+                classificacao: {
+                    fields: null,
+                    options: resultClassificacao
                 },
             }
             res.status(200).json(result);
@@ -236,11 +261,9 @@ class ProdutoController {
             const logID = await executeLog('Criação de produto', values.usuarioID, values.unidadeID, req)
 
             // //? Insere novo item
-            const sqlInsert = `INSERT INTO produto (nome, status, unidadeMedidaID, unidadeID) VALUES (?, ?, ?, ?)`
-            // const [resultInsert] = await db.promise().query(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, values.unidadeID])
-            // const id = resultInsert.insertId
+            const sqlInsert = `INSERT INTO produto (nome, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?)`
 
-            const id = await executeQuery(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, values.unidadeID], 'insert', 'produto', 'produtoID', null, logID)
+            const id = await executeQuery(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, values.classificacao.fields.id, values.unidadeID], 'insert', 'produto', 'produtoID', null, logID)
 
             //? Dados do grupo inserido,
             const sqlGetProduto = `
@@ -255,7 +278,6 @@ class ProdutoController {
             if (values.anexos.length > 0) {
                 const sqlInsertAnexo = 'INSERT INTO produto_anexo (nome, parFormularioID, descricao, obrigatorio, status, produtoID) VALUES (?, ?, ?, ?, ?, ?)'
                 values.anexos.map(async (item) => {
-                    // const [resultInsertAnexo] = await db.promise().query(sqlInsertAnexo, [item.nome, item.formulario.id, item.descricao, item.obrigatorio ? '1' : '0', item.status ? '1' : '0', id])
 
                     await executeQuery(sqlInsertAnexo, [item.nome, item.formulario.id, item.descricao, item.obrigatorio ? '1' : '0', item.status ? '1' : '0', id], 'insert', 'produto_anexo', 'produtoAnexoID', null, logID)
                 })
@@ -294,8 +316,8 @@ class ProdutoController {
             const logID = await executeLog('Atualização de produto', values.usuarioID, values.unidadeID, req)
 
             //? Atualiza produto
-            const sqlUpdate = `UPDATE produto SET nome = ?, unidadeMedidaID = ?, status = ? WHERE produtoID = ?`;
-            await executeQuery(sqlUpdate, [values.fields.nome, values.unidadeMedida.fields.id, (values.fields.status ? '1' : '0'), id], 'update', 'produto', 'produtoID', id, logID)
+            const sqlUpdate = `UPDATE produto SET nome = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, status = ? WHERE produtoID = ?`;
+            await executeQuery(sqlUpdate, [values.fields.nome, values.unidadeMedida.fields.id, values.classificacao.fields.id, (values.fields.status ? '1' : '0'), id], 'update', 'produto', 'produtoID', id, logID)
 
             //? Insere ou atualiza anexos
             if (values.anexos.length > 0) {

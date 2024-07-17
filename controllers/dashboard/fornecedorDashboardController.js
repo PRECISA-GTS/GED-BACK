@@ -2,10 +2,8 @@ const db = require('../../config/db');
 require('dotenv/config')
 
 class fornecedorDashboardController {
-
     async getData(req, res) {
         const data = req.body
-
         try {
             const getLastForms = `
             SELECT
@@ -33,6 +31,34 @@ class fornecedorDashboardController {
             }
 
             res.status(200).json(values)
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+
+    async myData(req, res) {
+        const { unidadeID } = req.body
+
+        try {
+            const sql = `
+            SELECT 
+                cabecalhoRelatorio AS logo,
+                DATE_FORMAT(dataAtualizacao, '%d/%m/%Y') AS dataAtualizacao,
+                DATEDIFF(CURDATE(), dataAtualizacao) AS quantidadeDias,
+                COALESCE(CONCAT(fc.nome, ' / ', fcr.nome), 'Risco não definido') AS categoriaRisco,
+                if(u.fornecedorCategoriaID > 0 AND u.fornecedorCategoriaRiscoID > 0, 1, 0) AS possuiRisco
+            FROM unidade AS u
+                LEFT JOIN fornecedorcategoria fc ON (u.fornecedorCategoriaID = fc.fornecedorCategoriaID)
+                LEFT JOIN fornecedorcategoria_risco AS fcr ON (u.fornecedorCategoriaRiscoID = fcr.fornecedorCategoriaRiscoID)
+            WHERE u.unidadeID = ?`
+            const [result] = await db.promise().query(sql, [unidadeID])
+
+            if (result[0]['logo']) {
+                result[0]['logo'] = `${process.env.BASE_URL_API}${result[0]['logo']}`
+            }
+
+            res.status(200).json(result[0])
         } catch (e) {
             console.log(e)
         }
