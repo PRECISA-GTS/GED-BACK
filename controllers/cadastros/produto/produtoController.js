@@ -140,7 +140,7 @@ class ProdutoController {
             FROM produto AS a 
                 JOIN unidademedida AS b ON (a.unidadeMedidaID = b.unidadeMedidaID)
                 JOIN status AS c ON (a.status = c.statusID)
-                JOIN classificacao_produto AS d ON (a.classificacaoProdutoID = d.classificacaoProdutoID)
+                LEFT JOIN classificacao_produto AS d ON (a.classificacaoProdutoID = d.classificacaoProdutoID)
             WHERE a.unidadeID = ?`
             const resultSqlGetList = await db.promise().query(sqlGetList, [unidadeID])
             return res.status(200).json(resultSqlGetList[0])
@@ -171,7 +171,7 @@ class ProdutoController {
                 pf.nome, 
                 pf.classificacaoProdutoID AS id
             FROM produto AS gp 
-                JOIN classificacao_produto AS pf ON (gp.classificacaoProdutoID  = pf.classificacaoProdutoID )
+                LEFT JOIN classificacao_produto AS pf ON (gp.classificacaoProdutoID  = pf.classificacaoProdutoID )
             WHERE gp.produtoID = ?`
             const [resultClassificacao] = await db.promise().query(sqlClassificacao, [id]);
 

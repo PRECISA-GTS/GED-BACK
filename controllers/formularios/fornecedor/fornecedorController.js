@@ -338,6 +338,7 @@ class FornecedorController {
         const pathDestination = req.pathDestination
         const { id, usuarioID, unidadeID } = req.params;
         const file = req.files[0];
+        console.log("🚀  file passou akiiiii", file);
 
         try {
             //? Verificar se há arquivos enviados
@@ -1459,9 +1460,8 @@ class FornecedorController {
             console.log("🚀 ~ values.razaoSocial, values.cnpj, values.email, criptoMd5(password):", values.razaoSocial, values.cnpj, values.email, criptoMd5(password))
 
             // Salva a unidade
-            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email) VALUES (?,?, ?, ?)`
-
-            const newUnidadeID = await executeQuery(sqlInsertUnity, [values.razaoSocial, values.nomeFantasia, values.cnpj, values.email], 'insert', 'unidade', 'unidadeID', null, logID)
+            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, dataCadastro, dataAtualizacao) VALUES (?, ?, ?, ?, ?, ?)`
+            const newUnidadeID = await executeQuery(sqlInsertUnity, [values.razaoSocial, values.nomeFantasia, values.cnpj, values.email, new Date(), new Date()], 'insert', 'unidade', 'unidadeID', null, logID)
 
             // Salva usuario_unidade
             const sqlNewUserUnity = `

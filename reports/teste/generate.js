@@ -1,7 +1,6 @@
 const db = require('../../config/db');
 
-const teste = async (req, res) => {
-  console.log("helloooo")
+const generate = async (req, res) => {
 
   const result = {
     name: 'Jonatan'
@@ -10,4 +9,4 @@ const teste = async (req, res) => {
   res.json(result)
 }
 
-module.exports = teste
+module.exports = generate
