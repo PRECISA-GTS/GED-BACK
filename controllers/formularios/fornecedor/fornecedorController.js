@@ -911,12 +911,10 @@ class FornecedorController {
         }
     }
 
-
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
         const { usuarioID, papelID, unidadeID } = req.body.auth
-        // const { ciclo } = req.body.form.unidade
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
 
         if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -941,14 +939,18 @@ class FornecedorController {
             data.fieldsHeader.nomeFantasia ?? null
         ], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
-        //? Atualizar o header dinâmico e setar o status     
+        //? Atualizar o header dinâmico e setar o status    
+        let dataHeader = null
         if (data.fields.length > 0) {
             //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
-            let dataHeader = await formatFieldsToTable('par_fornecedor', data.fields)
+            dataHeader = await formatFieldsToTable('par_fornecedor', data.fields)
             const sqlHeader = `UPDATE fornecedor SET ? WHERE fornecedorID = ${id} `;
             const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'fornecedor', 'fornecedorID', id, logID)
             if (!resultHeader) { return res.status(500).json('Error'); }
         }
+
+        //* Atualiza dados na unidade do fornecedor (pelo CNPJ)
+        updateUnitySupplier(data.fieldsHeader, dataHeader)
 
         //? Blocos 
         for (const bloco of data.blocos) {
@@ -966,14 +968,6 @@ class FornecedorController {
 
                         if (resposta && resultVerificaResposta.length === 0) {
                             const sqlInsert = `INSERT INTO fornecedor_resposta(fornecedorID, parFornecedorModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
-                            // const [resultInsert] = await db.promise().query(sqlInsert, [
-                            //     id,
-                            //     bloco.parFornecedorModeloBlocoID,
-                            //     item.itemID,
-                            //     resposta,
-                            //     respostaID,
-                            //     observacao
-                            // ])
                             const resultInsert = await executeQuery(sqlInsert, [
                                 id,
                                 bloco.parFornecedorModeloBlocoID,
@@ -988,15 +982,6 @@ class FornecedorController {
                             UPDATE fornecedor_resposta 
                             SET resposta = ?, respostaID = ?, obs = ?, fornecedorID = ?
                             WHERE fornecedorID = ? AND parFornecedorModeloBlocoID = ? AND itemID = ? `
-                            // const [resultUpdate] = await db.promise().query(sqlUpdate, [
-                            //     resposta,
-                            //     respostaID,
-                            //     observacao,
-                            //     id,
-                            //     id,
-                            //     bloco.parFornecedorModeloBlocoID,
-                            //     item.itemID
-                            // ])
                             const resultUpdate = await executeQuery(sqlUpdate, [
                                 resposta,
                                 respostaID,
@@ -1010,20 +995,15 @@ class FornecedorController {
                         }
                         else if (!resposta) {
                             const sqlDelete = `DELETE FROM fornecedor_resposta WHERE fornecedorID = ? AND parFornecedorModeloBlocoID = ? AND itemID = ? `
-                            // const [resultDelete] = await db.promise().query(sqlDelete, [id, bloco.parFornecedorModeloBlocoID, item.itemID])
                             const resultDelete = await executeQuery(sqlDelete, [id, bloco.parFornecedorModeloBlocoID, item.itemID], 'delete', 'fornecedor_resposta', 'fornecedorID', id, logID)
-
                         }
-
                     }
                 }
-
             }
         } // laço blocos..
 
         // Observação
         const sqlUpdateObs = `UPDATE fornecedor SET obs = ?, obsConclusao = ? WHERE fornecedorID = ? `
-        // const [resultUpdateObs] = await db.promise().query(sqlUpdateObs, [data.info?.obs, data?.obsConclusao, id])
         const resultUpdateObs = await executeQuery(sqlUpdateObs, [data.info?.obs, data?.obsConclusao, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
         if (!resultUpdateObs) { return res.json('Error'); }
@@ -1031,10 +1011,8 @@ class FornecedorController {
         //* Status
         //? É um fornecedor e é um status anterior, seta status pra "Em preenchimento" (30)
         const newStatus = data.status ?? 30
-        console.log("🚀 ~ newStatus:", newStatus)
 
         const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
-        // const [resultUpdateStatus] = await db.promise().query(sqlUpdateStatus, [newStatus, id])
         const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [newStatus, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
         if (newStatus > 40) {
@@ -1075,7 +1053,6 @@ class FornecedorController {
             // //? É uma fábrica, e formulário já foi concluído pelo fornecedor
             if (status && papelID == 1 && resultFornecedor[0]['status'] >= 40) {
                 const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
-                // const [resultUpdateStatus] = await db.promise().query(sqlUpdateStatus, [status, id])
                 const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
                 //? Gera histórico de alteração de status
@@ -1206,10 +1183,6 @@ class FornecedorController {
         const sqlFormulario = `
         SELECT 
             f.fornecedorID, 
-            pfm.parFornecedorModeloID,
-            f.*,
-            f.email,
-            pfm.nome AS modelo,
             DATE_FORMAT(f.dataInicio, "%d/%m/%Y") AS dataAvaliacao,
             (
                 SELECT GROUP_CONCAT(p.nome SEPARATOR ', ')
@@ -1218,7 +1191,6 @@ class FornecedorController {
                 WHERE fp.fornecedorID = f.fornecedorID
                 ORDER BY p.nome ASC
             ) AS produtos,
-
             (
                 SELECT GROUP_CONCAT(ga.nome SEPARATOR ', ')
                 FROM fornecedor_grupoanexo AS fga
@@ -1234,9 +1206,13 @@ class FornecedorController {
         const [resultFormulario] = await db.promise().query(sqlFormulario, [unidadeID, cnpj])
 
         // dados da unidade quando já for fornecedor carrega os dados da unidade
-        const sqlUnity = `SELECT * FROM unidade WHERE cnpj = "${cnpj}"`
+        const sqlUnity = `
+        SELECT u.*, fc.fornecedorCategoriaID, fc.nome AS categoria, fcr.fornecedorCategoriaRiscoID, fcr.nome AS risco 
+        FROM unidade AS u
+            LEFT JOIN fornecedorcategoria AS fc ON (u.fornecedorCategoriaID = fc.fornecedorCategoriaID)
+            LEFT JOIN fornecedorcategoria_risco AS fcr ON (fcr.fornecedorCategoriaID = fc.fornecedorCategoriaID)
+        WHERE u.cnpj = "${cnpj}"`
         const [resultUnity] = await db.promise().query(sqlUnity)
-
 
         // Modelo de formulário (se houver apenas 1, já vem selecionado)
         const sqlModelo = `
@@ -1270,17 +1246,38 @@ class FornecedorController {
 
             fornecedorID: resultFormulario[0]?.fornecedorID,
             fields: {
-                nomeFantasia: resultFormulario[0]?.nome,
-                razaoSocial: resultFormulario[0]?.razaoSocial,
-                email: resultFormulario[0]?.email,
+                nomeFantasia: resultUnity[0]?.nomeFantasia,
+                razaoSocial: resultUnity[0]?.razaoSocial,
+                email: resultUnity[0]?.email,
+
+                telefone: resultUnity[0]?.telefone1 ? resultUnity[0]?.telefone1 : resultUnity[0]?.telefone2 ? resultUnity[0]?.telefone2 : null,
+                cep: resultUnity[0]?.cep,
+                logradouro: resultUnity[0]?.logradouro,
+                numero: resultUnity[0]?.numero,
+                complemento: resultUnity[0]?.complemento,
+                bairro: resultUnity[0]?.bairro,
+                cidade: resultUnity[0]?.cidade,
+                estado: resultUnity[0]?.uf,
+                pais: resultUnity[0]?.pais,
+                ie: resultUnity[0]?.ie,
+                principaisClientes: resultUnity[0]?.principaisClientes,
+                registroSipeagro: resultUnity[0]?.registroSipeagro,
+                categoria: resultUnity[0]?.fornecedorCategoriaID > 0 ? {
+                    id: resultUnity[0]?.fornecedorCategoriaID,
+                    nome: resultUnity[0]?.categoria
+                } : null,
+                risco: resultUnity[0]?.fornecedorCategoriaRiscoID > 0 ? {
+                    id: resultUnity[0]?.fornecedorCategoriaRiscoID,
+                    nome: resultUnity[0]?.risco
+                } : null
             },
             modelo: {
                 id: resultFormulario[0]?.parFornecedorModeloID ? resultFormulario[0]?.parFornecedorModeloID : resultModelo.length == 1 ? resultModelo[0]?.parFornecedorModeloID : null,
                 nome: resultFormulario[0]?.modelo ? resultFormulario[0]?.modelo : resultModelo.length == 1 ? resultModelo[0]?.nome : null
             },
             dataAvaliacao: resultFormulario[0]?.dataAvaliacao,
-            produtos: resultProdutos, //resultFormulario[0]?.produtos,
-            gruposAnexo: resultGruposAnexo, //resultFormulario[0]?.gruposAnexo
+            produtos: resultProdutos,
+            gruposAnexo: resultGruposAnexo,
         }
 
         return res.status(200).json(result);
@@ -1392,14 +1389,38 @@ class FornecedorController {
 
         //? Se fornecedor foi criado com preenchimento da fábrica, já foi definido a categoria e risco e portanto já é possível definir o modelo
         const modeloID = await getModelByCategoryAndRisk(values.cnpj, values?.risco?.id, unidadeID)
-        console.log("🚀 ~ modeloID:", modeloID)
 
         //? Gera um novo formulário em branco, pro fornecedor preencher depois quando acessar o sistema
         const initialStatus = 10
         const sqlFornecedor = `
-        INSERT INTO fornecedor(parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche) 
-        VALUES(?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        const fornecedorID = await executeQuery(sqlFornecedor, [modeloID, values.razaoSocial, values.nomeFantasia, values.email, unidadeID, initialStatus, 1, new Date(), profissionalID, quemPreenche], 'insert', 'fornecedor', 'fornecedorID', null, logID)
+        INSERT INTO fornecedor
+            (parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche, telefone, cep, logradouro, numero, complemento, bairro, cidade, estado, pais, principaisClientes, registroSipeagro, ie) 
+        VALUES
+            (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        const fornecedorID = await executeQuery(sqlFornecedor, [
+            modeloID,
+            values.razaoSocial,
+            values.nomeFantasia,
+            values.email,
+            unidadeID,
+            initialStatus,
+            1,
+            new Date(),
+            profissionalID,
+            quemPreenche,
+            values.telefone,
+            values.cep,
+            values.logradouro,
+            values.numero,
+            values.complemento,
+            values.bairro,
+            values.cidade,
+            values.estado,
+            values.pais,
+            values.principaisClientes,
+            values.registroSipeagro,
+            values.ie
+        ], 'insert', 'fornecedor', 'fornecedorID', null, logID)
 
         //? Grava grupos de anexo do fornecedor
         if (values.gruposAnexo && values.gruposAnexo.length > 0) {
@@ -1689,7 +1710,32 @@ class FornecedorController {
     }
 }
 
-//* Functions 
+//* Functions
+
+const updateUnitySupplier = async (fixedValues, dynamicValues) => {
+    // Atualiza somente dados com conteúdo
+    const sql = `
+    UPDATE unidade SET 
+        cnpj = "${fixedValues.cnpj}"
+        ${fixedValues.nomeFantasia ? `, nomeFantasia = "${fixedValues.nomeFantasia}"` : ''}
+        ${fixedValues.razaoSocial ? `, razaoSocial = "${fixedValues.razaoSocial}"` : ''}
+        ${dynamicValues.ie ? `, ie = "${dynamicValues.ie}"` : ''}
+        ${dynamicValues.principaisClientes ? `, principaisClientes = "${dynamicValues.principaisClientes}"` : ''}
+        ${dynamicValues.email ? `, email = "${dynamicValues.email}"` : ''}
+        ${dynamicValues.telefone ? `, telefone1 = "${dynamicValues.telefone}"` : ''}
+        ${dynamicValues.cep ? `, cep = "${dynamicValues.cep}"` : ''}
+        ${dynamicValues.logradouro ? `, logradouro = "${dynamicValues.logradouro}"` : ''}
+        ${dynamicValues.numero ? `, numero = "${dynamicValues.numero}"` : ''}
+        ${dynamicValues.complemento ? `, complemento = "${dynamicValues.complemento}"` : ''}
+        ${dynamicValues.bairro ? `, bairro = "${dynamicValues.bairro}"` : ''}
+        ${dynamicValues.cidade ? `, cidade = "${dynamicValues.cidade}"` : ''}
+        ${dynamicValues.estado ? `, uf = "${dynamicValues.estado}"` : ''}
+        ${dynamicValues.pais ? `, pais = "${dynamicValues.pais}"` : ''}
+        ${dynamicValues.registroSipeagro ? `, registroSipeagro = "${dynamicValues.registroSipeagro}"` : ''}        
+    WHERE cnpj = "${fixedValues.cnpj}"`
+    await db.promise().query(sql)
+}
+
 //? Se fornecedor foi criado com preenchimento da fábrica, já foi definido a categoria e risco e portanto já é possível definir o modelo
 const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
 

@@ -14,4 +14,9 @@ routerReports.post(`${urlBase}/fornecedor/formulario`, formulario);
 const dadosRecebimentoMp = require('./formularios/recebimentoMp/dadosRecebimentoMp');
 routerReports.post(`${urlBase}/recebimentoMp/dadosRecebimentoMp`, dadosRecebimentoMp);
 
+
+// Teste
+const teste = require('./teste');
+routerReports.get(`${urlBase}/teste`, teste);
+
 module.exports = routerReports;

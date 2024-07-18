@@ -115,8 +115,13 @@ class UnidadeController {
             delete data.fields.cabecalhoRelatorio
 
             const sqlUpdate = 'UPDATE unidade SET ? WHERE unidadeID = ?'
-            // const resultSqlUpdate = await db.promise().query(sqlUpdate, [data.fields, id])
             const resultSqlUpdate = await executeQuery(sqlUpdate, [data.fields, id], 'update', 'unidade', 'unidadeID', id, logID)
+
+            //? Define o modelo pro formulário baseado na categoria e risco informadas (se ainda não houver)
+            await setModelSupplierForm(data.fields)
+
+            //? Copia as informações da unidade para o formulário de fornecedor
+            await copyUnityToForm(data.fields)
 
             //? Atualiza extensões da unidade na tabela unidade_extensao 
             if (extensoes.length > 0) {
@@ -126,14 +131,11 @@ class UnidadeController {
 
                 const sqlInsert = 'INSERT INTO unidade_extensao (unidadeID, extensaoID) VALUES ?'
                 const values = extensoes.map(extensao => [id, extensao.id])
-                // await db.promise().query(sqlInsert, [values])
                 const resultInsert = await executeQuery(sqlInsert, [values], 'insert', 'unidade_extensao', 'unidadeExtensaoID', null, logID)
             }
 
             if (data.senha) {
-
                 const sqlUpdateUser = 'UPDATE usuario SET senha = ? WHERE usuarioID = ?'
-                // const [resultSqlUpdateUser] = await db.promise().query(sqlUpdateUser, [criptoMd5(data.senha), data.usuarioID])
 
                 const [resultSqlUpdateUser] = await executeQuery(sqlUpdateUser, [criptoMd5(data.senha), data.usuarioID], 'update', 'usuario', 'usuarioID', id,
                     logID)
@@ -178,11 +180,8 @@ class UnidadeController {
                     }
 
                     const html = await alterPassword(values);
-                    // await sendMailConfig(destinatario, assunto, html)
                     await sendMailConfig(destinatario, assunto, html, logID, values)
-
                 }
-
             }
 
             res.status(200).json({ message: 'Unidade atualizada com sucesso!' });
@@ -271,7 +270,7 @@ class UnidadeController {
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
-        console.log("🚀 ~ unidadeeeeee id, usuarioID, unidadeID:", id, usuarioID, unidadeID)
+
         const objDelete = {
             table: ['unidade'],
             column: 'unidadeID'
@@ -344,6 +343,59 @@ class UnidadeController {
                 res.status(500).json(err);
             });
     }
+}
+
+const setModelSupplierForm = async (values) => {
+    // Verifica se há formulários de fornecedor sem modelo para esse cnpj 
+    const sql = `SELECT fornecedorID, unidadeID FROM fornecedor WHERE cnpj = "${values.cnpj}" AND parFornecedorModeloID = 0`
+    const [result] = await db.promise().query(sql)
+
+    if (result.length > 0) {
+        for (let i = 0; i < result.length; i++) {
+            if (!values.fornecedorCategoriaRiscoID || !result[i].unidadeID) return
+
+            const sql = `
+            SELECT frm.parFornecedorModeloID
+            FROM fornecedorcategoria_risco AS fr
+                JOIN fornecedorcategoria_risco_modelo AS frm ON (fr.fornecedorCategoriaRiscoID = frm.fornecedorCategoriaRiscoID)
+            WHERE fr.fornecedorCategoriaRiscoID = ${values.fornecedorCategoriaRiscoID} AND frm.unidadeID = ${result[i].unidadeID}`
+            const [resultModel] = await db.promise().query(sql)
+
+            if (resultModel[0].parFornecedorModeloID > 0) {
+                // Seta modelo da unidade no formulário desse fornecedor 
+                const sql = `
+                UPDATE fornecedor 
+                SET parFornecedorModeloID = ?
+                WHERE fornecedorID = ?`
+                await db.promise().query(sql, [resultModel[0].parFornecedorModeloID, result[i].fornecedorID])
+                console.log(`Atualiza fornecedor ${result[i].fornecedorID} para o modelo ${resultModel[0].parFornecedorModeloID}`)
+            }
+        }
+    }
+}
+
+const copyUnityToForm = async (values) => {
+    // Atualiza somente os formulários que ainda não foram preenchidos (status 10)
+    const sql = `
+    UPDATE fornecedor SET 
+        cnpj = "${values.cnpj}"
+        ${values.nomeFantasia ? `, nome = "${values.nomeFantasia}"` : ''}
+        ${values.razaoSocial ? `, razaoSocial = "${values.razaoSocial}"` : ''}
+        ${values.ie ? `, ie = "${values.ie}"` : ''}
+        ${values.principaisClientes ? `, principaisClientes = "${values.principaisClientes}"` : ''}
+        ${values.email ? `, email = "${values.email}"` : ''}
+        ${values.telefone1 ? `, telefone = "${values.telefone1}"` : ''}
+        ${values.cep ? `, cep = "${values.cep}"` : ''}
+        ${values.logradouro ? `, logradouro = "${values.logradouro}"` : ''}
+        ${values.numero ? `, numero = "${values.numero}"` : ''}
+        ${values.complemento ? `, complemento = "${values.complemento}"` : ''}
+        ${values.bairro ? `, bairro = "${values.bairro}"` : ''}
+        ${values.cidade ? `, cidade = "${values.cidade}"` : ''}
+        ${values.uf ? `, estado = "${values.uf}"` : ''}
+        ${values.pais ? `, pais = "${values.pais}"` : ''}
+        ${values.registroSipeagro ? `, registroSipeagro = "${values.registroSipeagro}"` : ''}        
+    WHERE cnpj = "${values.cnpj}" AND status = 10`
+    await db.promise().query(sql)
 }
 
 module.exports = UnidadeController;

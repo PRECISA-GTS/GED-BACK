@@ -10,8 +10,8 @@ const formulario = async (req, res) => {
     // Dados do fornecedor
     const sqlFornecedor = 'SELECT status, parFornecedorModeloID, nome FROM fornecedor WHERE fornecedorID = ?'
     const [resultSqlsFornecedor] = await db.promise().query(sqlFornecedor, [data.id])
-    const status = resultSqlsFornecedor[0].status
-    const modelo = resultSqlsFornecedor[0].parFornecedorModeloID
+    const status = resultSqlsFornecedor[0]?.status
+    const modelo = resultSqlsFornecedor[0]?.parFornecedorModeloID
 
     // Dados da unidade fabrica
     const sqlDataUnity = `SELECT * FROM unidade WHERE unidadeID = ${data.unidadeID}`
@@ -31,7 +31,7 @@ const formulario = async (req, res) => {
     const result = {
         ...statusData,
         unidade: resultSqlDataUnity[0].nomeFantasia,
-        fornecedor: resultSqlsFornecedor[0].nome,
+        fornecedor: resultSqlsFornecedor[0]?.nome,
         produtos: resultSqlProduct,
     };
     res.json(result)
