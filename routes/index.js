@@ -51,6 +51,10 @@ const ProfissionalRouter = require("./cadastros/profissional/profissionalRoutes"
 const calendarioRouter = require("./calendario/calendarioRoutes");
 routes.use(urlBase, calendarioRouter);
 
+// Relatorio
+const relatorioRouter = require("./relatorio/relatorioRoutes");
+routes.use(urlBase, relatorioRouter);
+
 routes.use(urlBase + '/cadastros', atividadeRouter);
 routes.use(urlBase + '/cadastros', itemRouter);
 routes.use(urlBase + '/cadastros', sistemaQualidadeRouter);
