@@ -338,7 +338,6 @@ class FornecedorController {
         const pathDestination = req.pathDestination
         const { id, usuarioID, unidadeID } = req.params;
         const file = req.files[0];
-        console.log("🚀  file passou akiiiii", file);
 
         try {
             //? Verificar se há arquivos enviados
@@ -553,6 +552,7 @@ class FornecedorController {
             SELECT 
                 f.parFornecedorModeloID, 
                 f.unidadeID, 
+                f.usuarioID,
                 f.cnpj AS cnpjFornecedor,                 
                 DATE_FORMAT(f.dataInicio, '%d/%m/%Y') AS dataInicio, 
                 DATE_FORMAT(f.dataInicio, '%H:%i') AS horaInicio, 
@@ -563,10 +563,11 @@ class FornecedorController {
                 DATE_FORMAT(f.data, '%H:%i') AS hora, 
                 us.usuarioID,
                 us.nome AS preenche,
-                f.quemPreenche,
-            
+                f.quemPreenche,            
                 f.razaoSocial,
-                f.nome,                
+                f.nome,        
+                f.telefone,
+                f.email,        
                 
                 DATE_FORMAT(f.dataFim, '%d/%m/%Y') AS dataFim, 
                 DATE_FORMAT(f.dataFim, '%H:%i') AS horaFim, 
@@ -586,6 +587,20 @@ class FornecedorController {
                 LEFT JOIN par_fornecedor_modelo AS p ON (f.parFornecedorModeloID = p.parFornecedorModeloID)
             WHERE f.fornecedorID = ? `
             const [resultFornecedor] = await db.promise().query(sqlUnidade, [id])
+
+            //! Nenhum modelo configurado, aguardando preenchimento do fornecedor
+            if (resultFornecedor[0]['parFornecedorModeloID'] == 0) {
+                return res.status(200).json({
+                    hasModel: false,
+                    nomeFantasia: resultFornecedor[0]['nomeFantasia'],
+                    razaoSocial: resultFornecedor[0]['razaoSocial'],
+                    cnpj: resultFornecedor[0]['cnpj'],
+                    telefone: resultFornecedor[0]['telefone'],
+                    email: resultFornecedor[0]['email'],
+                    dataInicio: resultFornecedor[0]['dataInicio']
+                })
+            }
+
             const unidade = {
                 quemPreenche: resultFornecedor[0]['quemPreenche'] ?? null,
                 parFornecedorModeloID: resultFornecedor[0]['parFornecedorModeloID'] ?? 0,
@@ -861,6 +876,7 @@ class FornecedorController {
             const [resultCabecalhoModelo] = await db.promise().query(sqlCabecalhoModelo, [modeloID])
 
             const data = {
+                hasModel: true,
                 unidade: unidade,
                 fieldsHeader: {
                     //? Fixos
@@ -901,7 +917,8 @@ class FornecedorController {
                 info: {
                     obs: resultOtherInformations[0].obs,
                     status: resultOtherInformations[0].status,
-                    cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
+                    cabecalhoModelo: resultCabecalhoModelo[0].cabecalho,
+                    usuarioID: resultFornecedor[0].usuarioID
                 },
                 link: `${process.env.BASE_URL}formularios/fornecedor?id=${id}`,
             }
@@ -1039,7 +1056,7 @@ class FornecedorController {
         res.status(200).json({})
     }
 
-    //? Atualiza resultado (aprovador, aprovado parcial, reprovado)
+    //? Atualiza resultado (aprovado, aprovado parcial, reprovado)
     async updateFormStatus(req, res) {
         const { id } = req.params
         const { edit, status } = req.body.status
@@ -1051,7 +1068,7 @@ class FornecedorController {
             const sqlSelect = `SELECT status FROM fornecedor WHERE fornecedorID = ? `
             const [resultFornecedor] = await db.promise().query(sqlSelect, [id])
 
-            // //? É uma fábrica, e formulário já foi concluído pelo fornecedor
+            //? É uma fábrica, e formulário já foi concluído pelo fornecedor
             if (status && papelID == 1 && resultFornecedor[0]['status'] >= 40) {
                 const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
                 const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
