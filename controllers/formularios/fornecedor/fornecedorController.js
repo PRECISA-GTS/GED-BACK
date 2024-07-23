@@ -351,14 +351,12 @@ class FornecedorController {
             const [resultAnexoId] = await db.promise().query(sqlAnexoId, [id])
             const anexoId = resultAnexoId[0]?.anexoID
 
-
             //Deletar o atual
             const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
             await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', null, logID)
             // delete anexo busca
             const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`
             await executeQuery(sqlDeleteBusca, [anexoId], 'delete', 'anexo_busca', 'anexoBuscaID', null, logID)
-
 
             //? Insere em anexodd
             const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
@@ -403,15 +401,12 @@ class FornecedorController {
 
             const logID = await executeLog('Salvo anexo no formulário do fornecedor', usuarioID, unidadeID, req)
 
-
-
             let result = []
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
 
                 //? Insere em anexodd
                 const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
-
 
                 const anexoID = await executeQuery(sqlInsert, [removeSpecialCharts(file.originalname),
                     pathDestination,

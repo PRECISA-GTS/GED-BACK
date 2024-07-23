@@ -55,6 +55,9 @@ routes.use(urlBase, calendarioRouter);
 const relatorioRouter = require("./relatorio/relatorioRoutes");
 routes.use(urlBase, relatorioRouter);
 
+const relatorioFormRoutes = require("./relatorio/formularios/fornecedor/fornecedorRoutes");
+routes.use(urlBase, relatorioFormRoutes);
+
 routes.use(urlBase + '/cadastros', atividadeRouter);
 routes.use(urlBase + '/cadastros', itemRouter);
 routes.use(urlBase + '/cadastros', sistemaQualidadeRouter);
