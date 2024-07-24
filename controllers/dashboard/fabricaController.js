@@ -17,7 +17,7 @@ class FabricaController {
             FROM
                 status AS a 
                 LEFT JOIN fornecedor AS b ON (a.statusID = b.status AND b.unidadeID = ?)
-            WHERE a.statusID IN (10, 20, 30, 40)
+            WHERE a.statusID IN (10, 20, 30, 40, 50, 60, 70)
             GROUP BY a.nome
             ORDER BY a.statusID ASC`
             const [resultSqlTotalSupplier] = await db.promise().query(sqlTotalSupplier, [unidadeID])
