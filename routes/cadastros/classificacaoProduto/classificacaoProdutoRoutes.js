@@ -10,7 +10,6 @@ classificacaoProdutoRoutes.get(`${route}/:unidadeID`, classificacaoProdutoContro
 classificacaoProdutoRoutes.post(`${route}/getData/:id`, classificacaoProdutoController.getData);
 classificacaoProdutoRoutes.post(`${route}/updateData/:id`, classificacaoProdutoController.updateData);
 classificacaoProdutoRoutes.delete(`${route}/:id/:usuarioID/:unidadeID`, classificacaoProdutoController.deleteData);
-classificacaoProdutoRoutes.post(`${route}/new/getData`, classificacaoProdutoController.getNewData);
 classificacaoProdutoRoutes.post(`${route}/new/insertData`, classificacaoProdutoController.insertData);
 
 module.exports = classificacaoProdutoRoutes;

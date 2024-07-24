@@ -25,6 +25,7 @@ class ClassificacaoProdutoController {
 
     async getData(req, res) {
         const { id } = req.params;
+        console.log("🚀 ~ id:", id)
         try {
             const sqlData = 'SELECT * FROM classificacao_produto WHERE classificacaoProdutoID = ?';
             const [result] = await db.promise().query(sqlData, [id]);
@@ -34,15 +35,6 @@ class ClassificacaoProdutoController {
             }
 
             return res.status(200).json({ fields: result[0] });
-        } catch (error) {
-            console.error('Erro ao buscar dados no banco de dados: ', error);
-            return res.status(500).json({ error: 'Erro ao buscar dados.' });
-        }
-    }
-
-    async getNewData(req, res) {
-        try {
-            return res.status(200).json('no data');
         } catch (error) {
             console.error('Erro ao buscar dados no banco de dados: ', error);
             return res.status(500).json({ error: 'Erro ao buscar dados.' });
