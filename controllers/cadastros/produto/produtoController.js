@@ -134,7 +134,7 @@ class ProdutoController {
                 a.produtoID AS id,
                 CONCAT(a.nome, ' (', b.nome, ')') AS nome,
                 b.nome AS unidadeMedida,
-                d.nome as classificacao,
+                COALESCE(d.nome, '--') as classificacao,
                 c.nome as status,
                 c.cor
             FROM produto AS a 
@@ -203,9 +203,9 @@ class ProdutoController {
                     options: resultOptionsUnidadeMedida
                 },
                 classificacao: {
-                    fields: resultClassificacao[0],
+                    fields: resultClassificacao[0].id ? resultClassificacao[0] : null,
                     options: resultOptionsClassificacao
-                },
+                }
             };
             res.status(200).json(result);
         } catch (error) {
@@ -260,10 +260,10 @@ class ProdutoController {
 
             const logID = await executeLog('Criação de produto', values.usuarioID, values.unidadeID, req)
 
-            // //? Insere novo item
+            //? Insere novo item
+            const classificacaoID = values.classificacao.fields ? values.classificacao.fields.id : null
             const sqlInsert = `INSERT INTO produto (nome, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?)`
-
-            const id = await executeQuery(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, values.classificacao.fields.id, values.unidadeID], 'insert', 'produto', 'produtoID', null, logID)
+            const id = await executeQuery(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, classificacaoID, values.unidadeID], 'insert', 'produto', 'produtoID', null, logID)
 
             //? Dados do grupo inserido,
             const sqlGetProduto = `
@@ -315,9 +315,11 @@ class ProdutoController {
 
             const logID = await executeLog('Atualização de produto', values.usuarioID, values.unidadeID, req)
 
+
             //? Atualiza produto
+            const classificacaoID = values.classificacao.fields?.id ?? null
             const sqlUpdate = `UPDATE produto SET nome = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, status = ? WHERE produtoID = ?`;
-            await executeQuery(sqlUpdate, [values.fields.nome, values.unidadeMedida.fields.id, values.classificacao.fields.id, (values.fields.status ? '1' : '0'), id], 'update', 'produto', 'produtoID', id, logID)
+            await executeQuery(sqlUpdate, [values.fields.nome, values.unidadeMedida.fields.id, classificacaoID, (values.fields.status ? '1' : '0'), id], 'update', 'produto', 'produtoID', id, logID)
 
             //? Insere ou atualiza anexos
             if (values.anexos.length > 0) {
@@ -336,7 +338,6 @@ class ProdutoController {
             if (values.removedItems.length > 0) {
                 const sqlDeleteAnexos = `DELETE FROM produto_anexo WHERE produtoAnexoID IN (${values.removedItems.join(',')})`
                 await executeQuery(sqlDeleteAnexos, [], 'delete', 'produto_anexo', 'produtoID', id, logID)
-
             }
 
             return res.status(200).json({ message: 'Dados atualizados com sucesso!' })

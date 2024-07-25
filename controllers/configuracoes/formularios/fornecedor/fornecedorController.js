@@ -127,8 +127,7 @@ class FornecedorController {
             LEFT JOIN fornecedorcategoria_risco AS b ON (a.fornecedorCategoriaID = b.fornecedorCategoriaID)
             LEFT JOIN fornecedorcategoria_risco_modelo AS c ON (b.fornecedorCategoriaRiscoID = c.fornecedorCategoriaRiscoID)
         WHERE a.status = 1 ${!allRisks ? ` AND c.unidadeID = ${unidadeID}` : ``}
-        GROUP BY a.fornecedorCategoriaID
-        ORDER BY a.nome ASC`;
+        GROUP BY a.fornecedorCategoriaID`;
         const [result] = await db.promise().query(sql);
 
         // Criando um array de promessas para aguardar todas as operações assíncronas
