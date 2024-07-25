@@ -74,16 +74,48 @@ class FabricaController {
             ORDER BY DATEDIFF(DATE_ADD(MAX(l.data), INTERVAL lm.ciclo DAY), CURDATE()) ASC`
             const [resultSqlLimpeza] = await db.promise().query(sqlLimpeza, [unidadeID])
 
+            //? Não conformidades por fornecedor nos últimos 365 dias
+            const supplierNonCompliance = await getSupplierNonCompliance(unidadeID)
+
             const values = {
                 fornecedorPorStatus: resultSqlTotalSupplier,
                 totalRecebimentoNC: resultSqlTotalRecebimentoNC,
-                limpeza: resultSqlLimpeza
+                limpeza: resultSqlLimpeza,
+                supplierNonCompliance
             }
             res.status(200).json(values)
         } catch (e) {
             console.log(e)
         }
     }
+}
+
+const getSupplierNonCompliance = async (unidadeID) => {
+    const sqlSupplierNonCompliance = `    
+    SELECT 
+        f.nome, 
+        ROUND(
+            (COUNT(r.recebimentompID) / 
+            (SELECT COUNT(*)
+            FROM recebimentomp AS ri 
+            WHERE ri.unidadeID = ? AND ri.fornecedorID = r.fornecedorID AND ri.data >= CURDATE() - INTERVAL 365 DAY)
+            ) * 100,
+        2) AS percentNc
+    FROM recebimentomp AS r
+        LEFT JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
+    WHERE r.unidadeID = ? AND r.data >= CURDATE() - INTERVAL 365 DAY AND r.naoConformidade = 1
+    GROUP BY r.fornecedorID
+    ORDER BY percentNc DESC
+    LIMIT 10`
+    const [resultSqlSupplierNonCompliance] = await db.promise().query(sqlSupplierNonCompliance, [unidadeID, unidadeID])
+
+    const result = resultSqlSupplierNonCompliance.reduce((acc, row) => {
+        acc.suppliers.push(row.nome);
+        acc.percents.push(row.percentNc);
+        return acc;
+    }, { suppliers: [], percents: [] });
+
+    return result
 }
 
 module.exports = FabricaController;
