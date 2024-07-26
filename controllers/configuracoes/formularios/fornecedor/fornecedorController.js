@@ -417,7 +417,6 @@ class FornecedorController {
             //? Itens removidos dos blocos 
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
-                    console.log("🚀 ~ item:", item)
                     const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoItemID = ?`
                     await executeQuery(sqlDelete, [item], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoItemID', id, logID)
                 }
@@ -460,19 +459,19 @@ class FornecedorController {
 
                     //? Itens 
                     block.itens && block.itens.forEach(async (item, indexItem) => {
-                        if (item && item.parFornecedorModeloBlocoItemID && item.parFornecedorModeloBlocoItemID > 0) { //? Update                                
+                        if (item && item.parFornecedorModeloBlocoItemID && item.parFornecedorModeloBlocoItemID > 0) { //? Update 
                             const sqlUpdate = `
                             UPDATE par_fornecedor_modelo_bloco_item
                             SET ordem = ?, ${item.item.id ? 'itemID = ?, ' : ''} obs = ?, obrigatorio = ?, status = ?
                             WHERE parFornecedorModeloBlocoItemID = ?`
-
-                            // await executeQuery(sqlUpdate, [item.ordem,
-                            // ...(item.item.id ? [item.item.id] : []),
-                            // (item.obs ? 1 : 0),
-                            // (item.obrigatorio ? 1 : 0),
-                            // (item.status ? 1 : 0),
-                            // item.parFornecedorModeloBlocoItemID], 'update', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
-
+                            await executeQuery(sqlUpdate, [
+                                item.ordem,
+                                ...(item.item.id ? [item.item.id] : []),
+                                (item.obs ? 1 : 0),
+                                (item.obrigatorio ? 1 : 0),
+                                (item.status ? 1 : 0),
+                                item.parFornecedorModeloBlocoItemID
+                            ], 'update', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
                         } else if (item && item.new && !item.parFornecedorModeloBlocoItemID) { //? Insert                            
                             // Valida duplicidade do item 
                             const sqlItem = `

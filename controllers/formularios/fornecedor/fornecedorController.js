@@ -583,8 +583,10 @@ class FornecedorController {
             WHERE f.fornecedorID = ? `
             const [resultFornecedor] = await db.promise().query(sqlUnidade, [id])
 
+            if (!resultFornecedor || resultFornecedor?.length == 0) return res.status(200).json({ message: 'Nenhum registro encontrado!' })
+
             //! Nenhum modelo configurado, aguardando preenchimento do fornecedor
-            if (resultFornecedor[0]['parFornecedorModeloID'] == 0) {
+            if (resultFornecedor && resultFornecedor[0]['parFornecedorModeloID'] == 0) {
                 return res.status(200).json({
                     hasModel: false,
                     nomeFantasia: resultFornecedor[0]['nomeFantasia'],
@@ -597,8 +599,8 @@ class FornecedorController {
             }
 
             const unidade = {
-                quemPreenche: resultFornecedor[0]['quemPreenche'] ?? null,
-                parFornecedorModeloID: resultFornecedor[0]['parFornecedorModeloID'] ?? 0,
+                quemPreenche: resultFornecedor[0]?.quemPreenche ?? null,
+                parFornecedorModeloID: resultFornecedor[0]?.parFornecedorModeloID ?? 0,
                 unidadeID: resultFornecedor[0]['unidadeID'],
                 nomeFantasia: resultFornecedor[0]['nomeFantasia'],
                 modelo: resultFornecedor[0].modelo,
