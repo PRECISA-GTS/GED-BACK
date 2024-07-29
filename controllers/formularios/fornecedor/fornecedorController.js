@@ -492,6 +492,7 @@ class FornecedorController {
                 IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
                 IF(f.cnpj <> '', f.cnpj, '--') AS cnpj,
                 CONCAT_WS('/', f.cidade, f.estado) AS cidade,
+                e.statusID,
                 e.nome AS status,
                 e.cor,
                 COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos

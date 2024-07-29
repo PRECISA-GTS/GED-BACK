@@ -22,6 +22,7 @@ class LimpezaController {
             IF(MONTH(l.data) > 0, DATE_FORMAT(l.data, "%d/%m/%Y"), '--') AS data, 
             plm.nome AS modelo,
             IF(p.nome <> '', p.nome, '--') AS profissional, 
+            s.statusID,
             s.nome AS status,
             s.cor,
             l.concluido

@@ -24,6 +24,7 @@ class RecebimentoMpController {
                 plm.nome AS modelo,
                 p.nome AS profissional, 
                 IF(l.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
+                s.statusID,
                 s.nome AS status,
                 s.cor,
                 l.concluido,
