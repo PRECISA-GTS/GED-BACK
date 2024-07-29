@@ -1190,7 +1190,7 @@ class FornecedorController {
         // Verifica se está vinculado como um fornecedor
         const sqlFornecedor = `
         SELECT *
-            FROM fabrica_fornecedor
+        FROM fabrica_fornecedor
         WHERE unidadeID = ? AND fornecedorCnpj = ? AND status = ? `
         const [resultFornecedor] = await db.promise().query(sqlFornecedor, [unidadeID, cnpj, 1])
 
@@ -1214,7 +1214,7 @@ class FornecedorController {
                 ORDER BY ga.nome ASC
             ) AS gruposAnexo
         FROM fornecedor AS f
-            JOIN par_fornecedor_modelo AS pfm ON(f.parFornecedorModeloID = pfm.parFornecedorModeloID)
+            JOIN par_fornecedor_modelo AS pfm ON(f.parFornecedorModeloID = pfm.parFornecedorModeloID)            
         WHERE f.unidadeID = ? AND f.cnpj = ? 
         ORDER BY f.fornecedorID DESC
         LIMIT 1`
@@ -1244,7 +1244,6 @@ class FornecedorController {
         WHERE fg.fornecedorID = ? AND ga.status = 1
         ORDER BY ga.nome ASC`;
         const [resultGruposAnexo] = await db.promise().query(sqlGruposAnexo, [resultFormulario[0]?.fornecedorID]);
-        console.log("🚀 ~ resultGruposAnexo:", resultGruposAnexo)
 
         // Produtos 
         const sqlProdutos = `
@@ -1254,7 +1253,6 @@ class FornecedorController {
         WHERE fp.fornecedorID = ? AND p.status = 1
         ORDER BY p.nome ASC`;
         const [resultProdutos] = await db.promise().query(sqlProdutos, [resultFormulario[0]?.fornecedorID]);
-        console.log("🚀 ~ resultProdutos:", resultProdutos)
 
         const result = {
             new: resultFormulario.length === 0 ? true : false,
@@ -1381,7 +1379,16 @@ class FornecedorController {
     }
 
     async makeFornecedor(req, res) {
-        const { usuarioID, unidadeID, papelID, profissionalID, habilitaQuemPreencheFormFornecedor, values } = req.body;
+        const {
+            usuarioID,
+            unidadeID,
+            papelID,
+            profissionalID,
+            habilitaQuemPreencheFormFornecedor,
+            values,
+            fornecedorCategoriaID,
+            fornecedorCategoriaRiscoID
+        } = req.body;
         const quemPreenche = habilitaQuemPreencheFormFornecedor ?? 2
         let message = 'Fornecedor criado com sucesso!'
 
@@ -1471,11 +1478,10 @@ class FornecedorController {
             INSERT INTO usuario(nome, cnpj, email, senha)
             VALUES(?, ?, ?, ?)`
             const usuarioID = await executeQuery(sqlNewUuser, [values.razaoSocial, values.cnpj, values.email, criptoMd5(password)], 'insert', 'usuario', 'usuarioID', null, logID)
-            console.log("🚀 ~ values.razaoSocial, values.cnpj, values.email, criptoMd5(password):", values.razaoSocial, values.cnpj, values.email, criptoMd5(password))
 
             // Salva a unidade
-            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, dataCadastro, dataAtualizacao) VALUES (?, ?, ?, ?, ?, ?)`
-            const newUnidadeID = await executeQuery(sqlInsertUnity, [values.razaoSocial, values.nomeFantasia, values.cnpj, values.email, new Date(), new Date()], 'insert', 'unidade', 'unidadeID', null, logID)
+            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, fornecedorCategoriaID, fornecedorCategoriaRiscoID, dataCadastro, dataAtualizacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            const newUnidadeID = await executeQuery(sqlInsertUnity, [values.razaoSocial, values.nomeFantasia, values.cnpj, values.email, fornecedorCategoriaID ?? null, fornecedorCategoriaRiscoID ?? null, new Date(), new Date()], 'insert', 'unidade', 'unidadeID', null, logID)
 
             // Salva usuario_unidade
             const sqlNewUserUnity = `

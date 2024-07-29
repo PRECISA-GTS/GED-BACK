@@ -38,7 +38,7 @@ class fornecedorDashboardController {
 
 
     async myData(req, res) {
-        const { unidadeID } = req.body
+        const { usuarioID, unidadeID } = req.body
 
         try {
             const sql = `
@@ -53,6 +53,14 @@ class fornecedorDashboardController {
                 LEFT JOIN fornecedorcategoria_risco AS fcr ON (u.fornecedorCategoriaRiscoID = fcr.fornecedorCategoriaRiscoID)
             WHERE u.unidadeID = ?`
             const [result] = await db.promise().query(sql, [unidadeID])
+
+            // Verifica primeiro acesso
+            const sqlUsuarioUnidade = ` 
+            SELECT primeiroAcesso 
+            FROM usuario_unidade 
+            WHERE usuarioID = ? AND unidadeID = ?`
+            const [resultUsuarioUnidade] = await db.promise().query(sqlUsuarioUnidade, [usuarioID, unidadeID])
+            if (resultUsuarioUnidade) result[0]['primeiroAcesso'] = resultUsuarioUnidade[0]?.primeiroAcesso
 
             if (result[0]['logo']) {
                 result[0]['logo'] = `${process.env.BASE_URL_API}${result[0]['logo']}`

@@ -47,7 +47,6 @@ class ProfissionalController {
 
     async getList(req, res) {
         const { unidadeID, papelID, admin } = req.query
-        console.log("🚀 ~ unidadeID, papelID:", unidadeID, papelID, admin)
 
         if (!unidadeID || !papelID) {
             return res.status(400).json({ message: "Dados inválidos!" });

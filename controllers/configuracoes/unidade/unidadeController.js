@@ -134,6 +134,10 @@ class UnidadeController {
                 const resultInsert = await executeQuery(sqlInsert, [values], 'insert', 'unidade_extensao', 'unidadeExtensaoID', null, logID)
             }
 
+            //? Atualiza o primeiro acesso pra 0
+            const sqlUpdateFirstAccess = 'UPDATE usuario_unidade SET primeiroAcesso = 0 WHERE usuarioID = ? AND unidadeID = ?'
+            await executeQuery(sqlUpdateFirstAccess, [data.usuarioID, data.unidadeID], 'update', 'usuario_unidade', 'unidadeID', id, logID)
+
             if (data.senha) {
                 const sqlUpdateUser = 'UPDATE usuario SET senha = ? WHERE usuarioID = ?'
 
@@ -188,6 +192,7 @@ class UnidadeController {
         } catch (error) {
             console.log(error)
         }
+
     }
 
     //! Atualiza a imagem de cabeçalho do relatório
