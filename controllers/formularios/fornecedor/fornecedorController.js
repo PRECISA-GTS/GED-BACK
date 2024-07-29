@@ -563,7 +563,10 @@ class FornecedorController {
                 f.razaoSocial,
                 f.nome,        
                 f.telefone,
-                f.email,        
+                f.email,      
+                
+                f.status,
+                f.obs,
                 
                 DATE_FORMAT(f.dataFim, '%d/%m/%Y') AS dataFim, 
                 DATE_FORMAT(f.dataFim, '%H:%i') AS horaFim, 
@@ -586,19 +589,6 @@ class FornecedorController {
 
             if (!resultFornecedor || resultFornecedor?.length == 0) return res.status(200).json({ message: 'Nenhum registro encontrado!' })
 
-            //! Nenhum modelo configurado, aguardando preenchimento do fornecedor
-            if (resultFornecedor && resultFornecedor[0]['parFornecedorModeloID'] == 0) {
-                return res.status(200).json({
-                    hasModel: false,
-                    nomeFantasia: resultFornecedor[0]['nomeFantasia'],
-                    razaoSocial: resultFornecedor[0]['razaoSocial'],
-                    cnpj: resultFornecedor[0]['cnpj'],
-                    telefone: resultFornecedor[0]['telefone'],
-                    email: resultFornecedor[0]['email'],
-                    dataInicio: resultFornecedor[0]['dataInicio']
-                })
-            }
-
             const unidade = {
                 quemPreenche: resultFornecedor[0]?.quemPreenche ?? null,
                 parFornecedorModeloID: resultFornecedor[0]?.parFornecedorModeloID ?? 0,
@@ -618,6 +608,28 @@ class FornecedorController {
             WHERE u.cnpj = "${resultFornecedor[0].cnpjFornecedor}" `
             const [resultUnidadeFornecedor] = await db.promise().query(sqlUnidadeFornecedor)
             unidade['fornecedor'] = resultUnidadeFornecedor[0]
+
+            //! Nenhum modelo configurado, aguardando preenchimento do fornecedor
+            if (resultFornecedor && resultFornecedor[0]['parFornecedorModeloID'] == 0) {
+                const data = {
+                    hasModel: false,
+                    unidade: unidade,
+                    nomeFantasia: resultFornecedor[0]['nomeFantasia'],
+                    razaoSocial: resultFornecedor[0]['razaoSocial'],
+                    cnpj: resultFornecedor[0]['cnpj'],
+                    telefone: resultFornecedor[0]['telefone'],
+                    email: resultFornecedor[0]['email'],
+                    dataInicio: resultFornecedor[0]['dataInicio'],
+                    info: {
+                        obs: resultFornecedor[0].obs,
+                        status: resultFornecedor[0].status,
+                        usuarioID: resultFornecedor[0].usuarioID
+                    },
+                    link: `${process.env.BASE_URL}formularios/fornecedor?id=${id}`,
+                }
+
+                return res.status(200).json(data)
+            }
 
             // Fields do header
             const sqlFields = `
@@ -930,6 +942,7 @@ class FornecedorController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
+        const status = req.body.status //? Status atual do formulário
         const { usuarioID, papelID, unidadeID } = req.body.auth
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
 
@@ -1026,7 +1039,7 @@ class FornecedorController {
 
         //* Status
         //? É um fornecedor e é um status anterior, seta status pra "Em preenchimento" (30)
-        const newStatus = data.status ?? 30
+        const newStatus = data.status ?? status
 
         const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
         const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [newStatus, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
