@@ -13,6 +13,6 @@ fornecedorRoutes.put(`${route}/updateData`, fornecedorController.updateData);
 fornecedorRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, fornecedorController.deleteData);
 fornecedorRoutes.post(`${route}/getCategories`, fornecedorController.getCategories);
 fornecedorRoutes.post(`${route}/getLinkingForms`, fornecedorController.getLinkingForms);
-fornecedorRoutes.put(`${route}/updateLinkingForms`, fornecedorController.updateLinkingForms);
+fornecedorRoutes.post(`${route}/updateLinkingForms`, fornecedorController.updateLinkingForms);
 
 module.exports = fornecedorRoutes;
