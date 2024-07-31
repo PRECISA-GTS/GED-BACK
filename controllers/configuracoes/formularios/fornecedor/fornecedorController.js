@@ -139,6 +139,7 @@ class FornecedorController {
                 LEFT JOIN fornecedorcategoria_risco_modelo AS fcrm ON (fcr.fornecedorCategoriaRiscoID = fcrm.fornecedorCategoriaRiscoID)
                 LEFT JOIN par_fornecedor_modelo AS pf ON (pf.parFornecedorModeloID = fcrm.parFornecedorModeloID)
             WHERE fcr.fornecedorCategoriaID = ? ${!allRisks ? ` AND fcrm.unidadeID = ${unidadeID}` : ``} 
+            GROUP BY fcr.fornecedorCategoriaRiscoID
             ORDER BY fcr.nome ASC`;
             const [resultRisco] = await db.promise().query(sql, [item.fornecedorCategoriaID]);
             item.riscos = resultRisco;
