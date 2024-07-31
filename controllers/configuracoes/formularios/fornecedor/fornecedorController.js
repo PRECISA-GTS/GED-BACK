@@ -90,6 +90,7 @@ class FornecedorController {
                                             WHERE fornecedorCategoriaRiscoModeloID = ?;
                                         `;
                                         return db.promise().query(updateSql, [id, fornecedorCategoriaRiscoModeloID]);
+
                                     } else {
                                         // Se o registro não existir, construa a consulta de inserção
                                         const insertSql = `
