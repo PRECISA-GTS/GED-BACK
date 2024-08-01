@@ -30,6 +30,7 @@ class FornecedorController {
 
     async updateLinkingForms(req, res) {
         const { riscos: data, unidadeID } = req.body;
+        console.log("🚀 ~ updateLinkingForms data, unidadeID:", data, unidadeID)
 
         try {
             if (!unidadeID || unidadeID == 'undefined') {
@@ -46,9 +47,8 @@ class FornecedorController {
 
             // Construa a consulta SQL para deletar registros onde fornecedorCategoriaRiscoID é null
             const deleteSql = `
-                DELETE FROM fornecedorcategoria_risco_modelo
-                WHERE fornecedorCategoriaRiscoModeloID IN (?) AND fornecedorCategoriaRiscoID IS NULL;
-            `;
+            DELETE FROM fornecedorcategoria_risco_modelo
+            WHERE fornecedorCategoriaRiscoModeloID IN (?) AND fornecedorCategoriaRiscoID IS NULL`;
 
             // Adicione a promessa de execução da consulta de deleção à lista
             updatePromises.push(
@@ -64,18 +64,16 @@ class FornecedorController {
                     // Se o id for null, construa a consulta de deleção para remover o registro existente
                     if (!data[key]) {
                         const deleteRecordSql = `
-                            DELETE FROM fornecedorcategoria_risco_modelo
-                            WHERE fornecedorCategoriaRiscoModeloID = ?;
-                        `;
+                        DELETE FROM fornecedorcategoria_risco_modelo
+                        WHERE fornecedorCategoriaRiscoModeloID = ?`;
                         updatePromises.push(
                             db.promise().query(deleteRecordSql, [fornecedorCategoriaRiscoModeloID])
                         );
                     } else {
                         // Construa a consulta de verificação de existência
                         const checkExistenceSql = `
-                            SELECT COUNT(*) AS count FROM fornecedorcategoria_risco_modelo
-                            WHERE fornecedorCategoriaRiscoModeloID = ? AND unidadeID = ?;
-                        `;
+                        SELECT COUNT(*) AS count FROM fornecedorcategoria_risco_modelo
+                        WHERE fornecedorCategoriaRiscoModeloID = ? AND unidadeID = ?`;
 
                         // Adicione a promessa de execução da consulta de verificação à lista
                         updatePromises.push(
@@ -85,19 +83,17 @@ class FornecedorController {
                                     if (count > 0) {
                                         // Se o registro existir, construa a consulta de atualização
                                         const updateSql = `
-                                            UPDATE fornecedorcategoria_risco_modelo
-                                            SET parFornecedorModeloID = ?
-                                            WHERE fornecedorCategoriaRiscoModeloID = ?;
-                                        `;
+                                        UPDATE fornecedorcategoria_risco_modelo
+                                        SET parFornecedorModeloID = ?
+                                        WHERE fornecedorCategoriaRiscoModeloID = ?`;
                                         return db.promise().query(updateSql, [id, fornecedorCategoriaRiscoModeloID]);
 
                                     } else {
                                         // Se o registro não existir, construa a consulta de inserção
                                         const insertSql = `
-                                            INSERT INTO fornecedorcategoria_risco_modelo (fornecedorCategoriaRiscoID, parFornecedorModeloID, fornecedorCategoriaRiscoModeloID, unidadeID)
-                                            VALUES (?, ?, ?, ?);
-                                        `;
-                                        return db.promise().query(insertSql, [fornecedorCategoriaRiscoModeloID, id, fornecedorCategoriaRiscoModeloID, unidadeID]);
+                                        INSERT INTO fornecedorcategoria_risco_modelo (fornecedorCategoriaRiscoID, parFornecedorModeloID, unidadeID)
+                                        VALUES (?, ?, ?)`;
+                                        return db.promise().query(insertSql, [fornecedorCategoriaRiscoModeloID, id, unidadeID]);
                                     }
                                 })
                         );

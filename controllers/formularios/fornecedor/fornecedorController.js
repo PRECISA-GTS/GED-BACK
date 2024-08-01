@@ -942,7 +942,7 @@ class FornecedorController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
-        const status = req.body.status //? Status atual do formulário
+        const currentStatus = req.body.currentStatus //? Status atual do formulário
         const { usuarioID, papelID, unidadeID } = req.body.auth
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
 
@@ -1039,7 +1039,8 @@ class FornecedorController {
 
         //* Status
         //? É um fornecedor e é um status anterior, seta status pra "Em preenchimento" (30)
-        const newStatus = data.status ?? status
+        const newStatus = data.status >= 40 ? data.status : (papelID === 1 && data.unidade.quemPreenche === 2) ? 40 : 30
+        console.log("🚀 ~ newStatus:", newStatus)
 
         const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
         const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [newStatus, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
@@ -1753,19 +1754,19 @@ const updateUnitySupplier = async (fixedValues, dynamicValues) => {
         cnpj = "${fixedValues.cnpj}"
         ${fixedValues.nomeFantasia ? `, nomeFantasia = "${fixedValues.nomeFantasia}"` : ''}
         ${fixedValues.razaoSocial ? `, razaoSocial = "${fixedValues.razaoSocial}"` : ''}
-        ${dynamicValues.ie ? `, ie = "${dynamicValues.ie}"` : ''}
-        ${dynamicValues.principaisClientes ? `, principaisClientes = "${dynamicValues.principaisClientes}"` : ''}
-        ${dynamicValues.email ? `, email = "${dynamicValues.email}"` : ''}
-        ${dynamicValues.telefone ? `, telefone1 = "${dynamicValues.telefone}"` : ''}
-        ${dynamicValues.cep ? `, cep = "${dynamicValues.cep}"` : ''}
-        ${dynamicValues.logradouro ? `, logradouro = "${dynamicValues.logradouro}"` : ''}
-        ${dynamicValues.numero ? `, numero = "${dynamicValues.numero}"` : ''}
-        ${dynamicValues.complemento ? `, complemento = "${dynamicValues.complemento}"` : ''}
-        ${dynamicValues.bairro ? `, bairro = "${dynamicValues.bairro}"` : ''}
-        ${dynamicValues.cidade ? `, cidade = "${dynamicValues.cidade}"` : ''}
-        ${dynamicValues.estado ? `, uf = "${dynamicValues.estado}"` : ''}
-        ${dynamicValues.pais ? `, pais = "${dynamicValues.pais}"` : ''}
-        ${dynamicValues.registroSipeagro ? `, registroSipeagro = "${dynamicValues.registroSipeagro}"` : ''}        
+        ${dynamicValues?.ie ? `, ie = "${dynamicValues?.ie}"` : ''}
+        ${dynamicValues?.principaisClientes ? `, principaisClientes = "${dynamicValues?.principaisClientes}"` : ''}
+        ${dynamicValues?.email ? `, email = "${dynamicValues?.email}"` : ''}
+        ${dynamicValues?.telefone ? `, telefone1 = "${dynamicValues?.telefone}"` : ''}
+        ${dynamicValues?.cep ? `, cep = "${dynamicValues?.cep}"` : ''}
+        ${dynamicValues?.logradouro ? `, logradouro = "${dynamicValues?.logradouro}"` : ''}
+        ${dynamicValues?.numero ? `, numero = "${dynamicValues?.numero}"` : ''}
+        ${dynamicValues?.complemento ? `, complemento = "${dynamicValues?.complemento}"` : ''}
+        ${dynamicValues?.bairro ? `, bairro = "${dynamicValues?.bairro}"` : ''}
+        ${dynamicValues?.cidade ? `, cidade = "${dynamicValues?.cidade}"` : ''}
+        ${dynamicValues?.estado ? `, uf = "${dynamicValues?.estado}"` : ''}
+        ${dynamicValues?.pais ? `, pais = "${dynamicValues?.pais}"` : ''}
+        ${dynamicValues?.registroSipeagro ? `, registroSipeagro = "${dynamicValues?.registroSipeagro}"` : ''}        
     WHERE cnpj = "${fixedValues.cnpj}"`
     await db.promise().query(sql)
 }

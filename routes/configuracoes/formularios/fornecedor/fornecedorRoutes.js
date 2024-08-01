@@ -15,4 +15,6 @@ fornecedorRoutes.post(`${route}/getCategories`, fornecedorController.getCategori
 fornecedorRoutes.post(`${route}/getLinkingForms`, fornecedorController.getLinkingForms);
 fornecedorRoutes.post(`${route}/updateLinkingForms`, fornecedorController.updateLinkingForms);
 
+console.log("🚀 ~ route:", route)
+
 module.exports = fornecedorRoutes;
