@@ -9,44 +9,45 @@ class CalendarioController {
 
             let sql = `
             SELECT 
-                c.calendarioID, 
-                c.titulo, 
+                COUNT(*) AS qtd,
                 DATE_FORMAT(c.dataHora, '%Y-%m-%d') AS data, 
                 DATE_FORMAT(c.dataHora, '%d/%m/%Y') AS data_, 
-                c.tipo, 
-                c.rota, 
-                c.rotaID, 
+                CASE DAYOFWEEK(c.dataHora)
+                    WHEN 1 THEN 'Domingo'
+                    WHEN 2 THEN 'Segunda-feira'
+                    WHEN 3 THEN 'Terça-feira'
+                    WHEN 4 THEN 'Quarta-feira'
+                    WHEN 5 THEN 'Quinta-feira'
+                    WHEN 6 THEN 'Sexta-feira'
+                    WHEN 7 THEN 'Sábado'
+                END AS diaSemana,                
                 c.status
-            FROM calendario AS c
-                JOIN permissao AS p ON (c.rota = p.rota)
-            WHERE c.unidadeID = ? AND p.unidadeID = ? `
-
-            //? Não é ADMIN
-            if (admin != 1) {
-                sql += ` AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
-            }
-
-            sql += ` GROUP BY c.calendarioID `
-
+            FROM calendario AS c `
+            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rota = p.rota) `
+            sql += ` WHERE c.unidadeID = ${unidadeID} `
+            if (admin != 1) sql += ` AND p.unidadeID = ${unidadeID} AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
+            sql += ` GROUP BY DATE(c.dataHora) `
             const [resultCalendar] = await db.promise().query(sql, [unidadeID, unidadeID])
 
             const result = resultCalendar.map(item => {
                 var { variant, rgb } = defineEventColor(item)
 
                 return {
-                    id: item.calendarioID,
-                    title: item.titulo,
-                    eventDate: item.data_,
+                    // id: item.calendarioID,
+                    title: item.qtd, //item.titulo,
                     start: item.data,
                     end: item.data,
-                    type: item.tipo,
+                    eventDate: item.data,
+                    eventDate_: item.data_,
+                    dayWeek: item.diaSemana,
+                    // type: item.tipo,
                     variant: variant,
                     color: rgb,
-                    link: item.rota ? {
-                        rota: item.rota,
-                        id: item.rotaID ?? null
-                    } : null,
-                    icon: getIcon(item.tipo)
+                    // link: item.rota ? {
+                    //     rota: item.rota,
+                    //     id: item.rotaID ?? null
+                    // } : null,
+                    // icon: getIcon(item.tipo)
                 }
             })
 
