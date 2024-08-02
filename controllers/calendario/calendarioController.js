@@ -33,14 +33,12 @@ class CalendarioController {
                 var { variant, rgb } = defineEventColor(item)
 
                 return {
-                    // id: item.calendarioID,
-                    title: item.qtd, //item.titulo,
+                    title: item.qtd,
                     start: item.data,
                     end: item.data,
                     eventDate: item.data,
                     eventDate_: item.data_,
                     dayWeek: item.diaSemana,
-                    // type: item.tipo,
                     variant: variant,
                     color: rgb,
                     // link: item.rota ? {
@@ -57,11 +55,58 @@ class CalendarioController {
         }
     }
 
-}
+    async getEventsOfDay(req, res) {
+        const { eventDate, unidadeID, usuarioID, papelID, admin } = req.body
 
-const getIcon = (type) => {
-    const icon = type == 'Fornecedor' ? 'mdi:truck-fast-outline' : type == 'Recebimento de MP' ? 'icon-park-outline:receive' : type == 'Limpeza' ? 'carbon:clean' : 'cil:bug'
-    return icon
+        if (!eventDate) return res.status(500).json({ message: 'Parâmetros incorretos!' })
+
+        try {
+            let sql = `
+            SELECT 
+                c.calendarioID,
+                c.titulo,
+                c.tipo,
+                c.rota,
+                c.rotaID,
+                c.origemID,
+                c.dataHora,
+                DATE_FORMAT(c.dataHora, '%Y-%m-%d') AS data, 
+                DATE_FORMAT(c.dataHora, '%d/%m/%Y') AS data_, 
+                DATE_FORMAT(c.dataHora, '%H:%i') AS hora, 
+                CASE DAYOFWEEK(c.dataHora)
+                    WHEN 1 THEN 'Domingo'
+                    WHEN 2 THEN 'Segunda-feira'
+                    WHEN 3 THEN 'Terça-feira'
+                    WHEN 4 THEN 'Quarta-feira'
+                    WHEN 5 THEN 'Quinta-feira'
+                    WHEN 6 THEN 'Sexta-feira'
+                    WHEN 7 THEN 'Sábado'
+                END AS diaSemana,                
+                c.status
+            FROM calendario AS c `
+            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rota = p.rota) `
+            sql += ` WHERE c.unidadeID = ${unidadeID} AND DATE(c.dataHora) = "${eventDate}" `
+            if (admin != 1) sql += ` AND p.unidadeID = ${unidadeID} AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
+            sql += ` 
+            GROUP BY c.calendarioID 
+            ORDER BY c.dataHora ASC `
+            const [resultCalendar] = await db.promise().query(sql, [unidadeID, unidadeID])
+
+            const formatedResultCalendar = resultCalendar.map(item => {
+                var { variant } = defineEventColor(item);
+
+                return {
+                    ...item,
+                    variant,
+                };
+            });
+
+            res.status(200).json(formatedResultCalendar);
+        } catch (error) {
+            console.log(error)
+            res.status(500).json({ message: 'Erro ao buscar eventos!' })
+        }
+    }
 }
 
 const defineEventColor = (item) => {

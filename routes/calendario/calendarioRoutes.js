@@ -7,5 +7,6 @@ const calendarioController = new CalendarioController();
 const route = '/calendario';
 
 calendarioRoutes.post(`${route}/getEvents`, calendarioController.getEvents);
+calendarioRoutes.post(`${route}/getEventsOfDay`, calendarioController.getEventsOfDay);
 
 module.exports = calendarioRoutes;
