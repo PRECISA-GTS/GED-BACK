@@ -77,11 +77,14 @@ class FabricaController {
             //? Não conformidades por fornecedor nos últimos 365 dias
             const supplierNonCompliance = await getSupplierNonCompliance(unidadeID)
 
+            const pendingSuppliers = await getPendingSuppliers(unidadeID)
+
             const values = {
                 fornecedorPorStatus: resultSqlTotalSupplier,
                 totalRecebimentoNC: resultSqlTotalRecebimentoNC,
                 limpeza: resultSqlLimpeza,
-                supplierNonCompliance
+                supplierNonCompliance,
+                pendingSuppliers
             }
             res.status(200).json(values)
         } catch (e) {
@@ -116,6 +119,17 @@ const getSupplierNonCompliance = async (unidadeID) => {
     }, { suppliers: [], percents: [] });
 
     return result
+}
+
+const getPendingSuppliers = async (unidadeID) => {
+    const sqlPendingSuppliers = `
+    SELECT f.status, COUNT(*) AS qtd
+    FROM fornecedor AS f
+    WHERE f.unidadeID = ? AND f.status <= 40
+    GROUP BY f.status`
+    const [resultSqlPendingSuppliers] = await db.promise().query(sqlPendingSuppliers, [unidadeID])
+
+    return resultSqlPendingSuppliers
 }
 
 module.exports = FabricaController;
