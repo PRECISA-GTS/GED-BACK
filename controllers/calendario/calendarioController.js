@@ -65,6 +65,7 @@ class CalendarioController {
             SELECT 
                 c.calendarioID,
                 c.titulo,
+                c.subtitulo,
                 c.tipo,
                 c.rota,
                 c.rotaID,

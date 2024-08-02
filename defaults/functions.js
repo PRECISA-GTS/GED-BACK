@@ -245,7 +245,7 @@ const signedReport = async (pathReport) => {
 }
 
 //? Cria agendamento no calendário na conclusão do formulário, na data de vencimento do formulário.........................
-const createScheduling = async (id, type, name, cycle, unityID) => {
+const createScheduling = async (id, type, name, subtitle, cycle, unityID) => {
     let calendar = null
     if (!cycle || cycle == '0') return
 
@@ -254,12 +254,6 @@ const createScheduling = async (id, type, name, cycle, unityID) => {
             calendar = {
                 type: 'Fornecedor',
                 route: '/formularios/fornecedor'
-            }
-            break;
-        case 'recebimentoMP':
-            calendar = {
-                type: 'Recebimento de MP',
-                route: '/formularios/recebimento-mp'
             }
             break;
         case 'limpeza':
@@ -276,9 +270,10 @@ const createScheduling = async (id, type, name, cycle, unityID) => {
             break;
     }
 
-    const sqlCalendar = `INSERT INTO calendario(titulo, tipo, dataHora, rota, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+    const sqlCalendar = `INSERT INTO calendario(titulo, subtitulo, tipo, dataHora, rota, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
     await db.promise().query(sqlCalendar, [
         name,
+        subtitle,
         calendar.type,
         getVencimento(cycle),
         calendar.route,

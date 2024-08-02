@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID } = require('../../../defaults/functions');
 const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { send } = require('process');
@@ -494,7 +494,6 @@ class RecebimentoMpController {
             if (data.info.status < 40 && data.produtos && data.produtos.length > 0) {
                 // Deleta produtos do recebimento
                 const sqlDeleteProduto = `DELETE FROM recebimentomp_produto WHERE recebimentoMpID = ? `
-                // const [resultDeleteProduto] = await db.promise().query(sqlDeleteProduto, [id])
                 const resultDeleteProduto = await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
                 for (const produto of data.produtos) {
                     if (produto && produto.checked_) { //? Marcou o produto no checkbox
@@ -606,11 +605,6 @@ class RecebimentoMpController {
             if (result[0]['status'] != newStatus) {
                 const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
                 if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
-            }
-
-            //? Cria agendamento no calendário com a data de vencimento
-            if (concluido == '1' && newStatus >= 40) {
-                createScheduling(id, 'recebimentoMP', data.unidade?.modelo?.nome, data.unidade?.modelo?.ciclo, unidadeID)
             }
 
             res.status(200).json({ message: 'Função do email sucesso' })

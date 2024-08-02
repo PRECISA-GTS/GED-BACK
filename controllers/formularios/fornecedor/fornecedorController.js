@@ -1040,7 +1040,6 @@ class FornecedorController {
         //* Status
         //? É um fornecedor e é um status anterior, seta status pra "Em preenchimento" (30)
         const newStatus = data.status >= 40 ? data.status : (papelID === 1 && data.unidade.quemPreenche === 2) ? 40 : 30
-        console.log("🚀 ~ newStatus:", newStatus)
 
         const sqlUpdateStatus = `UPDATE fornecedor SET status = ? WHERE fornecedorID = ? `
         const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [newStatus, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
@@ -1055,8 +1054,20 @@ class FornecedorController {
                 id
             ], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
+
+            // Obtem os produtos e insere em uma string separado por virgulas
+            const sqlProducts = `
+            SELECT p.nome, um.nome AS unidadeMedida
+            FROM fornecedor_produto AS fp 
+                JOIN produto AS p ON (fp.produtoID = p.produtoID)
+                JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
+            WHERE fp.fornecedorID = ?
+            ORDER BY p.nome ASC`
+            const [resultProducts] = await db.promise().query(sqlProducts, [id])
+            const products = resultProducts.map(product => `${product.nome} (${product.unidadeMedida})`).join(', ')
+
             //? Cria agendamento no calendário com a data de vencimento
-            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, data.unidade.ciclo, unidadeID)
+            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.unidade.ciclo, unidadeID)
         }
 
         //? Gera histórico de alteração de status (se houve alteração)

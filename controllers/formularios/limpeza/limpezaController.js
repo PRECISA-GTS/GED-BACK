@@ -345,7 +345,9 @@ class LimpezaController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
+        console.log("🚀 ~ data:", data)
         const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
+
 
         try {
             if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -454,7 +456,7 @@ class LimpezaController {
 
             //? Cria agendamento no calendário com a data de vencimento
             if (concluido == '1' && newStatus >= 40) {
-                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data.unidade?.modelo?.ciclo, unidadeID)
+                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data.unidade?.modelo?.ciclo, unidadeID)
             }
 
             res.status(200).json({ message: 'Dados atualizados!' })
