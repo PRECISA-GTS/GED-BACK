@@ -18,6 +18,8 @@ class ApresentacaoController {
             res.status(200).json(resultGetList);
         } catch (error) {
             console.log(error)
+
+
         }
     }
 
