@@ -76,7 +76,6 @@ class RecebimentoMpController {
 
     async getModels(req, res) {
         const { unidadeID } = req.params;
-        console.log("🚀 ~ unidadeID:", unidadeID)
         if (!unidadeID) return
 
         const sql = `
@@ -90,31 +89,119 @@ class RecebimentoMpController {
     }
 
     async insertData(req, res) {
-        const data = req.body
-        if (!data.form.unidade.modelo.id || !data.auth.unidadeID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
-        const logID = await executeLog('Criação de formulário do recebimento Mp', data.auth.usuarioID, data.auth.unidadeID, req)
-        const sqlInsert = `INSERT INTO recebimentomp SET parRecebimentoMpModeloID = ?, data = ?, dataInicio = ?, abreProfissionalID = ?, unidadeID = ?`
+        const data = req.body.form
+        const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
+
+        if (!data.unidade.modelo.id || !unidadeID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+
+        const logID = await executeLog('Criação de formulário do recebimento Mp', usuarioID, unidadeID, req)
+
+        //? Insere em recebimentomp
+        const sqlInsert = `INSERT INTO recebimentomp SET parRecebimentoMpModeloID = ?, data = ?, dataInicio = ?, abreProfissionalID = ?, unidadeID = ?, preencheProfissionalID = ?, fornecedorID = ?, dataConclusao = ?, aprovaProfissionalID = ?, obs = ?, obsConclusao = ?, status = ?, naoConformidade = ?`
         const recebimentoMpID = await executeQuery(sqlInsert, [
-            data.form.unidade.modelo.id,
+            data.unidade.modelo.id,
             new Date(),
             new Date(),
-            data.auth.profissionalID,
-            data.auth.unidadeID
+            profissionalID,
+            unidadeID,
+            data.fieldsHeader?.profissional?.id ?? 1,
+            data.fieldsHeader?.fornecedor?.id ?? 1,
+            data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : '00:00',
+            data.fieldsFooter?.profissional?.id ?? 1,
+            data.info?.obs,
+            data?.obsConclusao,
+            '30',
+            data.info.naoConformidade ? '1' : '0',
         ], 'insert', 'recebimentomp', 'recebimentompID', null, logID)
+
+        if (!recebimentoMpID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+
+        //? Atualizar o header dinâmico e setar o status        
+        if (data.fields) {
+            //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+            let dataHeader = await formatFieldsToTable('par_recebimentomp', data.fields)
+            const sqlHeader = `UPDATE recebimentomp SET ? WHERE recebimentoMpID = ${recebimentoMpID} `;
+            const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp', 'recebimentoMpID', recebimentoMpID, logID)
+            if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+        }
+
+        //? Produtos
+        if (data.produtos && data.produtos.length > 0) {
+            for (const produto of data.produtos) {
+                if (produto && produto.checked_) { //? Marcou o produto no checkbox
+                    if (produto && produto.produtoID > 0) {
+                        const sqlInsertProduto = `
+                        INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                        VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+                        const resultInsertProduto = await executeQuery(sqlInsertProduto, [
+                            recebimentoMpID,
+                            produto.produtoID,
+                            produto.quantidade ?? null,
+                            produto.dataFabricacao ?? null,
+                            produto.lote ?? null,
+                            produto.nf ?? null,
+                            produto.dataValidade ?? null,
+                            produto.apresentacao?.id ?? null
+                        ], 'insert', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
+                        if (!resultInsertProduto) { return res.json('Error'); }
+                    }
+                }
+            }
+        }
+
+        //? Blocos 
+        for (const bloco of data.blocos) {
+            // Itens 
+            if (bloco && bloco.parRecebimentoMpModeloBlocoID && bloco.parRecebimentoMpModeloBlocoID > 0 && bloco.itens) {
+                for (const item of bloco.itens) {
+                    if (item && item.itemID && item.itemID > 0) {
+                        const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
+                        const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
+                        const observacao = item.observacao != undefined ? item.observacao : ''
+
+                        if (resposta) {
+                            const sqlInsert = `INSERT INTO recebimentomp_resposta(recebimentoMpID, parRecebimentoMpModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
+                            const resultInsert = await executeQuery(sqlInsert, [
+                                recebimentoMpID,
+                                bloco.parRecebimentoMpModeloBlocoID,
+                                item.itemID,
+                                resposta,
+                                respostaID,
+                                observacao
+                            ], 'insert', 'recebimentomp_resposta', 'recebimentoMpRespostaID', null, logID)
+
+                            if (!resultInsert) { return res.json('Error'); }
+                        }
+                    }
+                }
+            }
+        }
+
+        //! Atualiza não conformidades, caso haja
+        if (data.info.naoConformidade) {
+            if (data.naoConformidade.itens.length > 0) {
+                for (const nc of data.naoConformidade.itens) {
+                    await insertNc(nc, recebimentoMpID, logID)
+                }
+            }
+
+            const sqlSelect = `SELECT naoConformidadeEmailFornecedor FROM recebimentomp WHERE recebimentoMpID = ? `
+            const [result] = await db.promise().query(sqlSelect, [recebimentoMpID])
+
+            //? Se ainda não enviou email ao fornecedor preencher NC, verifica se precisa enviar
+            if (result[0]['naoConformidadeEmailFornecedor'] != 1) await checkNotificationFornecedor(recebimentoMpID, data.fieldsHeader.fornecedor, data.naoConformidade.itens, unidadeID, usuarioID, papelID, req)
+        }
+
+        //? Gera histórico de alteração de status (se houve alteração)        
+        const movimentation = await addFormStatusMovimentation(2, recebimentoMpID, usuarioID, unidadeID, papelID, '10', '30', data?.obsConclusao)
+        if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         return res.status(200).json({ recebimentoMpID })
     }
 
     async getData(req, res) {
         try {
-            // const { id } = req.params; // id do formulário
-            let { id, unidadeID, type, profissionalID, modeloID } = req.body;
-            console.log("🚀 ~ type:", type)
-
-            // if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
-
-            console.log(`🚀 ~ Back Controller: id: ${id}, modeloID: ${modeloID}`)
-
+            let { id, unidadeID, type, profissionalID, modeloID } = req.body
             let result = []
             let resultProdutos = []
 
@@ -278,7 +365,6 @@ class RecebimentoMpController {
             WHERE parRecebimentoMpModeloID = ? AND status = 1
             ORDER BY ordem ASC`
             const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
-            console.log("🚀 ~ resultBlocos:", resultBlocos)
 
             //? Blocos
             const sqlBloco = getSqlBloco()
@@ -395,9 +481,7 @@ class RecebimentoMpController {
             }
 
             const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
-            // hora atual 
             const time = new Date().toISOString().split('T')[1].slice(0, 5)
-
 
             const data = {
                 unidade: unidade,
@@ -456,7 +540,7 @@ class RecebimentoMpController {
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
                 info: {
                     obs: resultOtherInformations[0]?.obs,
-                    status: resultOtherInformations[0]?.status,
+                    status: resultOtherInformations[0]?.status ?? 10,
                     naoConformidade: result[0]?.naoConformidade == 1 ? true : false,
                     concluido: result[0]?.concluido == 1 ? true : false,
                     cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
@@ -481,7 +565,6 @@ class RecebimentoMpController {
         const { id } = req.params
         const data = req.body.form
         const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
-        console.log("🚀 ~ usuarioID, profissionalID, papelID, unidadeID:", usuarioID, profissionalID, papelID, unidadeID)
 
         try {
             if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -999,7 +1082,6 @@ const getFields = async (parRecebimentoMpModeloID, unidadeID) => {
 
 }
 
-
 //* Obtém estrutura dos blocos e itens
 const getBlocks = async (id, parRecebimentoMpModeloID) => {
     if (!parRecebimentoMpModeloID) return
@@ -1137,16 +1219,9 @@ const checkNotificationFornecedor = async (recebimentoMpID, fornecedor, arrNaoCo
             products: arrProducts ?? []
         }
 
-        //todo Arrumar...
-        // const url = `${process.env.BASE_URL_API}formularios/recebimento-mp/nao-conformidade/fornecedor-preenche`
-        // const result = await axios.post(url, data)
-
         //? Atualiza flag de envio de email
         const sqlUpdate = `UPDATE recebimentomp SET naoConformidadeEmailFornecedor = ? WHERE recebimentoMpID = ? `
         const [resultUpdate] = await db.promise().query(sqlUpdate, [1, recebimentoMpID])
-
-        // const data = req.body
-        console.log("🚀 ~ data do email:", data)
 
         // Dados unidade fabrica
         const sqlFabrica = `SELECT * FROM unidade WHERE unidadeID = ?`
