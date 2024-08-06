@@ -1,4 +1,6 @@
 require('dotenv/config')
+process.env.TZ = 'America/Sao_Paulo'; // Configurar timezone
+
 const express = require('express');
 const cors = require('cors');
 const app = express();
