@@ -91,98 +91,94 @@ class RecebimentoMpController {
 
     async insertData(req, res) {
         const data = req.body
-
-        if (!data.model.id || !data.unidadeID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
-
-        const logID = await executeLog('Criação de formulário do recebimento Mp', data.usuarioID, data.unidadeID, req)
-
-
+        if (!data.form.unidade.modelo.id || !data.auth.unidadeID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+        const logID = await executeLog('Criação de formulário do recebimento Mp', data.auth.usuarioID, data.auth.unidadeID, req)
         const sqlInsert = `INSERT INTO recebimentomp SET parRecebimentoMpModeloID = ?, data = ?, dataInicio = ?, abreProfissionalID = ?, unidadeID = ?`
-
-        const recebimentoMpID = await executeQuery(sqlInsert, [data.model.id,
-        new Date(),
-        new Date(),
-        data.profissionalID,
-        data.unidadeID], 'insert', 'recebimentomp', 'recebimentompID', null, logID)
+        const recebimentoMpID = await executeQuery(sqlInsert, [
+            data.form.unidade.modelo.id,
+            new Date(),
+            new Date(),
+            data.auth.profissionalID,
+            data.auth.unidadeID
+        ], 'insert', 'recebimentomp', 'recebimentompID', null, logID)
 
         return res.status(200).json({ recebimentoMpID })
     }
 
     async getData(req, res) {
         try {
-            const { id } = req.params; // id do formulário
-            const { unidadeID, profissionalID } = req.body;
+            // const { id } = req.params; // id do formulário
+            let { id, unidadeID, type, profissionalID, modeloID } = req.body;
+            console.log("🚀 ~ type:", type)
 
-            if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
+            // if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
 
-            const sqlResult = `
-            SELECT
-                r.parRecebimentoMpModeloID,
-                prm.nome AS modeloNome,
-                prm.ciclo AS modeloCiclo,
+            console.log(`🚀 ~ Back Controller: id: ${id}, modeloID: ${modeloID}`)
 
-                r.unidadeID,
-                DATE_FORMAT(r.dataInicio, '%Y-%m-%d') AS dataInicio,
-                DATE_FORMAT(r.dataInicio, '%H:%i') AS horaInicio,
-                r.abreProfissionalID,
-                pa.nome AS abreProfissionalNome,
-                r.naoConformidade,
-                r.concluido,
+            let result = []
+            let resultProdutos = []
 
-                -- Fornecedor
-                f.fornecedorID,
-                CONCAT(f.nome, " (", f.cnpj, ")") AS nomeFornecedor,
-                f.nome AS nomeFornecedor_,
-                f.cnpj AS cnpjFornecedor,
-                f.telefone AS telefoneFornecedor,
-                CONCAT(f.cidade, "/", f.estado) AS cidadeFornecedor,
-                uf.cabecalhoRelatorio AS fotoFornecedor,
-                f.email AS emailFornecedor,
-                (
-                    SELECT IF(COUNT(*) > 0, 1, 0)
-                    FROM usuario AS ui 
-                    WHERE ui.cnpj = f.cnpj 
-                ) AS fornecedorIsUser,
-
-                DATE_FORMAT(r.data, '%Y-%m-%d') AS data,
-                IF(r.data, DATE_FORMAT(r.data, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS hora,
-                r.preencheProfissionalID,
-                pp.nome AS preencheProfissionalNome,
-
-                DATE_FORMAT(r.dataConclusao, '%Y-%m-%d') AS dataConclusao,
-                IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaConclusao,
-                r.aprovaProfissionalID,
-                pap.nome AS aprovaProfissionalNome,
-
-                DATE_FORMAT(r.dataFim, '%Y-%m-%d') AS dataFim,
-                DATE_FORMAT(r.dataFim, '%H:%i') AS horaFim,
-                r.finalizaProfissionalID,
-                pf.nome AS finalizaProfissionalNome,
-
-                u.nomeFantasia,
-                u.cnpj
-            FROM recebimentomp AS r
-                LEFT JOIN unidade AS u ON(r.unidadeID = u.unidadeID)
-                LEFT JOIN profissional AS pa ON(r.abreProfissionalID = pa.profissionalID)
-                LEFT JOIN profissional AS pp ON(r.preencheProfissionalID = pp.profissionalID)
-                LEFT JOIN profissional AS pap ON(r.aprovaProfissionalID = pap.profissionalID)
-                LEFT JOIN profissional AS pf ON(r.finalizaProfissionalID = pf.profissionalID)
-                LEFT JOIN fornecedor AS f ON(r.fornecedorID = f.fornecedorID)
-                LEFT JOIN unidade AS uf ON (f.cnpj = uf.cnpj)
-                LEFT JOIN par_recebimentomp_modelo AS prm ON (prm.parRecebimentoMpModeloID = r.parRecebimentoMpModeloID)
-            WHERE r.recebimentoMpID = ? `
-            const [result] = await db.promise().query(sqlResult, [id])
-            const unidade = {
-                modelo: {
-                    id: result[0]['parRecebimentoMpModeloID'] ?? 0,
-                    nome: result[0]['modeloNome'],
-                    ciclo: result[0]['modeloCiclo']
-                },
-                unidadeID: result[0]['unidadeID'],
-                nomeFantasia: result[0]['nomeFantasia'],
-                cnpj: result[0]['cnpj']
+            if (id && id > 0) {
+                const sqlResult = `
+                SELECT
+                    r.parRecebimentoMpModeloID,
+                    prm.nome AS modeloNome,
+                    prm.ciclo AS modeloCiclo,
+    
+                    r.unidadeID,
+                    DATE_FORMAT(r.dataInicio, '%Y-%m-%d') AS dataInicio,
+                    DATE_FORMAT(r.dataInicio, '%H:%i') AS horaInicio,
+                    r.abreProfissionalID,
+                    pa.nome AS abreProfissionalNome,
+                    r.naoConformidade,
+                    r.concluido,
+    
+                    -- Fornecedor
+                    f.fornecedorID,
+                    CONCAT(f.nome, " (", f.cnpj, ")") AS nomeFornecedor,
+                    f.nome AS nomeFornecedor_,
+                    f.cnpj AS cnpjFornecedor,
+                    f.telefone AS telefoneFornecedor,
+                    CONCAT(f.cidade, "/", f.estado) AS cidadeFornecedor,
+                    uf.cabecalhoRelatorio AS fotoFornecedor,
+                    f.email AS emailFornecedor,
+                    (
+                        SELECT IF(COUNT(*) > 0, 1, 0)
+                        FROM usuario AS ui 
+                        WHERE ui.cnpj = f.cnpj 
+                    ) AS fornecedorIsUser,
+    
+                    DATE_FORMAT(r.data, '%Y-%m-%d') AS data,
+                    IF(r.data, DATE_FORMAT(r.data, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS hora,
+                    r.preencheProfissionalID,
+                    pp.nome AS preencheProfissionalNome,
+    
+                    DATE_FORMAT(r.dataConclusao, '%Y-%m-%d') AS dataConclusao,
+                    IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaConclusao,
+                    r.aprovaProfissionalID,
+                    pap.nome AS aprovaProfissionalNome,
+    
+                    DATE_FORMAT(r.dataFim, '%Y-%m-%d') AS dataFim,
+                    DATE_FORMAT(r.dataFim, '%H:%i') AS horaFim,
+                    r.finalizaProfissionalID,
+                    pf.nome AS finalizaProfissionalNome,
+    
+                    u.nomeFantasia,
+                    u.cnpj
+                FROM recebimentomp AS r
+                    LEFT JOIN unidade AS u ON(r.unidadeID = u.unidadeID)
+                    LEFT JOIN profissional AS pa ON(r.abreProfissionalID = pa.profissionalID)
+                    LEFT JOIN profissional AS pp ON(r.preencheProfissionalID = pp.profissionalID)
+                    LEFT JOIN profissional AS pap ON(r.aprovaProfissionalID = pap.profissionalID)
+                    LEFT JOIN profissional AS pf ON(r.finalizaProfissionalID = pf.profissionalID)
+                    LEFT JOIN fornecedor AS f ON(r.fornecedorID = f.fornecedorID)
+                    LEFT JOIN unidade AS uf ON (f.cnpj = uf.cnpj)
+                    LEFT JOIN par_recebimentomp_modelo AS prm ON (prm.parRecebimentoMpModeloID = r.parRecebimentoMpModeloID)
+                WHERE r.recebimentoMpID = ? `
+                const [rows] = await db.promise().query(sqlResult, [id])
+                result = rows
+                modeloID = result[0].parRecebimentoMpModeloID
             }
-            const modeloID = result[0].parRecebimentoMpModeloID
 
             // Fields do header
             const sqlFields = `
@@ -200,7 +196,7 @@ class RecebimentoMpController {
                     const sqlOptions = `
                     SELECT ${alternatives.tabela}ID AS id, nome
                     FROM ${alternatives.tabela} 
-                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidade.unidadeID} ` : ``}
+                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidadeID} ` : ``}
                     ORDER BY nome ASC`
 
                     // Executar select e inserir no objeto alternatives
@@ -215,61 +211,64 @@ class RecebimentoMpController {
                 if (!row.tabela) { columns.push(row.nomeColuna) }
             }
 
-            // varrer resultFields 
-            for (const field of resultFields) {
-                if (field.tabela) {
-                    // Monta objeto pra preencher select 
-                    // Ex.: profissional:{
-                    //     id: 1,
-                    //     nome: 'Fulano'
-                    // }
-                    const sqlFieldData = `
-                    SELECT t.${field.nomeColuna} AS id, t.nome
-                    FROM recebimentomp AS r
-                        JOIN ${field.tabela} AS t ON(r.${field.nomeColuna} = t.${field.nomeColuna}) 
-                    WHERE r.recebimentoMpID = ${id} `
-                    let [temp] = await db.promise().query(sqlFieldData)
-                    if (temp) {
-                        field[field.tabela] = temp[0]
+            if (id && id > 0) {
+                // varrer resultFields 
+                for (const field of resultFields) {
+                    if (field.tabela) {
+                        // Monta objeto pra preencher select 
+                        // Ex.: profissional:{
+                        //     id: 1,
+                        //     nome: 'Fulano'
+                        // }
+                        const sqlFieldData = `
+                        SELECT t.${field.nomeColuna} AS id, t.nome
+                        FROM recebimentomp AS r
+                            JOIN ${field.tabela} AS t ON(r.${field.nomeColuna} = t.${field.nomeColuna}) 
+                        WHERE r.recebimentoMpID = ${id} `
+                        let [temp] = await db.promise().query(sqlFieldData)
+                        if (temp) {
+                            field[field.tabela] = temp[0]
+                        }
+                    } else {
+                        const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM recebimentomp WHERE recebimentoMpID = ? `;
+                        let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
+                        field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
                     }
-                } else {
-                    const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM recebimentomp WHERE recebimentoMpID = ? `;
-                    let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
-                    field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
                 }
-            }
 
-            //? Produtos
-            const sqlProdutos = `
-            SELECT
-                rp.recebimentoMpProdutoID,
-                rp.quantidade,
-                DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d') AS dataFabricacao,
-                rp.lote,
-                rp.nf,
-                DATE_FORMAT(rp.dataValidade, '%Y-%m-%d') AS dataValidade,
-                p.produtoID,
-                p.nome AS produto,
-                um.nome AS unidadeMedida,
-                a.apresentacaoID,
-                a.nome AS apresentacao                
-            FROM recebimentomp_produto AS rp
-                JOIN produto AS p ON(rp.produtoID = p.produtoID)
-                JOIN unidademedida AS um ON(p.unidadeMedidaID = um.unidadeMedidaID)
-                LEFT JOIN apresentacao AS a ON(rp.apresentacaoID = a.apresentacaoID)
-            WHERE rp.recebimentoMpID = ?
-            ORDER BY p.nome ASC`
-            const [resultProdutos] = await db.promise().query(sqlProdutos, [id])
+                //? Produtos
+                const sqlProdutos = `
+                SELECT
+                    rp.recebimentoMpProdutoID,
+                    rp.quantidade,
+                    DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d') AS dataFabricacao,
+                    rp.lote,
+                    rp.nf,
+                    DATE_FORMAT(rp.dataValidade, '%Y-%m-%d') AS dataValidade,
+                    p.produtoID,
+                    p.nome AS produto,
+                    um.nome AS unidadeMedida,
+                    a.apresentacaoID,
+                    a.nome AS apresentacao                
+                FROM recebimentomp_produto AS rp
+                    JOIN produto AS p ON(rp.produtoID = p.produtoID)
+                    JOIN unidademedida AS um ON(p.unidadeMedidaID = um.unidadeMedidaID)
+                    LEFT JOIN apresentacao AS a ON(rp.apresentacaoID = a.apresentacaoID)
+                WHERE rp.recebimentoMpID = ?
+                ORDER BY p.nome ASC`
+                const [rows] = await db.promise().query(sqlProdutos, [id])
+                resultProdutos = rows
 
-            for (const produto of resultProdutos) {
-                produto['checked_'] = true
-                produto['apresentacao'] = produto['apresentacaoID'] > 0 ? {
-                    id: produto['apresentacaoID'],
-                    nome: produto['apresentacao']
-                } : null
-                produto['produto'] = {
-                    id: produto['produtoID'],
-                    nome: produto['produto']
+                for (const produto of resultProdutos) {
+                    produto['checked_'] = true
+                    produto['apresentacao'] = produto['apresentacaoID'] > 0 ? {
+                        id: produto['apresentacaoID'],
+                        nome: produto['apresentacao']
+                    } : null
+                    produto['produto'] = {
+                        id: produto['produtoID'],
+                        nome: produto['produto']
+                    }
                 }
             }
 
@@ -279,6 +278,7 @@ class RecebimentoMpController {
             WHERE parRecebimentoMpModeloID = ? AND status = 1
             ORDER BY ordem ASC`
             const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
+            console.log("🚀 ~ resultBlocos:", resultBlocos)
 
             //? Blocos
             const sqlBloco = getSqlBloco()
@@ -376,53 +376,76 @@ class RecebimentoMpController {
             WHERE parRecebimentoMpModeloID = ? `
             const [resultCabecalhoModelo] = await db.promise().query(sqlCabecalhoModelo, [modeloID])
 
+            //? Dados da unidade, modelo e profissional
+            const sqlUnidade = `SELECT nomeFantasia, cnpj FROM unidade WHERE unidadeID = ?`
+            const [resultUnidade] = await db.promise().query(sqlUnidade, [unidadeID])
+            const sqlModelo = `SELECT parRecebimentoMpModeloID, nome, ciclo FROM par_recebimentomp_modelo WHERE parRecebimentoMpModeloID = ?`
+            const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
+            const sqlProfissional = `SELECT profissionalID, nome FROM profissional WHERE profissionalID = ?`
+            const [resultProfissional] = await db.promise().query(sqlProfissional, [profissionalID])
+            const unidade = {
+                modelo: {
+                    id: resultModelo[0]['parRecebimentoMpModeloID'] ?? 0,
+                    nome: resultModelo[0]['nome'],
+                    ciclo: resultModelo[0]['ciclo']
+                },
+                unidadeID: unidadeID,
+                nomeFantasia: resultUnidade[0]['nomeFantasia'],
+                cnpj: resultUnidade[0]['cnpj']
+            }
+
+            const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+            // hora atual 
+            const time = new Date().toISOString().split('T')[1].slice(0, 5)
+
+
             const data = {
                 unidade: unidade,
                 fieldsHeader: {
                     //? Fixos
                     abertoPor: {
-                        dataInicio: result[0].dataInicio,
-                        horaInicio: result[0].horaInicio,
-                        profissional: result[0].abreProfissionalID > 0 ? {
-                            id: result[0].abreProfissionalID,
-                            nome: result[0].abreProfissionalNome
+                        dataInicio: result[0]?.dataInicio ?? today,
+                        horaInicio: result[0]?.horaInicio ?? time,
+                        profissional: resultProfissional.length > 0 ? {
+                            id: resultProfissional[0]?.profissionalID,
+                            nome: resultProfissional[0]?.nome
                         } : null
                     },
                     //? Fields                    
-                    data: result[0].data,
-                    hora: result[0].hora,
-                    profissional: result[0].preencheProfissionalID > 0 ? {
-                        id: result[0].preencheProfissionalID,
-                        nome: result[0].preencheProfissionalNome
+                    data: result[0]?.data ?? today,
+                    hora: result[0]?.hora ?? time,
+                    profissional: resultProfissional.length > 0 ? {
+                        id: resultProfissional[0]?.profissionalID,
+                        nome: resultProfissional[0]?.nome
                     } : null,
-                    fornecedor: result[0].fornecedorID > 0 ? {
-                        id: result[0].fornecedorID,
-                        nome: result[0].nomeFornecedor,
-                        nome_: result[0].nomeFornecedor_,
-                        cnpj_: result[0].cnpjFornecedor,
-                        telefone: result[0].telefoneFornecedor,
-                        cidade: result[0].cidadeFornecedor,
-                        foto: result[0].fotoFornecedor ? `${process.env.BASE_URL_API}${result[0].fotoFornecedor}` : null,
-                        email: result[0].emailFornecedor,
-                        isUser: result[0].fornecedorIsUser == 1 ? true : false
+                    fornecedor: result[0]?.fornecedorID > 0 ? {
+                        id: result[0]?.fornecedorID,
+                        nome: result[0]?.nomeFornecedor,
+                        nome_: result[0]?.nomeFornecedor_,
+                        cnpj_: result[0]?.cnpjFornecedor,
+                        telefone: result[0]?.telefoneFornecedor,
+                        cidade: result[0]?.cidadeFornecedor,
+                        foto: result[0]?.fotoFornecedor ? `${process.env.BASE_URL_API}${result[0]?.fotoFornecedor}` : null,
+                        email: result[0]?.emailFornecedor,
+                        isUser: result[0]?.fornecedorIsUser == 1 ? true : false
                     } : null
                 },
                 fieldsFooter: {
-                    concluded: result[0].dataFim ? true : false,
+                    concluded: result[0]?.dataFim ? true : false,
 
-                    dataConclusao: result[0].dataConclusao,
-                    horaConclusao: result[0].horaConclusao,
-                    profissional: result[0].aprovaProfissionalID > 0 ? {
-                        id: result[0].aprovaProfissionalID,
-                        nome: result[0].aprovaProfissionalNome
+                    dataConclusao: result[0]?.dataConclusao,
+                    horaConclusao: result[0]?.horaConclusao,
+                    profissional: result[0]?.aprovaProfissionalID > 0 ? {
+                        id: result[0]?.aprovaProfissionalID,
+                        nome: result[0]?.aprovaProfissionalNome
                     } : null,
 
                     conclusion: {
-                        dataFim: result[0].dataFim,
-                        horaFim: result[0].horaFim,
-                        profissional: result[0].finalizaProfissionalID > 0 ? {
-                            id: result[0].finalizaProfissionalID,
-                            nome: result[0].finalizaProfissionalNome
+                        dataFim: result[0]?.dataFim,
+                        horaFim: result[0]?.horaFim,
+                        profissional: result[0]?.finalizaProfissionalID > 0 ? {
+                            id: result[0]?.finalizaProfissionalID,
+                            nome: result[0]?.finalizaProfissionalNome
                         } : null
                     }
                 },
@@ -432,10 +455,10 @@ class RecebimentoMpController {
                 grupoAnexo: [],
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
                 info: {
-                    obs: resultOtherInformations[0].obs,
-                    status: resultOtherInformations[0].status,
-                    naoConformidade: result[0].naoConformidade == 1 ? true : false,
-                    concluido: result[0].concluido == 1 ? true : false,
+                    obs: resultOtherInformations[0]?.obs,
+                    status: resultOtherInformations[0]?.status,
+                    naoConformidade: result[0]?.naoConformidade == 1 ? true : false,
+                    concluido: result[0]?.concluido == 1 ? true : false,
                     cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
                 },
                 link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
