@@ -135,7 +135,7 @@ class ItemController {
                     formulario: {
                         id: resultData[0].parFormularioID,
                         nome: resultData[0].formulario,
-                        opcoes: resultOptionsFormulario ?? []
+                        // opcoes: resultOptionsFormulario ?? []
                     },
                     nome: resultData[0].nome,
                     status: resultData[0].status,
@@ -145,10 +145,11 @@ class ItemController {
                         opcoes: resultOptionsAlternativa ?? []
                     },
                     ajuda: resultData[0].ajuda ?? '',
+                    opcoesForm: resultOptionsFormulario ?? [],
                     opcoes: resultOpcoes ?? [],
                     pending: pending
                 }
-            };
+            }
             res.status(200).json(result);
         } catch (error) {
             console.error("Erro ao buscar dados no banco de dados: ", error);
@@ -157,7 +158,12 @@ class ItemController {
     }
 
     async getNewData(req, res) {
+        const { type } = req.body
+
         try {
+            //? Pra trazer o formulário selecionado conforme o tipo (rota), no modal de novo item nas cnfg dos formulários
+            const indexDefaultForm = type === 'fornecedor' ? 0 : type === 'recebimento-mp' ? 1 : type === 'recebimentomp-naoconformidade' ? 2 : type === 'limpeza' ? 3 : null
+
             // Opções de seleção de formulário  
             const sqlOptionsFormulario = `SELECT parFormularioID AS id, nome FROM par_formulario`
             const [resultOptionsFormulario] = await db.promise().query(sqlOptionsFormulario);
@@ -179,11 +185,10 @@ class ItemController {
 
             const result = {
                 fields: {
-                    formulario: {
-                        id: resultOptionsFormulario[0].id,
-                        nome: resultOptionsFormulario[0].nome,
-                        opcoes: resultOptionsFormulario ?? []
-                    },
+                    formulario: indexDefaultForm ? {
+                        id: resultOptionsFormulario[indexDefaultForm].id,
+                        nome: resultOptionsFormulario[indexDefaultForm].nome,
+                    } : null,
                     nome: '',
                     status: 1,
                     alternativa: {
@@ -192,6 +197,7 @@ class ItemController {
                         opcoes: resultOptionsAlternativa ?? []
                     },
                     ajuda: '',
+                    opcoesForm: resultOptionsFormulario ?? [],
                     opcoes: resultOpcoes ?? []
                 }
             };

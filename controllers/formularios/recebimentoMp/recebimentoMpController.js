@@ -557,7 +557,7 @@ class RecebimentoMpController {
                 link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
                 naoConformidade: {
                     itens: await getNaoConformidades(id),
-                    // varrer array resultProdutos e retornar somente o objeto produto 
+                    // varrer array resultProdutos e retornar somente o objeto produto
                     produtos: resultProdutos.map(produto => {
                         return produto.produto
                     })
