@@ -104,10 +104,10 @@ class RecebimentoMpController {
             new Date(),
             profissionalID,
             unidadeID,
-            data.fieldsHeader?.profissional?.id ?? 1,
-            data.fieldsHeader?.fornecedor?.id ?? 1,
+            data.fieldsHeader?.profissional?.id ?? 0,
+            data.fieldsHeader?.fornecedor?.id ?? 0,
             data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : '00:00',
-            data.fieldsFooter?.profissional?.id ?? 1,
+            data.fieldsFooter?.profissional?.id ?? 0,
             data.info?.obs,
             data?.obsConclusao,
             '30',
@@ -483,6 +483,21 @@ class RecebimentoMpController {
             const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
             const time = new Date().toISOString().split('T')[1].slice(0, 5)
 
+            const profissionalLogado = resultProfissional.length > 0 ? {
+                id: resultProfissional[0]?.profissionalID,
+                nome: resultProfissional[0]?.nome
+            } : null
+
+            const abreProfissionalRecebimento = result[0]?.abreProfissionalID > 0 ? {
+                id: result[0]?.abreProfissionalID,
+                nome: result[0]?.abreProfissionalNome
+            } : null
+
+            const preencheProfissionalRecebimento = result[0]?.preencheProfissionalID > 0 ? {
+                id: result[0]?.preencheProfissionalID,
+                nome: result[0]?.preencheProfissionalNome
+            } : null
+
             const data = {
                 unidade: unidade,
                 fieldsHeader: {
@@ -490,18 +505,12 @@ class RecebimentoMpController {
                     abertoPor: {
                         dataInicio: result[0]?.dataInicio ?? today,
                         horaInicio: result[0]?.horaInicio ?? time,
-                        profissional: resultProfissional.length > 0 ? {
-                            id: resultProfissional[0]?.profissionalID,
-                            nome: resultProfissional[0]?.nome
-                        } : null
+                        profissional: type === 'new' ? profissionalLogado : abreProfissionalRecebimento,
                     },
                     //? Fields                    
                     data: result[0]?.data ?? today,
                     hora: result[0]?.hora ?? time,
-                    profissional: resultProfissional.length > 0 ? {
-                        id: resultProfissional[0]?.profissionalID,
-                        nome: resultProfissional[0]?.nome
-                    } : null,
+                    profissional: type === 'new' ? profissionalLogado : preencheProfissionalRecebimento,
                     fornecedor: result[0]?.fornecedorID > 0 ? {
                         id: result[0]?.fornecedorID,
                         nome: result[0]?.nomeFornecedor,
