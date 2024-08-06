@@ -97,11 +97,12 @@ class RecebimentoMpController {
         const logID = await executeLog('Criação de formulário do recebimento Mp', usuarioID, unidadeID, req)
 
         //? Insere em recebimentomp
-        const sqlInsert = `INSERT INTO recebimentomp SET parRecebimentoMpModeloID = ?, data = ?, dataInicio = ?, abreProfissionalID = ?, unidadeID = ?, preencheProfissionalID = ?, fornecedorID = ?, dataConclusao = ?, aprovaProfissionalID = ?, obs = ?, obsConclusao = ?, status = ?, naoConformidade = ?`
+        const sqlInsert = `INSERT INTO recebimentomp SET parRecebimentoMpModeloID = ?, dataInicio = ?, data = ?, abreProfissionalID = ?, unidadeID = ?, preencheProfissionalID = ?, fornecedorID = ?, dataConclusao = ?, aprovaProfissionalID = ?, obs = ?, obsConclusao = ?, status = ?, naoConformidade = ?`
         const recebimentoMpID = await executeQuery(sqlInsert, [
             data.unidade.modelo.id,
             new Date(),
-            new Date(),
+            data.fieldsHeader?.data + ' ' + data.fieldsHeader?.hora,
+            data.fieldsHeader?.hora,
             profissionalID,
             unidadeID,
             data.fieldsHeader?.profissional?.id ?? 0,
