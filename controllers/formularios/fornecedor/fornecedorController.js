@@ -25,7 +25,6 @@ const instructionsExistFornecedor = require('../../../email/template/fornecedor/
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class FornecedorController {
-
     async verifyIfHasModel(req, res) {
         const { id } = req.params
         const sql = `SELECT * FROM fornecedor WHERE fornecedorID = ?`
@@ -157,7 +156,6 @@ class FornecedorController {
             res.status(500).json({ error: 'Erro interno do servidor.' });
         }
     };
-
 
     async getFornecedoresAprovados(req, res) {
         const { unidadeID, recebimentoMpID, modelo } = req.body
@@ -487,7 +485,7 @@ class FornecedorController {
             const sql = `
             SELECT
                 f.fornecedorID AS id,
-                f.nome AS fornecedor,
+                CONCAT(f.nome, ' (', f.cnpj, ')') AS fornecedor,
                 IF(f.quemPreenche = 1, 'Fábrica', 'Fornecedor') as quemPreenche,
                 IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
                 IF(f.cnpj <> '', f.cnpj, '--') AS cnpj,
@@ -513,7 +511,7 @@ class FornecedorController {
             SELECT
                 f.fornecedorID AS id,
                 IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
-                IF(u.nomeFantasia <> '', u.nomeFantasia, '--') AS fabrica,
+                IF(u.nomeFantasia <> '', CONCAT(u.nomeFantasia, ' (', u.cnpj, ')'), '--') AS fabrica,
                 IF(u.cnpj <> '', u.cnpj, '--') AS cnpj,
                 IF(u.cidade <> '', CONCAT(u.cidade, '/', u.uf), '--') AS cidade,
                 IF(u.responsavel <> '', u.responsavel, '--') AS responsavel,
@@ -1755,7 +1753,6 @@ class FornecedorController {
         res.status(200).json(true)
     }
 }
-
 //* Functions
 
 const updateUnitySupplier = async (fixedValues, dynamicValues) => {
@@ -1809,6 +1806,7 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
 
     return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? result[0]['parFornecedorModeloID'] : 0
 }
+
 const getSqlBloco = () => {
     const sql = `
     SELECT pfbi.*, i.*, a.nome AS alternativa,

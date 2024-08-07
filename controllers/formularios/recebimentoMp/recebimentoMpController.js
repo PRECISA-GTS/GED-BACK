@@ -24,17 +24,23 @@ class RecebimentoMpController {
                 plm.nome AS modelo,
                 p.nome AS profissional, 
                 IF(l.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
+                COALESCE(GROUP_CONCAT(pd.nome SEPARATOR ', '), '--') AS produtos,
                 s.statusID,
                 s.nome AS status,
                 s.cor,
                 l.concluido,
-                l.naoConformidade
+                l.naoConformidade, 
+                IF(l.nf <> '', l.nf, '--') AS nf
             FROM recebimentomp AS l
                 JOIN par_recebimentomp_modelo AS plm ON (l.parRecebimentoMpModeloID = plm.parRecebimentoMpModeloID)
                 JOIN status AS s ON (l.status = s.statusID)
                 LEFT JOIN profissional AS p ON (l.preencheProfissionalID = p.profissionalID)
                 LEFT JOIN fornecedor AS f ON (l.fornecedorID = f.fornecedorID)
+
+                LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
+                LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
             WHERE l.unidadeID = ?
+            GROUP BY l.recebimentoMpID
             ORDER BY l.recebimentoMpID DESC, l.status ASC`
 
             const [result] = await db.promise().query(sql, [unidadeID])
@@ -54,6 +60,8 @@ class RecebimentoMpController {
                 plm.nome AS modelo,
                 p.nome AS profissional, 
                 CONCAT(u.nomeFantasia, ' (', u.cnpj, ')') AS fabrica,
+                COALESCE(GROUP_CONCAT(pd.nome SEPARATOR ', '), '--') AS produtos,
+                IF(l.nf <> '', l.nf, '--') AS nf,
                 s.nome AS status,
                 s.cor,
                 l.concluido,
@@ -65,6 +73,9 @@ class RecebimentoMpController {
                 LEFT JOIN profissional AS p ON (l.preencheProfissionalID = p.profissionalID)
                 LEFT JOIN unidade AS u ON (l.unidadeID = u.unidadeID)
                 JOIN fornecedor AS f ON (l.fornecedorID = f.fornecedorID)
+
+                LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
+                LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
             WHERE f.cnpj = ? AND rnc.fornecedorPreenche = 1
             GROUP BY l.recebimentoMpID
             ORDER BY l.recebimentoMpID DESC, l.status ASC`

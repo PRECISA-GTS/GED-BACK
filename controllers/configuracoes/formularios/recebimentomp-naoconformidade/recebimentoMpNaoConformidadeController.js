@@ -161,7 +161,7 @@ class RecebimentoMpNaoConformidadeController {
 
             //? Model
             const sqlModel = `INSERT INTO par_recebimentomp_naoconformidade_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES(?, ?, ?, ?, ?)`
-            const parRecebimentoMpNaoConformidadeModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', null, logID)
+            const parRecebimentoMpNaoConformidadeModeloID = await executeQuery(sqlModel, [model.nome, '0', model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', null, logID)
 
             return res.status(200).json({ id: parRecebimentoMpNaoConformidadeModeloID });
 
@@ -181,9 +181,9 @@ class RecebimentoMpNaoConformidadeController {
             //? Model
             const sqlModel = `
             UPDATE par_recebimentomp_naoconformidade_modelo
-            SET nome = ?, ciclo = ?, cabecalho = ?, status = ?
+            SET nome = ?, cabecalho = ?, status = ?
             WHERE parRecebimentoMpNaoConformidadeModeloID = ? `
-            await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
+            await executeQuery(sqlModel, [model?.nome, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
 
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_recebimentomp_naoconformidade_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_recebimentomp_naoconformidade_modelo_profissional WHERE parRecebimentoMpNaoConformidadeModeloID = ? `

@@ -171,7 +171,7 @@ class RecebimentoMpController {
 
             //? Model
             const sqlModel = `INSERT INTO par_recebimentomp_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
-            const parRecebimentoMpModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', null, logID)
+            const parRecebimentoMpModeloID = await executeQuery(sqlModel, [model.nome, '0', model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', null, logID)
 
             return res.status(200).json({ id: parRecebimentoMpModeloID });
 
@@ -191,9 +191,9 @@ class RecebimentoMpController {
             //? Model
             const sqlModel = `
             UPDATE par_recebimentomp_modelo
-            SET nome = ?, ciclo = ?, cabecalho = ?, status = ?
+            SET nome = ?, cabecalho = ?, status = ?
             WHERE parRecebimentoMpModeloID = ?`
-            await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', id, logID)
+            await executeQuery(sqlModel, [model?.nome, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', id, logID)
 
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_recebimentomp_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_recebimentomp_modelo_profissional WHERE parRecebimentoMpModeloID = ?`

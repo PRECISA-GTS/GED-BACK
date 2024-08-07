@@ -1,14 +1,10 @@
 const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 require('dotenv/config')
 const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling } = require('../../../defaults/functions');
-const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
+const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
-const { send } = require('process');
-const fornecedorPreenche = require('../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
-const sendMailConfig = require('../../../config/email');
 
 class LimpezaController {
     async getList(req, res) {
