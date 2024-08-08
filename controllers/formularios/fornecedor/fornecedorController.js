@@ -612,9 +612,9 @@ class FornecedorController {
                 const data = {
                     hasModel: false,
                     unidade: unidade,
-                    nomeFantasia: resultFornecedor[0]['nomeFantasia'],
+                    nomeFantasia: resultFornecedor[0]['nome'],
                     razaoSocial: resultFornecedor[0]['razaoSocial'],
-                    cnpj: resultFornecedor[0]['cnpj'],
+                    cnpj: resultFornecedor[0]['cnpjFornecedor'],
                     telefone: resultFornecedor[0]['telefone'],
                     email: resultFornecedor[0]['email'],
                     dataInicio: resultFornecedor[0]['dataInicio'],
