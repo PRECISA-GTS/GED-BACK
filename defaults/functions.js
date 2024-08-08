@@ -289,6 +289,9 @@ const deleteScheduling = async (type, id, unityID, logID) => {
         case 'fornecedor':
             route = '/formularios/fornecedor'
             break;
+        case 'limpeza':
+            route = '/formularios/limpeza'
+            break;
         default:
             route = '/'
             break;

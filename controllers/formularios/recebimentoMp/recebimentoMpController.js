@@ -275,7 +275,7 @@ class RecebimentoMpController {
                 WHERE r.recebimentoMpID = ? `
                 const [rows] = await db.promise().query(sqlResult, [id])
                 result = rows
-                modeloID = result[0].parRecebimentoMpModeloID
+                modeloID = result?.[0]?.parRecebimentoMpModeloID ?? 0
             }
 
             // Fields do header
@@ -738,6 +738,40 @@ class RecebimentoMpController {
         } catch (error) {
             console.log({ error, message: 'Erro ao salvar dados!' })
         }
+    }
+
+    async changeFormStatus(req, res) {
+        const { id } = req.params
+        const { status, observacao } = req.body
+        const { usuarioID, papelID, unidadeID } = req.body.auth
+
+        const logID = await executeLog('Edição do status do formulário do recebimento de MP', usuarioID, unidadeID, req)
+
+        const sql = `SELECT status FROM recebimentomp WHERE recebimentoMpID = ? `
+        const [result] = await db.promise().query(sql, [id])
+
+        //? É uma fábrica, e formulário já foi concluído
+        if (status && papelID == 1) {
+            const sqlUpdateStatus = `
+            UPDATE recebimentomp 
+            SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?  
+            WHERE recebimentoMpID = ?`
+            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
+                status,
+                null,
+                null,
+                null,
+                null,
+                '0',
+                id
+            ], 'update', 'recebimentomp', 'recebimentoMpID', id, logID)
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', status, observacao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+        }
+
+        res.status(200).json({ message: 'Ok' })
     }
 
     //* Salva os anexos do formulário na pasta uploads/anexo e insere os dados na tabela anexo

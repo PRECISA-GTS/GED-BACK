@@ -3,7 +3,6 @@ const { hasConflict, hasPending, deleteItem } = require('../../../config/default
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class ItemController {
-
     async getItemConfigs(req, res) {
         try {
             const { itemID, alternativaItemID } = req.body
@@ -185,7 +184,7 @@ class ItemController {
 
             const result = {
                 fields: {
-                    formulario: indexDefaultForm ? {
+                    formulario: indexDefaultForm !== null ? {
                         id: resultOptionsFormulario[indexDefaultForm].id,
                         nome: resultOptionsFormulario[indexDefaultForm].nome,
                     } : null,
@@ -381,7 +380,6 @@ class ItemController {
                 res.status(500).json(err);
             });
     }
-
 }
 
 module.exports = ItemController;

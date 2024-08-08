@@ -39,7 +39,6 @@ class FornecedorController {
 
     async updateLinkingForms(req, res) {
         const { riscos: data, unidadeID } = req.body;
-        console.log("🚀 ~ updateLinkingForms data, unidadeID:", data, unidadeID)
 
         try {
             if (!unidadeID || unidadeID == 'undefined') {

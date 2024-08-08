@@ -2,7 +2,7 @@ const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling, deleteScheduling } = require('../../../defaults/functions');
 const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
@@ -341,9 +341,7 @@ class LimpezaController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
-        console.log("🚀 ~ data:", data)
         const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
-
 
         try {
             if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
@@ -460,6 +458,42 @@ class LimpezaController {
         } catch (error) {
             console.log({ error, message: 'Erro ao atualizar os dados!' })
         }
+    }
+
+    async changeFormStatus(req, res) {
+        const { id } = req.params
+        const { status, observacao } = req.body
+        const { usuarioID, papelID, unidadeID } = req.body.auth
+
+        if (!status) { return res.status(400).json({ message: 'Status obrigatório!' }) }
+
+        const logID = await executeLog('Edição do status do formulário de limpeza', usuarioID, unidadeID, req)
+
+        const sql = `SELECT status FROM limpeza WHERE limpezaID = ? `
+        const [result] = await db.promise().query(sql, [id])
+
+        const sqlUpdateStatus = `
+        UPDATE limpeza 
+        SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?  
+        WHERE limpezaID = ?`
+        const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
+            status,
+            null,
+            null,
+            null,
+            null,
+            '0',
+            id
+        ], 'update', 'limpeza', 'limpezaID', id, logID)
+
+        //? Gera histórico de alteração de status
+        const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', status, observacao)
+        if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+        //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
+        deleteScheduling('limpeza', id, unidadeID, logID)
+
+        res.status(200).json({ message: 'Ok' })
     }
 
     //* Salva os anexos do formulário na pasta uploads/anexo e insere os dados na tabela anexo

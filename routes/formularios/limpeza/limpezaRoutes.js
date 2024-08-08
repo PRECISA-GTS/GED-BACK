@@ -13,6 +13,7 @@ limpezaRoutes.post(`${route}/insertData`, limpezaController.insertData);
 limpezaRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, limpezaController.deleteData);
 limpezaRoutes.get(`${route}/getModels/:unidadeID`, limpezaController.getModels);
 limpezaRoutes.post(`${route}/updateData/:id`, limpezaController.updateData);
+limpezaRoutes.post(`${route}/changeFormStatus/:id`, limpezaController.changeFormStatus);
 
 //? MULTER: Upload de arquivo
 limpezaRoutes.delete(`${route}/deleteAnexo/:id/:anexoID/:unidadeID/:usuarioID/:folder`, limpezaController.deleteAnexo);
