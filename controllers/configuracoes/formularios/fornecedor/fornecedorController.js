@@ -25,7 +25,16 @@ class FornecedorController {
             return acc;
         }, {});
 
-        return res.json(formatData);
+        // Array com os formulários vinculados
+        const ids = result.map(item => item.id);
+        const arrLinkedsForm = [...new Set(ids)];
+
+        const data = {
+            result: formatData,
+            arrLinkedsForm
+        }
+
+        return res.json(data);
     }
 
     async updateLinkingForms(req, res) {
