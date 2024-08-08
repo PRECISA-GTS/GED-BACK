@@ -315,6 +315,22 @@ const getVencimento = (ciclo) => {
     return formattedDate
 }
 
+const fractionedToFloat = (value) => {
+    if (!value) return 0
+
+    let formattedValue = String(value).replace(/\./g, '');
+    formattedValue = formattedValue.replace(',', '.');
+    return parseFloat(formattedValue);
+}
+
+const floatToFractioned = (value) => {
+    if (!value) return 0
+
+    return value
+        .toFixed(3)
+        .replace('.', ',')
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
 
 module.exports = {
     addFormStatusMovimentation,
@@ -325,5 +341,7 @@ module.exports = {
     getDocumentSignature,
     signedReport,
     createScheduling,
-    deleteScheduling
+    deleteScheduling,
+    fractionedToFloat,
+    floatToFractioned
 };

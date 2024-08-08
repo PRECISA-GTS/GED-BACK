@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, fractionedToFloat, floatToFractioned } = require('../../../defaults/functions');
 const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { send } = require('process');
@@ -147,7 +147,7 @@ class RecebimentoMpController {
                         const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                             recebimentoMpID,
                             produto.produtoID,
-                            produto.quantidade ?? null,
+                            fractionedToFloat(produto.quantidade) ?? null,
                             produto.dataFabricacao ?? null,
                             produto.lote ?? null,
                             produto.nf ?? null,
@@ -367,6 +367,7 @@ class RecebimentoMpController {
                         id: produto['produtoID'],
                         nome: produto['produto']
                     }
+                    produto['quantidade'] = floatToFractioned(produto['quantidade'])
                 }
             }
 
@@ -625,12 +626,12 @@ class RecebimentoMpController {
                     if (produto && produto.checked_) { //? Marcou o produto no checkbox
                         if (produto && produto.produtoID > 0) {
                             const sqlInsertProduto = `
-                        INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                        VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+                            INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                            VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
                             const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                                 id,
                                 produto.produtoID,
-                                produto.quantidade ?? null,
+                                fractionedToFloat(produto.quantidade) ?? null,
                                 produto.dataFabricacao ?? null,
                                 produto.lote ?? null,
                                 produto.nf ?? null,
