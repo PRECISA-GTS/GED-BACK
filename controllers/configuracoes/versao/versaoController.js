@@ -1,0 +1,129 @@
+const db = require('../../../config/db');
+const { deleteItem } = require('../../../config/defaultConfig');
+const { executeLog, executeQuery } = require('../../../config/executeQuery');
+
+class VersaoController {
+    async getList(req, res) {
+        try {
+            const getList = `
+            SELECT 
+                v.versaoID AS id, 
+                v.nome, 
+                DATE_FORMAT(v.data, '%d/%m/%Y') AS data,
+                GROUP_CONCAT(vi.descricao SEPARATOR ', ') AS itens
+            FROM versao AS v 
+                LEFT JOIN versao_item AS vi ON (v.versaoID = vi.versaoID)
+            GROUP BY v.versaoID
+            ORDER BY v.data DESC`
+            const [result] = await db.promise().query(getList);
+            res.status(200).json(result);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async getData(req, res) {
+        try {
+            const { id } = req.params
+
+            const sql = `
+            SELECT 
+                versaoID,
+                nome, 
+                DATE_FORMAT(data, '%Y-%m-%d') AS data
+            FROM versao                
+            WHERE versaoID = ?`
+            const [result] = await db.promise().query(sql, [id]);
+
+            const sqlVersaoItem = `
+            SELECT versaoItemID, descricao, link 
+            FROM versao_item 
+            WHERE versaoID = ?`
+            const [resultVersaoItem] = await db.promise().query(sqlVersaoItem, [id]);
+
+            const data = {
+                fields: {
+                    ...result[0],
+                    items: resultVersaoItem
+                }
+            };
+
+            return res.status(200).json(data)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async insertData(req, res) {
+        try {
+            const data = req.body
+
+            const logID = await executeLog('Criação de versão', data.usuarioID, 1, req)
+            const sql = 'INSERT INTO versao (nome, data) VALUES (?, ?)'
+            const today = new Date().toISOString().substring(0, 10)
+            const id = await executeQuery(sql, [data.fields.nome, data.fields.data ?? today], 'insert', 'versao', 'versaoID', null, logID)
+            if (!id) return
+
+            for (const item of data.fields.items) {
+                const sqlItem = 'INSERT INTO versao_item (versaoID, descricao, link) VALUES (?, ?, ?)'
+                await executeQuery(sqlItem, [id, item.descricao, item.link], 'insert', 'versao_item', 'versaoItemID', null, logID)
+            }
+
+            const values = {
+                id,
+                value: data.fields.nome
+            }
+
+            return res.status(200).json(values)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async updateData(req, res) {
+        try {
+            const { id } = req.params
+            const data = req.body
+
+            const logID = await executeLog('Atualização de versão', data.usuarioID, 1, req)
+            const sqlVersao = `UPDATE versao SET nome = ?, data = ? WHERE versaoID = ?`
+            await executeQuery(sqlVersao, [data.fields.nome, data.fields.data, id], 'update', 'versao', 'versaoID', id, logID)
+
+            const existingItems = await db.promise().query(`SELECT versaoItemID FROM versao_item WHERE versaoID = ?`, [id]);
+            const incomingItemIDs = new Set(data.fields.items.map(item => item.versaoItemID));
+
+            // Remove os itens que não estão mais na nova lista
+            for (const existingItem of existingItems[0]) {
+                if (!incomingItemIDs.has(existingItem.versaoItemID)) {
+                    const sqlItemDelete = `DELETE FROM versao_item WHERE versaoItemID = ? AND versaoID = ?`;
+                    await executeQuery(sqlItemDelete, [existingItem.versaoItemID, id], 'delete', 'versao_item', 'versaoItemID', existingItem.versaoItemID, logID);
+                }
+            }
+
+            // Atualiza ou insere os itens recebidos
+            for (const item of data.fields.items) {
+                if (item.versaoItemID) {
+                    const sqlItemUpdate = `UPDATE versao_item SET descricao = ?, link = ? WHERE versaoItemID = ? AND versaoID = ?`;
+                    await executeQuery(sqlItemUpdate, [item.descricao, item.link, item.versaoItemID, id], 'update', 'versao_item', 'versaoItemID', item.versaoItemID, logID);
+                } else {
+                    const sqlItemInsert = `INSERT INTO versao_item (versaoID, descricao, link) VALUES (?, ?, ?)`;
+                    await executeQuery(sqlItemInsert, [id, item.descricao, item.link], 'insert', 'versao_item', 'versaoID', id, logID);
+                }
+            }
+
+            return res.status(200).json({ message: 'Dados atualizados com sucesso' });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: "Erro interno no servidor" });
+        }
+    }
+
+    async deleteData(req, res) {
+        const { id, usuarioID } = req.params
+
+        const logID = await executeLog('Exclusão de versão', usuarioID, 1, req)
+        return deleteItem(id, ['versao', 'versao_item'], 'versaoID', logID, res)
+    }
+}
+
+module.exports = VersaoController;

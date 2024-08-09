@@ -81,6 +81,7 @@ const UsuarioRouter = require("./configuracoes/usuario/usuarioRoutes");
 const NotificacaoRouter = require("./configuracoes/notificacao/notificacaoRoutes");
 const ProdutosRouter = require("./configuracoes/produtos/produtosRoutes");
 const LogRouter = require("./configuracoes/log/logRoutes")
+const versaoRouter = require("./configuracoes/versao/versaoRoutes")
 
 routes.use(urlBase + '/configuracoes', formularios);
 routes.use(urlBase + '/configuracoes', formularioFornecedor);
@@ -92,6 +93,7 @@ routes.use(urlBase + '/configuracoes', UsuarioRouter);
 routes.use(urlBase + '/configuracoes', NotificacaoRouter);
 routes.use(urlBase + '/configuracoes', ProdutosRouter);
 routes.use(urlBase + '/configuracoes', LogRouter);
+routes.use(urlBase + '/configuracoes', versaoRouter);
 
 // Notificação
 const notificacao = require('./notificacao/notificacaoRoutes');
