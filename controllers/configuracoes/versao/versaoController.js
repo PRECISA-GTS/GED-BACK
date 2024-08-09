@@ -3,6 +3,41 @@ const { deleteItem } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class VersaoController {
+
+    async listVersions(req, res) {
+        try {
+            const sqlVersions = `
+            SELECT 
+                versaoID,
+                nome, 
+                DATE_FORMAT(data, '%d/%m/%Y') AS data                
+            FROM versao                
+            ORDER BY data DESC
+            LIMIT 20`;
+            const [result] = await db.promise().query(sqlVersions);
+
+            // Obter a lista de itens associados a cada versão de forma assíncrona
+            const promises = result.map(async (versao) => {
+                const sqlItems = `
+                SELECT
+                    descricao,
+                    link
+                FROM versao_item
+                WHERE versaoID = ?`;
+                const [itens] = await db.promise().query(sqlItems, [versao.versaoID]);
+                versao.itens = itens;
+            });
+
+            await Promise.all(promises);
+
+            res.status(200).json(result);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Erro ao listar as versões.' });
+        }
+    }
+
+
     async getList(req, res) {
         try {
             const getList = `
