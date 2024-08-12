@@ -387,13 +387,17 @@ class RecebimentoMpController {
                 for (const item of resultBloco) {
                     const sqlAlternativa = getAlternativasSql()
                     const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parRecebimentoMpModeloBlocoItemID']])
+
                     item.alternativas = resultAlternativa
 
                     // Cria objeto da resposta (se for de selecionar)
                     if (item?.respostaID > 0) {
                         item.resposta = {
                             id: item.respostaID,
-                            nome: item.resposta
+                            nome: item.resposta,
+                            anexo: resultAlternativa.find(a => a.id == item.respostaID)?.anexo,
+                            bloqueiaFormulario: resultAlternativa.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
+                            observacao: resultAlternativa.find(a => a.id == item.respostaID)?.observacao
                         }
                     }
 
@@ -404,6 +408,9 @@ class RecebimentoMpController {
                         LEFT JOIN item_opcao_anexo AS ioa ON(io.itemOpcaoID = ioa.itemOpcaoID)
                     WHERE io.itemID = ? AND io.alternativaItemID = ? `
                     const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID, item?.respostaID ?? 0])
+
+                    // laço em item.alternativas
+                    item['respostaAnexos'] = resultRespostaAnexos
 
                     if (resultRespostaAnexos.length > 0) {
                         for (const respostaAnexo of resultRespostaAnexos) {
@@ -433,12 +440,12 @@ class RecebimentoMpController {
                         }
                     }
 
-                    item['respostaConfig'] = {
-                        'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
-                        'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
-                        'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
-                        'anexosSolicitados': resultRespostaAnexos ?? []
-                    }
+                    // item['respostaConfig'] = {
+                    //     'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
+                    //     'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
+                    //     'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
+                    //     'anexosSolicitados': resultRespostaAnexos ?? []
+                    // }
                 }
 
                 bloco.itens = resultBloco
@@ -1233,11 +1240,13 @@ const getSqlBloco = () => {
 
 const getAlternativasSql = () => {
     const sql = `
-    SELECT ai.alternativaItemID AS id, ai.nome
+    SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
     FROM par_recebimentomp_modelo_bloco_item AS prbi 
     	JOIN item AS i ON (prbi.itemID = i.itemID)
         JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
         JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)
+
+        LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
     WHERE prbi.parRecebimentoMpModeloBlocoItemID = ? AND prbi.status = 1`
     return sql
 }
