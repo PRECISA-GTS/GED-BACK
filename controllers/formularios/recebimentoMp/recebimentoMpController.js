@@ -132,8 +132,10 @@ class RecebimentoMpController {
             //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
             let dataHeader = await formatFieldsToTable('par_recebimentomp', data.fields)
             const sqlHeader = `UPDATE recebimentomp SET ? WHERE recebimentoMpID = ${recebimentoMpID} `;
-            const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp', 'recebimentoMpID', recebimentoMpID, logID)
-            if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+            if (Object.keys(dataHeader).length > 0) {
+                const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp', 'recebimentoMpID', recebimentoMpID, logID)
+                if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+            }
         }
 
         //? Produtos
@@ -388,29 +390,16 @@ class RecebimentoMpController {
                     const sqlAlternativa = getAlternativasSql()
                     const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parRecebimentoMpModeloBlocoItemID']])
 
-                    item.alternativas = resultAlternativa
-
-                    // Cria objeto da resposta (se for de selecionar)
-                    if (item?.respostaID > 0) {
-                        item.resposta = {
-                            id: item.respostaID,
-                            nome: item.resposta,
-                            anexo: resultAlternativa.find(a => a.id == item.respostaID)?.anexo,
-                            bloqueiaFormulario: resultAlternativa.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
-                            observacao: resultAlternativa.find(a => a.id == item.respostaID)?.observacao
-                        }
-                    }
-
-                    // Obter os anexos vinculados a essa resposta
+                    // Obter os anexos vinculados as alternativas
                     const sqlRespostaAnexos = `
-                    SELECT io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
+                    SELECT io.alternativaItemID, io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
                     FROM item_opcao AS io 
-                        LEFT JOIN item_opcao_anexo AS ioa ON(io.itemOpcaoID = ioa.itemOpcaoID)
-                    WHERE io.itemID = ? AND io.alternativaItemID = ? `
-                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID, item?.respostaID ?? 0])
+                        JOIN item_opcao_anexo AS ioa ON(io.itemOpcaoID = ioa.itemOpcaoID)
+                    WHERE io.itemID = ? `
+                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
 
                     // laço em item.alternativas
-                    item['respostaAnexos'] = resultRespostaAnexos
+                    // item['respostaAnexos'] = resultRespostaAnexos
 
                     if (resultRespostaAnexos.length > 0) {
                         for (const respostaAnexo of resultRespostaAnexos) {
@@ -420,7 +409,11 @@ class RecebimentoMpController {
                             FROM anexo AS a 
                                 JOIN anexo_busca AS ab ON(a.anexoID = ab.anexoID)
                             WHERE ab.recebimentoMpID = ? AND ab.parRecebimentoMpModeloBlocoID = ? AND ab.itemOpcaoAnexoID = ? `
-                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [id, bloco.parRecebimentoMpModeloBlocoID, respostaAnexo.itemOpcaoAnexoID])
+                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
+                                id,
+                                bloco.parRecebimentoMpModeloBlocoID,
+                                respostaAnexo.itemOpcaoAnexoID
+                            ])
 
                             let anexos = []
                             for (const anexo of resultArquivosAnexadosResposta) {
@@ -435,8 +428,26 @@ class RecebimentoMpController {
                                 }
                                 anexos.push(objAnexo)
                             }
-
                             respostaAnexo['anexos'] = anexos ?? []
+                        }
+                    }
+
+                    //? Insere lista de anexos solicitados pras alternativas
+                    for (const alternativa of resultAlternativa) {
+                        alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
+                    }
+
+                    item.alternativas = resultAlternativa
+
+                    // Cria objeto da resposta (se for de selecionar)
+                    if (item?.respostaID > 0) {
+                        item.resposta = {
+                            id: item.respostaID,
+                            nome: item.resposta,
+                            anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
+                            bloqueiaFormulario: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.bloqueiaFormulario,
+                            observacao: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.observacao,
+                            anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
                         }
                     }
 
@@ -490,9 +501,9 @@ class RecebimentoMpController {
             const [resultProfissional] = await db.promise().query(sqlProfissional, [profissionalID])
             const unidade = {
                 modelo: {
-                    id: resultModelo[0]['parRecebimentoMpModeloID'] ?? 0,
-                    nome: resultModelo[0]['nome'],
-                    ciclo: resultModelo[0]['ciclo']
+                    id: resultModelo[0]?.parRecebimentoMpModeloID ?? 0,
+                    nome: resultModelo[0]?.nome,
+                    ciclo: resultModelo[0]?.ciclo
                 },
                 unidadeID: unidadeID,
                 nomeFantasia: resultUnidade[0]['nomeFantasia'],
@@ -619,9 +630,11 @@ class RecebimentoMpController {
             if (data.fields) {
                 //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
                 let dataHeader = await formatFieldsToTable('par_recebimentomp', data.fields)
-                const sqlHeader = `UPDATE recebimentomp SET ? WHERE recebimentoMpID = ${id} `;
-                const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp', 'recebimentoMpID', id, logID)
-                if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                if (Object.keys(dataHeader).length > 0) {
+                    const sqlHeader = `UPDATE recebimentomp SET ? WHERE recebimentoMpID = ${id} `;
+                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp', 'recebimentoMpID', id, logID)
+                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                }
             }
 
             //? Produtos

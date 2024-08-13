@@ -971,9 +971,11 @@ class FornecedorController {
         if (data.fields.length > 0) {
             //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
             dataHeader = await formatFieldsToTable('par_fornecedor', data.fields)
-            const sqlHeader = `UPDATE fornecedor SET ? WHERE fornecedorID = ${id} `;
-            const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'fornecedor', 'fornecedorID', id, logID)
-            if (!resultHeader) { return res.status(500).json('Error'); }
+            if (Object.keys(dataHeader).length > 0) {
+                const sqlHeader = `UPDATE fornecedor SET ? WHERE fornecedorID = ${id} `;
+                const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'fornecedor', 'fornecedorID', id, logID)
+                if (!resultHeader) { return res.status(500).json('Error'); }
+            }
         }
 
         //* Atualiza dados na unidade do fornecedor (pelo CNPJ)
