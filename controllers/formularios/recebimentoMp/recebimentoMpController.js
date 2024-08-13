@@ -398,9 +398,6 @@ class RecebimentoMpController {
                     WHERE io.itemID = ? `
                     const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
 
-                    // laço em item.alternativas
-                    // item['respostaAnexos'] = resultRespostaAnexos
-
                     if (resultRespostaAnexos.length > 0) {
                         for (const respostaAnexo of resultRespostaAnexos) {
                             //? Verifica se cada anexo exigido existe 1 ou mais arquivos anexados
@@ -443,21 +440,13 @@ class RecebimentoMpController {
                         item.resposta = {
                             id: item.respostaID,
                             nome: item.resposta,
+                            bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
+                            observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
                             anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
-                            bloqueiaFormulario: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.bloqueiaFormulario,
-                            observacao: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.observacao,
                             anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
                         }
                     }
-
-                    // item['respostaConfig'] = {
-                    //     'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
-                    //     'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
-                    //     'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
-                    //     'anexosSolicitados': resultRespostaAnexos ?? []
-                    // }
                 }
-
                 bloco.itens = resultBloco
             }
 
@@ -581,7 +570,7 @@ class RecebimentoMpController {
                     status: resultOtherInformations[0]?.status ?? 10,
                     naoConformidade: result[0]?.naoConformidade == 1 ? true : false,
                     concluido: result[0]?.concluido == 1 ? true : false,
-                    cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
+                    cabecalhoModelo: resultCabecalhoModelo?.[0]?.cabecalho
                 },
                 link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
                 naoConformidade: {

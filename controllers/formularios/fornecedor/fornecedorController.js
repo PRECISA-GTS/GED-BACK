@@ -847,22 +847,13 @@ class FornecedorController {
                         item.resposta = {
                             id: item.respostaID,
                             nome: item.resposta,
+                            bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
+                            observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
                             anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
-                            bloqueiaFormulario: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.bloqueiaFormulario,
-                            observacao: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.observacao,
                             anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
                         }
                     }
-
-                    // item['respostaConfig'] = {
-                    //     'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
-                    //     'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
-                    //     'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
-                    //     'anexosSolicitados': resultRespostaAnexos ?? []
-                    // }
-
                 }
-
                 bloco.itens = resultBloco
             }
 
