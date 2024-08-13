@@ -436,7 +436,6 @@ class RecebimentoMpController {
                     for (const alternativa of resultAlternativa) {
                         alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
                     }
-
                     item.alternativas = resultAlternativa
 
                     // Cria objeto da resposta (se for de selecionar)

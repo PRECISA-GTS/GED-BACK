@@ -797,21 +797,13 @@ class FornecedorController {
                     const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parFornecedorModeloBlocoItemID']])
                     item.alternativas = resultAlternativa
 
-                    // Cria objeto da resposta (se for de selecionar)
-                    if (item?.respostaID > 0) {
-                        item.resposta = {
-                            id: item.respostaID,
-                            nome: item.resposta
-                        }
-                    }
-
-                    // Obter os anexos vinculados a essa resposta
+                    // Obter os anexos vinculados as alternativas
                     const sqlRespostaAnexos = `
-                    SELECT io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
+                    SELECT io.alternativaItemID, io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
                     FROM item_opcao AS io 
-                        LEFT JOIN item_opcao_anexo AS ioa ON (io.itemOpcaoID = ioa.itemOpcaoID)
-                    WHERE io.itemID = ? AND io.alternativaItemID = ?`
-                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID, item?.respostaID ?? 0])
+                        JOIN item_opcao_anexo AS ioa ON (io.itemOpcaoID = ioa.itemOpcaoID)
+                    WHERE io.itemID = ?`
+                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
 
                     if (resultRespostaAnexos.length > 0) {
                         for (const respostaAnexo of resultRespostaAnexos) {
@@ -821,7 +813,11 @@ class FornecedorController {
                             FROM anexo AS a 
                                 JOIN anexo_busca AS ab ON (a.anexoID = ab.anexoID)
                             WHERE ab.fornecedorID = ? AND ab.parFornecedorModeloBlocoID = ? AND ab.itemOpcaoAnexoID = ?`
-                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [id, bloco.parFornecedorModeloBlocoID, respostaAnexo.itemOpcaoAnexoID])
+                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
+                                id,
+                                bloco.parFornecedorModeloBlocoID,
+                                respostaAnexo.itemOpcaoAnexoID
+                            ])
 
                             let anexos = []
                             for (const anexo of resultArquivosAnexadosResposta) {
@@ -836,17 +832,34 @@ class FornecedorController {
                                 }
                                 anexos.push(objAnexo)
                             }
-
                             respostaAnexo['anexos'] = anexos ?? []
                         }
                     }
 
-                    item['respostaConfig'] = {
-                        'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
-                        'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
-                        'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
-                        'anexosSolicitados': resultRespostaAnexos ?? []
+                    //? Insere lista de anexos solicitados pras alternativas
+                    for (const alternativa of resultAlternativa) {
+                        alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
                     }
+                    item.alternativas = resultAlternativa
+
+                    // Cria objeto da resposta (se for de selecionar)
+                    if (item?.respostaID > 0) {
+                        item.resposta = {
+                            id: item.respostaID,
+                            nome: item.resposta,
+                            anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
+                            bloqueiaFormulario: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.bloqueiaFormulario,
+                            observacao: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.observacao,
+                            anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
+                        }
+                    }
+
+                    // item['respostaConfig'] = {
+                    //     'anexo': resultRespostaAnexos[0]?.anexo ?? 0,
+                    //     'bloqueiaFormulario': resultRespostaAnexos[0]?.bloqueiaFormulario ?? 0,
+                    //     'observacao': resultRespostaAnexos[0]?.observacao ?? 0,
+                    //     'anexosSolicitados': resultRespostaAnexos ?? []
+                    // }
 
                 }
 
@@ -1835,11 +1848,13 @@ const getSqlBloco = () => {
 
 const getAlternativasSql = () => {
     const sql = `
-    SELECT ai.alternativaItemID AS id, ai.nome
+    SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
     FROM par_fornecedor_modelo_bloco_item AS pfbi 
     	JOIN item AS i ON (pfbi.itemID = i.itemID)
         JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
         JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)
+
+        LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
     WHERE pfbi.parFornecedorModeloBlocoItemID = ? AND pfbi.status = 1`
     return sql
 }
