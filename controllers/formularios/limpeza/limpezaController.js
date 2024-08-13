@@ -2,7 +2,7 @@ const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling, deleteScheduling } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling, deleteScheduling, getDateNow, getTimeNow } = require('../../../defaults/functions');
 const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
@@ -79,18 +79,18 @@ class LimpezaController {
                 prm.ciclo AS modeloCiclo,
 
                 r.unidadeID,
-                DATE_FORMAT(r.dataInicio, '%Y-%m-%d') AS dataInicio,
-                DATE_FORMAT(r.dataInicio, '%H:%i') AS horaInicio,
+                IF(r.dataInicio, DATE_FORMAT(r.dataInicio, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS dataInicio,
+                IF(r.dataInicio, DATE_FORMAT(r.dataInicio, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaInicio,
                 r.abreProfissionalID,
                 pa.nome AS abreProfissionalNome,
                 r.concluido,
 
-                DATE_FORMAT(r.data, '%Y-%m-%d') AS data,
+                IF(r.data, DATE_FORMAT(r.data, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS data,
                 IF(r.data, DATE_FORMAT(r.data, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS hora,
                 r.preencheProfissionalID,
                 pp.nome AS preencheProfissionalNome,
 
-                DATE_FORMAT(r.dataConclusao, '%Y-%m-%d') AS dataConclusao,
+                IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS dataConclusao,
                 IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaConclusao,
                 r.aprovaProfissionalID,
                 pap.nome AS aprovaProfissionalNome,
@@ -286,13 +286,17 @@ class LimpezaController {
             WHERE parLimpezaModeloID = ? `
             const [resultCabecalhoModelo] = await db.promise().query(sqlCabecalhoModelo, [modeloID])
 
+            const today = getDateNow()
+            const time = getTimeNow()
+            console.log("🚀 ~ time:", time)
+
             const data = {
                 unidade: unidade,
                 fieldsHeader: {
                     //? Fixos
                     abertoPor: {
-                        dataInicio: result[0].dataInicio,
-                        horaInicio: result[0].horaInicio,
+                        dataInicio: result[0]?.dataInicio ?? today,
+                        horaInicio: result[0]?.horaInicio ?? time,
                         profissional: result[0].abreProfissionalID > 0 ? {
                             id: result[0].abreProfissionalID,
                             nome: result[0].abreProfissionalNome
@@ -309,8 +313,8 @@ class LimpezaController {
                 fieldsFooter: {
                     concluded: result[0].dataFim ? true : false,
 
-                    dataConclusao: result[0].dataConclusao,
-                    horaConclusao: result[0].horaConclusao,
+                    dataConclusao: result[0]?.dataConclusao ?? today,
+                    horaConclusao: result[0]?.horaConclusao ?? time,
                     profissional: result[0].aprovaProfissionalID > 0 ? {
                         id: result[0].aprovaProfissionalID,
                         nome: result[0].aprovaProfissionalNome

@@ -15,7 +15,9 @@ const {
     getDocumentSignature,
     signedReport,
     createScheduling,
-    deleteScheduling
+    deleteScheduling,
+    getDateNow,
+    getTimeNow
 } = require('../../../defaults/functions');
 
 //? Email
@@ -553,8 +555,8 @@ class FornecedorController {
                 pab.profissionalID AS profissionalAbriuID,
                 pab.nome AS profissionalAbriuNome,
                 
-                DATE_FORMAT(f.data, '%Y-%m-%d') AS data, 
-                DATE_FORMAT(f.data, '%H:%i') AS hora, 
+                IF(f.data, DATE_FORMAT(f.data, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS data, 
+                IF(f.data, DATE_FORMAT(f.data, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS hora, 
                 us.usuarioID,
                 us.nome AS preenche,
                 f.quemPreenche,            
@@ -887,22 +889,25 @@ class FornecedorController {
             WHERE parFornecedorModeloID = ?`
             const [resultCabecalhoModelo] = await db.promise().query(sqlCabecalhoModelo, [modeloID])
 
+            const today = getDateNow()
+            const time = getTimeNow()
+
             const data = {
                 hasModel: true,
                 unidade: unidade,
                 fieldsHeader: {
                     //? Fixos
                     abertoPor: {
-                        dataInicio: resultFornecedor[0].dataInicio,
-                        horaInicio: resultFornecedor[0].horaInicio,
+                        dataInicio: resultFornecedor[0]?.dataInicio ?? today,
+                        horaInicio: resultFornecedor[0]?.horaInicio ?? time,
                         profissional: resultFornecedor[0].profissionalAbriuID > 0 ? {
                             id: resultFornecedor[0].profissionalAbriuID,
                             nome: resultFornecedor[0].profissionalAbriuNome
                         } : null
                     },
                     //? Fields                    
-                    data: resultFornecedor[0].data,
-                    hora: resultFornecedor[0].hora,
+                    data: resultFornecedor[0]?.data ?? today,
+                    hora: resultFornecedor[0]?.hora ?? time,
                     profissional: resultFornecedor[0].usuarioID > 0 ? {
                         id: resultFornecedor[0].usuarioID,
                         nome: resultFornecedor[0].preenche

@@ -5,6 +5,7 @@ const fs = require('fs');
 const axios = require('axios');
 const FormData = require('form-data');
 const path = require('path');
+const timeZone = 'America/Sao_Paulo'
 
 const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAnterior, statusAtual, observacao) => {
 
@@ -320,7 +321,8 @@ const fractionedToFloat = (value) => {
 
     let formattedValue = String(value).replace(/\./g, '');
     formattedValue = formattedValue.replace(',', '.');
-    return parseFloat(formattedValue);
+    formattedValue = parseFloat(formattedValue);
+    return formattedValue
 }
 
 const floatToFractioned = (value) => {
@@ -330,6 +332,22 @@ const floatToFractioned = (value) => {
         .toFixed(3)
         .replace('.', ',')
         .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+
+const getDateNow = (format = 'yyyy-mm-dd') => {
+    let today = new Date().toLocaleDateString('pt-BR', { timeZone: timeZone })
+
+    if (format == 'yyyy-mm-dd') {
+        today = today.split('/').reverse().join('-')
+    }
+
+    return today
+}
+
+const getTimeNow = () => {
+    const timeNow = new Date().toLocaleTimeString('pt-BR', { timeZone: timeZone })
+    return timeNow
 }
 
 module.exports = {
@@ -343,5 +361,7 @@ module.exports = {
     createScheduling,
     deleteScheduling,
     fractionedToFloat,
-    floatToFractioned
+    floatToFractioned,
+    getDateNow,
+    getTimeNow
 };
