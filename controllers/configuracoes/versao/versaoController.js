@@ -1,8 +1,19 @@
 const db = require('../../../config/db');
 const { deleteItem } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
+const { version } = require('../../../data/version');
 
 class VersaoController {
+    async getLatestVersion(req, res) {
+        try {
+            console.log('chegouuu: ', version)
+            const latestVersion = version
+            res.status(200).json(latestVersion);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Erro ao buscar a versão mais recente.' });
+        }
+    }
 
     async listVersions(req, res) {
         try {
@@ -36,7 +47,6 @@ class VersaoController {
             res.status(500).json({ message: 'Erro ao listar as versões.' });
         }
     }
-
 
     async getList(req, res) {
         try {

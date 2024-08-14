@@ -13,4 +13,6 @@ versaoRoutes.post(`${route}/new/insertData`, versaoController.insertData);
 versaoRoutes.post(`${route}/listVersions`, versaoController.listVersions);
 versaoRoutes.delete(`${route}/:id/:unidadeID/:usuarioID`, versaoController.deleteData);
 
+versaoRoutes.get(`${route}/getLatestVersion`, versaoController.getLatestVersion);
+
 module.exports = versaoRoutes;
