@@ -96,7 +96,7 @@ class FabricaController {
 const getSupplierNonCompliance = async (unidadeID) => {
     const sqlSupplierNonCompliance = `    
     SELECT 
-        f.nome, 
+        COALESCE(f.nome, 'N/I') AS nome,
         ROUND(
             (COUNT(r.recebimentompID) / 
             (SELECT COUNT(*)

@@ -6,7 +6,6 @@ const { version } = require('../../../data/version');
 class VersaoController {
     async getLatestVersion(req, res) {
         try {
-            console.log('chegouuu: ', version)
             const latestVersion = version
             res.status(200).json(latestVersion);
         } catch (error) {
