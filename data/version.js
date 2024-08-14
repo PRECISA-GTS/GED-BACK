@@ -1,3 +1,3 @@
 module.exports = {
-    version: '240814'
+    version: '240815'
 };
