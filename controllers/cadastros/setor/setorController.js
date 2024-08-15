@@ -46,6 +46,7 @@ class SetorController {
             const sqlProfissionais = `
             SELECT 
                 ps.profissionalSetorID AS id, 
+                p.profissionalID, 
                 p.nome, 
                 DATE_FORMAT(ps.dataInicio, '%Y-%m-%d') AS dataInicio,
                 DATE_FORMAT(ps.dataFim, '%Y-%m-%d') AS dataFim, 
@@ -60,7 +61,7 @@ class SetorController {
                 return {
                     ...row,
                     profissional: {
-                        id: row.id,
+                        id: row.profissionalID,
                         nome: row.nome
                     }
                 }
