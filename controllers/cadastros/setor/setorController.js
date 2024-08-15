@@ -131,7 +131,7 @@ class SetorController {
                 if (item.id) {
                     const sqlItemUpdate = `UPDATE profissional_setor SET profissionalID = ?, dataInicio = ?, dataFim = ?, status = ? WHERE profissionalSetorID = ? AND setorID = ?`;
                     await executeQuery(sqlItemUpdate, [
-                        item.id,
+                        item.profissional.id,
                         item.dataInicio,
                         item.dataFim ?? null,
                         item.dataFim ? 0 : 1, // Status
