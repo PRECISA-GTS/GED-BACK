@@ -133,7 +133,7 @@ class SetorController {
                         item.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.status ? 1 : 0,
+                        item.dataFim ? 0 : 1, // Status
                         item.id,
                         id
                     ], 'update', 'profissional_setor', 'profissionalSetorID', item.id, logID);
@@ -144,7 +144,7 @@ class SetorController {
                         item.profissional.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.status ? 1 : 0
+                        item.dataFim ? 0 : 1 // Status
                     ], 'insert', 'profissional_setor', 'setorID', id, logID);
                 }
             }
