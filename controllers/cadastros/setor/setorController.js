@@ -119,9 +119,9 @@ class SetorController {
 
             // Remove os itens que não estão mais na nova lista
             for (const existingItem of existingItems[0]) {
-                if (!incomingItemIDs.has(existingItem.id)) {
+                if (!incomingItemIDs.has(existingItem.profissionalSetorID)) {
                     const sqlItemDelete = `DELETE FROM profissional_setor WHERE profissionalSetorID = ? AND setorID = ?`;
-                    await executeQuery(sqlItemDelete, [existingItem.id, id], 'delete', 'profissional_setor', 'profissionalSetorID', existingItem.id, logID);
+                    await executeQuery(sqlItemDelete, [existingItem.profissionalSetorID, id], 'delete', 'profissional_setor', 'profissionalSetorID', existingItem.profissionalSetorID, logID);
                 }
             }
 
