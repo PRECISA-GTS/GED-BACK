@@ -7,13 +7,13 @@ class AtividadeController {
         try {
             const getList = `
             SELECT 
-            a.atividadeID AS id, 
-            a.nome, 
-            e.nome AS status,
-            e.cor
+                a.atividadeID AS id, 
+                a.nome, 
+                e.nome AS status,
+                e.cor
             FROM atividade AS a
-            JOIN status as e ON (a.status = e.statusID);
-            `
+                JOIN status as e ON (a.status = e.statusID)
+            ORDER BY a.nome ASC`
             const [resultGetList] = await db.promise().query(getList);
             res.status(200).json(resultGetList);
         } catch (error) {

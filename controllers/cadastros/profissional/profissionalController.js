@@ -44,7 +44,7 @@ class ProfissionalController {
     }
 
     async getList(req, res) {
-        const { unidadeID, papelID, admin } = req.query
+        const { unidadeID, papelID } = req.query
 
         if (!unidadeID || !papelID) {
             return res.status(400).json({ message: "Dados inválidos!" });
@@ -56,7 +56,8 @@ class ProfissionalController {
             a.profissionalID AS id,
             a.nome,
             e.nome AS status,
-            e.cor
+            e.cor,
+            a.status AS statusID
         FROM profissional AS a 
             JOIN status AS e ON (a.status = e.statusID)
         WHERE a.unidadeID = ?`
