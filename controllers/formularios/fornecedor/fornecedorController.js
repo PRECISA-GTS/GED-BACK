@@ -489,7 +489,7 @@ class FornecedorController {
                 f.fornecedorID AS id,
                 CONCAT(f.nome, ' (', f.cnpj, ')') AS fornecedor,
                 IF(f.quemPreenche = 1, 'Fábrica', 'Fornecedor') as quemPreenche,
-                IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
+                IF(MONTH(f.data) > 0, DATE_FORMAT(f.data, "%d/%m/%Y"), '--') AS data,
                 IF(f.cnpj <> '', f.cnpj, '--') AS cnpj,
                 CONCAT_WS('/', f.cidade, f.estado) AS cidade,
                 e.statusID,
@@ -512,7 +512,7 @@ class FornecedorController {
             const sql = `
             SELECT
                 f.fornecedorID AS id,
-                IF(MONTH(f.dataInicio) > 0, DATE_FORMAT(f.dataInicio, "%d/%m/%Y"), '--') AS data,
+                IF(MONTH(f.data) > 0, DATE_FORMAT(f.data, "%d/%m/%Y"), '--') AS data,
                 IF(u.nomeFantasia <> '', CONCAT(u.nomeFantasia, ' (', u.cnpj, ')'), '--') AS fabrica,
                 IF(u.cnpj <> '', u.cnpj, '--') AS cnpj,
                 IF(u.cidade <> '', CONCAT(u.cidade, '/', u.uf), '--') AS cidade,
@@ -527,7 +527,7 @@ class FornecedorController {
                 LEFT JOIN produto AS p ON (fp.produtoID = p.produtoID)
             WHERE f.cnpj = "${cnpj}"
             GROUP BY f.fornecedorID
-            ORDER BY f.fornecedorID DESC, f.status ASC`
+            ORDER BY f.data DESC, f.status ASC`
             const [result] = await db.promise().query(sql)
             return res.status(200).json(result);
         }

@@ -4,13 +4,11 @@ const path = require('path');
 const fs = require('fs');
 const { hasPending, deleteItem, getMenuPermissions, hasConflict, criptoMd5 } = require('../../../config/defaultConfig');
 const multer = require('multer');
-const { accessPermissions } = require('../../../defaults/functions');
+const { accessPermissions, getDateNow } = require('../../../defaults/functions');
 const alterPassword = require('../../../email/template/user/alterPassword');
 const newUser = require('../../../email/template/user/newUser');
 const sendMailConfig = require('../../../config/email');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
-
-
 
 class ProfissionalController {
     //? Obtém os profissionais pra assinatura
@@ -79,14 +77,13 @@ class ProfissionalController {
     async getData(req, res) {
         const { id } = req.params
         let { unidadeID, admin } = req.query
-        console.log("🚀 ~ unidadeID, admin:", unidadeID, admin)
+
         try {
-
-            // if (id == 1 && admin == 1) { unidadeID = 0 }
-
             // Dados do profissional
             const dataUser = `
-            SELECT *
+            SELECT 
+                a.*,
+                DATE_FORMAT(a.dataNascimento, '%Y-%m-%d') AS dataNascimento
             FROM profissional AS a 
             WHERE a.profissionalID = ? AND a.unidadeID = ?`
             const [resultDataUser] = await db.promise().query(dataUser, [id, unidadeID])
@@ -95,7 +92,7 @@ class ProfissionalController {
             const formacaoCargo = `
             SELECT 
                 a.profissionalCargoID AS id,
-                a.data,
+                DATE_FORMAT(a.data, '%Y-%m-%d') AS data,
                 a.formacaoCargo,
                 a.conselho,
                 a.dataInativacao,
@@ -130,20 +127,13 @@ class ProfissionalController {
 
     async getNewData(req, res) {
         try {
-            const today = new Date();
-            today.setDate(today.getDate() + 1);
-
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-
-            const formattedDate = `${year}-${month}-${day}`;
+            const today = getDateNow()
 
             const values = {
                 fields: {},
                 cargosFuncoes: [
                     {
-                        data: formattedDate
+                        data: today
                     }
                 ],
                 menu: await getMenuPermissions(1, 0, 1)
@@ -210,21 +200,19 @@ class ProfissionalController {
                 // Envia email para email do profissional avisando que o mesmo agora é um usuário
                 // Dados do profissional
                 const sqlProfessional = `
-                    SELECT 
-                        a.nome,
-                        b.formacaoCargo AS cargo
-                    FROM profissional AS a 
-                        LEFT JOIN profissional_cargo AS b ON (a.profissionalID = b.profissionalID)
-                    WHERE a.profissionalID = ?
-                    `
+                SELECT 
+                    a.nome,
+                    b.formacaoCargo AS cargo
+                FROM profissional AS a 
+                    LEFT JOIN profissional_cargo AS b ON (a.profissionalID = b.profissionalID)
+                WHERE a.profissionalID = ?`
                 const [resultSqlProfessional] = await db.promise().query(sqlProfessional, [data.usualioLogado])
 
                 //   Obtem dados da fabrica
                 const sqlUnity = `
-                    SELECT a.*   
-                    FROM unidade AS a
-                    WHERE a.unidadeID = ?;
-                    `
+                SELECT a.*   
+                FROM unidade AS a
+                WHERE a.unidadeID = ?`
                 const [resultUnity] = await db.promise().query(sqlUnity, [data.fields.unidadeID])
 
                 const endereco = {
@@ -269,7 +257,6 @@ class ProfissionalController {
 
                 return res.status(200).json(profissionalID)
             }
-
 
             return res.status(200).json(profissionalID)
         } catch (error) {

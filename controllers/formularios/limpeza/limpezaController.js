@@ -27,7 +27,7 @@ class LimpezaController {
             JOIN status AS s ON (l.status = s.statusID)
             LEFT JOIN profissional AS p ON (l.preencheProfissionalID = p.profissionalID)
         WHERE l.unidadeID = ?
-        ORDER BY l.limpezaID DESC, l.status ASC`
+        ORDER BY l.data DESC, l.status ASC`
 
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.json(result);

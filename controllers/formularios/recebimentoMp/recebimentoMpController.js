@@ -41,7 +41,7 @@ class RecebimentoMpController {
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
             WHERE l.unidadeID = ?
             GROUP BY l.recebimentoMpID
-            ORDER BY l.recebimentoMpID DESC, l.status ASC`
+            ORDER BY l.data DESC, l.status ASC`
 
             const [result] = await db.promise().query(sql, [unidadeID])
             return res.json(result);
