@@ -89,6 +89,32 @@ class ProfissionalController {
             WHERE a.profissionalID = ? AND a.unidadeID = ?`
             const [resultDataUser] = await db.promise().query(dataUser, [id, unidadeID])
 
+            // Setores do profissional
+            const sqlSetor = `
+            SELECT 
+                ps.profissionalSetorID AS id,
+                s.setorID,
+                s.nome, 
+                DATE_FORMAT(ps.dataInicio, '%Y-%m-%d') AS dataInicio,
+                DATE_FORMAT(ps.dataFim, '%Y-%m-%d') AS dataFim
+            FROM profissional_setor AS ps 
+                JOIN setor AS s ON (ps.setorID = s.setorID)
+            WHERE ps.profissionalID = ? AND s.unidadeID = ?
+            ORDER BY s.nome ASC, ps.dataFim DESC`
+            const [resultSetor] = await db.promise().query(sqlSetor, [id, unidadeID])
+
+            const formatedSetor = resultSetor.map(row => {
+                return {
+                    id: row.id,
+                    setor: {
+                        id: row.setorID,
+                        nome: row.nome
+                    },
+                    dataInicio: row.dataInicio,
+                    dataFim: row.dataFim
+                }
+            })
+
             // Cargos do profissional
             const formacaoCargo = `
             SELECT 
@@ -114,7 +140,10 @@ class ProfissionalController {
 
             const values = {
                 imagem: resultDataUser[0]?.imagem ? `${process.env.BASE_URL_API}${resultDataUser[0].imagem}` : null,
-                fields: resultDataUser[0],
+                fields: {
+                    ...resultDataUser[0],
+                    setores: formatedSetor,
+                },
                 cargosFuncoes: resultFormacaoCargo,
                 menu: await getMenuPermissions(1, resultDataUser[0].usuarioID, unidadeID),
                 professionals: resultProfessional ?? [],

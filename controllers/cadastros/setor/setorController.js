@@ -1,5 +1,5 @@
 const db = require('../../../config/db');
-const { deleteItem } = require('../../../config/defaultConfig');
+const { deleteItem, hasConflict } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class SetorController {
@@ -84,6 +84,17 @@ class SetorController {
         try {
             const { fields, usuarioID, unidadeID } = req.body
 
+            //* Valida conflito
+            const validateConflicts = {
+                columns: ['nome', 'unidadeID'],
+                values: [fields.nome, unidadeID],
+                table: 'setor',
+                id: null
+            }
+            if (await hasConflict(validateConflicts)) {
+                return res.status(409).json({ message: "Dados já cadastrados!" });
+            }
+
             const logID = await executeLog('Criação de setor', usuarioID, 1, req)
             const sql = 'INSERT INTO setor (nome, unidadeID, status) VALUES (?, ?, ?)'
             const id = await executeQuery(sql, [fields.nome, unidadeID, 1], 'insert', 'setor', 'setorID', null, logID)
@@ -110,6 +121,17 @@ class SetorController {
         try {
             const { id } = req.params
             const { fields, usuarioID, unidadeID } = req.body
+
+            //* Valida conflito
+            const validateConflicts = {
+                columns: ['setorID', 'nome', 'unidadeID'],
+                values: [id, fields.nome, unidadeID],
+                table: 'setor',
+                id: id
+            }
+            if (await hasConflict(validateConflicts)) {
+                return res.status(409).json({ message: "Dados já cadastrados!" });
+            }
 
             const logID = await executeLog('Atualização de setor', usuarioID, 1, req)
             const sql = `UPDATE setor SET nome = ?, status = ? WHERE setorID = ?`
