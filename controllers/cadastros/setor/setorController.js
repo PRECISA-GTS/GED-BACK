@@ -54,7 +54,7 @@ class SetorController {
             FROM profissional_setor AS ps 
                 JOIN profissional AS p ON (ps.profissionalID = p.profissionalID)
             WHERE ps.setorID = ?
-            ORDER BY ps.dataInicio, p.nome ASC`
+            ORDER BY ps.status DESC, p.nome ASC`
             const [resultProfissionais] = await db.promise().query(sqlProfissionais, [id]);
 
             const formatedProfissionais = resultProfissionais.map(row => {

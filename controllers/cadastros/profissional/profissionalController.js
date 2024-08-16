@@ -77,7 +77,7 @@ class ProfissionalController {
 
     async getData(req, res) {
         const { id } = req.params
-        let { unidadeID, admin } = req.query
+        let { unidadeID } = req.query
 
         try {
             // Dados do profissional
@@ -96,11 +96,12 @@ class ProfissionalController {
                 s.setorID,
                 s.nome, 
                 DATE_FORMAT(ps.dataInicio, '%Y-%m-%d') AS dataInicio,
-                DATE_FORMAT(ps.dataFim, '%Y-%m-%d') AS dataFim
+                DATE_FORMAT(ps.dataFim, '%Y-%m-%d') AS dataFim,
+                ps.status
             FROM profissional_setor AS ps 
                 JOIN setor AS s ON (ps.setorID = s.setorID)
             WHERE ps.profissionalID = ? AND s.unidadeID = ?
-            ORDER BY s.nome ASC, ps.dataFim DESC`
+            ORDER BY ps.status DESC, s.nome ASC`
             const [resultSetor] = await db.promise().query(sqlSetor, [id, unidadeID])
 
             const formatedSetor = resultSetor.map(row => {
@@ -111,7 +112,8 @@ class ProfissionalController {
                         nome: row.nome
                     },
                     dataInicio: row.dataInicio,
-                    dataFim: row.dataFim
+                    dataFim: row.dataFim,
+                    status: row.status
                 }
             })
 
@@ -122,12 +124,12 @@ class ProfissionalController {
                 DATE_FORMAT(a.data, '%Y-%m-%d') AS data,
                 a.formacaoCargo,
                 a.conselho,
-                a.dataInativacao,
+                IF(a.dataInativacao, DATE_FORMAT(a.dataInativacao, '%Y-%m-%d'), NULL) AS dataInativacao,
                 a.status
             FROM profissional_cargo AS a
                 JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
             WHERE  a.profissionalID = ? AND b.unidadeID = ? 
-            ORDER BY a.data ASC`
+            ORDER BY a.status DESC, a.data ASC`
             const [resultFormacaoCargo] = await db.promise().query(formacaoCargo, [id, unidadeID])
 
             // Profissionais da unidade (copiar permissões dele)
@@ -202,7 +204,7 @@ class ProfissionalController {
             if (!profissionalID) return
 
             // Setores do profissional
-            if (setores.length > 0) {
+            if (setores && setores.length > 0) {
                 const sqlSetor = `INSERT INTO profissional_setor (profissionalID, setorID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
                 setores.map(async (row) => {
                     await executeQuery(sqlSetor, [profissionalID, row.setor.id, row.dataInicio, (row.dataFim ?? null), 1], 'insert', 'profissional_setor', 'profissionalSetorID', null, logID)
@@ -211,9 +213,9 @@ class ProfissionalController {
 
             // Cadastro CARGOS / FUNÇÃO
             if (data.cargosFuncoes.length > 0) {
-                const insertCargo = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, profissionalID) VALUES (?, ?, ?, ?, ?)`
+                const insertCargo = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, profissionalID, status) VALUES (?, ?, ?, ?, ?, ?)`
                 data.cargosFuncoes.map(async (row) => {
-                    await executeQuery(insertCargo, [row.data, row.formacaoCargo, row.conselho, (row.dataInativacao ?? null), profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
+                    await executeQuery(insertCargo, [row.data, row.formacaoCargo, row.conselho, (row.dataInativacao ?? null), profissionalID, (row.dataInativacao ? 0 : 1)], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
                 })
             }
 
@@ -474,12 +476,12 @@ class ProfissionalController {
                         const sqlUpdateItem = `UPDATE profissional_cargo SET data = ?, formacaoCargo = ?, conselho = ?,  dataInativacao = ?, status = ?  WHERE profissionalCargoID = ?`
 
                         await executeQuery(sqlUpdateItem, [formatedData,
-                            row.formacaoCargo, row.conselho, (row.dataInativacao), (row.status ? '1' : '0'), row.id], 'update', 'profissional_cargo', 'profissionalID', id, logID)
+                            row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), row.id], 'update', 'profissional_cargo', 'profissionalID', id, logID)
 
                     } else if (row && !row.id) {    //? Novo, insere
                         const sqlInsertItem = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, status, profissionalID) VALUES (?, ?, ?, ?, ?, ?)`
 
-                        await executeQuery(sqlInsertItem, [formatedData, row.formacaoCargo, row.conselho, (row.dataInativacao), (row.status ? '1' : '0'), data.fields.profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
+                        await executeQuery(sqlInsertItem, [formatedData, row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), data.fields.profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
                     }
                 })
             }
