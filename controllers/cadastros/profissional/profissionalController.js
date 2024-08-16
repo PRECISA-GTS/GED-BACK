@@ -179,6 +179,8 @@ class ProfissionalController {
     async insertData(req, res) {
         try {
             const data = req.body;
+            let setores = data.fields.setores
+            delete data.fields.setores
 
             //* Valida conflito
             const validateConflicts = {
@@ -197,9 +199,19 @@ class ProfissionalController {
             const InsertUser = `INSERT profissional SET ? `
             const profissionalID = await executeQuery(InsertUser, [data.fields], 'insert', 'profissional', 'profissionalID', null, logID)
 
+            if (!profissionalID) return
+
+            // Setores do profissional
+            if (setores.length > 0) {
+                const sqlSetor = `INSERT INTO profissional_setor (profissionalID, setorID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
+                setores.map(async (row) => {
+                    await executeQuery(sqlSetor, [profissionalID, row.setor.id, row.dataInicio, (row.dataFim ?? null), 1], 'insert', 'profissional_setor', 'profissionalSetorID', null, logID)
+                })
+            }
+
             // Cadastro CARGOS / FUNÇÃO
-            const insertCargo = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, profissionalID) VALUES (?, ?, ?, ?, ?)`
             if (data.cargosFuncoes.length > 0) {
+                const insertCargo = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, profissionalID) VALUES (?, ?, ?, ?, ?)`
                 data.cargosFuncoes.map(async (row) => {
                     await executeQuery(insertCargo, [row.data, row.formacaoCargo, row.conselho, (row.dataInativacao ?? null), profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
                 })
@@ -402,9 +414,8 @@ class ProfissionalController {
         try {
             const { id } = req.params
             let data = req.body
-            console.log("🚀 ~ admin ??", data.admin)
-
-            // if (id == 1 && data.admin == 1) data.fields.unidadeID = 0
+            let setores = data.fields.setores
+            delete data.fields.setores
 
             const logID = await executeLog('Edição do profissional', data.usualioLogado, data.fields.unidadeID, req)
 
@@ -416,8 +427,43 @@ class ProfissionalController {
             // Exclui cargos / função
             if (data.removedItems.length > 0) {
                 const sqlDeleteItens = `DELETE FROM profissional_cargo WHERE profissionalCargoID IN (${data.removedItems.join(',')})`
-
                 await executeQuery(sqlDeleteItens, [], 'delete', 'profissional_cargo', 'profissionalID', id, logID)
+            }
+
+            // Setor 
+            const existingItems = await db.promise().query(`SELECT profissionalSetorID FROM profissional_setor WHERE profissionalID = ?`, [id]);
+            const incomingItemIDs = new Set(setores.map(item => item.id));
+
+            // Remove os itens que não estão mais na nova lista
+            for (const existingItem of existingItems[0]) {
+                if (!incomingItemIDs.has(existingItem.profissionalSetorID)) {
+                    const sqlItemDelete = `DELETE FROM profissional_setor WHERE profissionalSetorID = ? AND profissionalID = ?`;
+                    await executeQuery(sqlItemDelete, [existingItem.profissionalSetorID, id], 'delete', 'profissional_setor', 'profissionalSetorID', existingItem.profissionalSetorID, logID);
+                }
+            }
+
+            // Atualiza ou insere os itens recebidos
+            for (const item of setores) {
+                if (item.id) {
+                    const sqlItemUpdate = `UPDATE profissional_setor SET setorID = ?, dataInicio = ?, dataFim = ?, status = ? WHERE profissionalSetorID = ? AND profissionalID = ?`;
+                    await executeQuery(sqlItemUpdate, [
+                        item.setor.id,
+                        item.dataInicio,
+                        item.dataFim ?? null,
+                        item.dataFim ? 0 : 1, // Status
+                        item.id,
+                        id
+                    ], 'update', 'profissional_setor', 'profissionalSetorID', item.id, logID);
+                } else {
+                    const sqlItemInsert = `INSERT INTO profissional_setor (profissionalID, setorID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
+                    await executeQuery(sqlItemInsert, [
+                        id,
+                        item.setor.id,
+                        item.dataInicio,
+                        item.dataFim ?? null,
+                        item.dataFim ? 0 : 1 // Status
+                    ], 'insert', 'profissional_setor', 'setorID', id, logID);
+                }
             }
 
             // Atualiza ou insere cargo | Função
@@ -430,7 +476,6 @@ class ProfissionalController {
                         await executeQuery(sqlUpdateItem, [formatedData,
                             row.formacaoCargo, row.conselho, (row.dataInativacao), (row.status ? '1' : '0'), row.id], 'update', 'profissional_cargo', 'profissionalID', id, logID)
 
-
                     } else if (row && !row.id) {    //? Novo, insere
                         const sqlInsertItem = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, status, profissionalID) VALUES (?, ?, ?, ?, ?, ?)`
 
@@ -438,7 +483,6 @@ class ProfissionalController {
                     }
                 })
             }
-
 
             //* Marcou usuário do sistema
             if (data.isUsuario) {
@@ -448,7 +492,6 @@ class ProfissionalController {
                 //? Já existe usuário com esse CPF, copia usuário id para a tabela profissional
                 if (resultCheckCPF.length > 0) {
                     const usuarioID = resultCheckCPF[0].usuarioID
-                    console.log("🚀 ~ usuarioID:", usuarioID)
 
                     // Seta usuárioID na tabela profissional
                     const UpdateUser = `UPDATE profissional SET usuarioID = ? WHERE profissionalID = ?`
@@ -495,8 +538,6 @@ class ProfissionalController {
                         },
                     }
                     accessPermissions(newData, logID)
-
-
 
                     // Envia email para email do profissional avisando que o mesmo agora é um usuário
                     const sqlProfessional = `
