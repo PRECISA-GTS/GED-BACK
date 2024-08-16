@@ -88,10 +88,22 @@ class RecebimentoMpController {
             const sqlOptionsItem = `SELECT itemID AS id, nome FROM item WHERE parFormularioID = 2 AND unidadeID = ? AND status = 1 ORDER BY nome ASC`;
             const [resultItem] = await db.promise().query(sqlOptionsItem, [unidadeID]);
             const objOptionsBlock = {
-                itens: resultItem ?? [],
+                itens: resultItem ?? []
             };
 
             for (const item of resultBlock) {
+                //? Setores que preenchem 
+                const sqlSetores = `
+                SELECT 
+                    prmbs.parRecebimentoMpModeloBlocoSetorID,
+                    s.setorID AS id, 
+                    s.nome
+                FROM par_recebimentomp_modelo_bloco_setor AS prmbs 
+                    JOIN setor AS s ON (prmbs.setorID = s.setorID)
+                WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [item.parRecebimentoMpModeloBlocoID])
+
                 const [resultItem] = await db.promise().query(sqlItem, [item.parRecebimentoMpModeloBlocoID])
 
                 for (const item of resultItem) {
@@ -109,7 +121,10 @@ class RecebimentoMpController {
                 }
 
                 const objData = {
-                    dados: item,
+                    dados: {
+                        ...item,
+                        setores: resultSetores ?? [],
+                    },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
                 };
@@ -254,19 +269,26 @@ class RecebimentoMpController {
             })
 
             //? Blocos removidos
-            arrRemovedBlocks && arrRemovedBlocks.forEach(async (block) => {
-                if (block && block > 0) {
+            const removeBlocks = async () => {
+                if (arrRemovedBlocks && arrRemovedBlocks.length > 0) {
+                    const ids = arrRemovedBlocks.join(',')
+
                     // Blocos
-                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_recebimentomp_modelo_bloco', 'parFornecedorModeloID', id, logID)
+                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlock, [], 'delete', 'par_recebimentomp_modelo_bloco', 'parRecebimentoMpModeloID', id, logID)
 
                     // Itens do bloco
-                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoID', id, logID)
-                }
-            })
+                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockItems, [], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoID', id, logID)
 
-            //? Itens removidos dos blocos 
+                    // Setores do bloco
+                    const sqlDeleteBlockSetores = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                }
+            }
+            removeBlocks()
+
+            //? Itens removidos dos blocos (?)
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
                     const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoItemID = ?`
@@ -289,6 +311,18 @@ class RecebimentoMpController {
                         (block.dados.status ? 1 : 0),
                         block.dados.parRecebimentoMpModeloBlocoID], 'update', 'par_recebimentomp_modelo_bloco', 'parRecebimentoMpModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
+
+                        //? Setores do bloco 
+                        // deleta
+                        const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpModeloBlocoID], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                        // insere novamente 
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_setor(parRecebimentoMpModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parRecebimentoMpModeloBlocoID, setor.id], 'insert', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                            }
+                        })
                     } else {
                         //? Bloco novo, Insert
                         const sqlNewBlock = `
@@ -306,6 +340,14 @@ class RecebimentoMpController {
 
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parRecebimentoMpModeloBlocoID = resultNewBlock //? parRecebimentoMpModeloBlocoID que acabou de ser gerado
+
+                        //? Setores do bloco
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_setor(parRecebimentoMpModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                            }
+                        })
                     }
 
                     //? Itens 

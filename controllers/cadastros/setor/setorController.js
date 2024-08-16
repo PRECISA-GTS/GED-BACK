@@ -4,9 +4,9 @@ const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class SetorController {
     async getList(req, res) {
+        const { unidadeID } = req.body
+        if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
         try {
-            const { unidadeID } = req.body
-            if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
 
             const getList = `
             SELECT 
