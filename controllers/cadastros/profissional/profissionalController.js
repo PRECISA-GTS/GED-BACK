@@ -439,7 +439,7 @@ class ProfissionalController {
                         item.setor.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.dataFim ? 0 : 1, // Status
+                        item.dataFim && item.dataFim !== '0000-00-00' ? 0 : 1, // Status
                         item.id,
                         id
                     ], 'update', 'profissional_setor', 'profissionalSetorID', item.id, logID);
@@ -450,7 +450,7 @@ class ProfissionalController {
                         item.setor.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.dataFim ? 0 : 1 // Status
+                        item.dataFim && item.dataFim !== '0000-00-00' ? 0 : 1 // Status
                     ], 'insert', 'profissional_setor', 'setorID', id, logID);
                 }
             }
