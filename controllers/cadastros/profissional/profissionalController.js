@@ -63,15 +63,6 @@ class ProfissionalController {
         WHERE a.unidadeID = ?`
         const [result] = await db.promise().query(sql, [unidadeID])
 
-        // if (admin == 1) { //? Lista profissional Administrador
-        //     result.push({
-        //         id: 1,
-        //         nome: 'Administrador do Sistema',
-        //         status: 'Ativo',
-        //         cor: 'success'
-        //     })
-        // }
-
         res.status(200).json(result)
     }
 
@@ -120,7 +111,7 @@ class ProfissionalController {
             // Cargos do profissional
             const formacaoCargo = `
             SELECT 
-                a.profissionalCargoID AS id,
+                a.profissionalCargoID,
                 DATE_FORMAT(a.data, '%Y-%m-%d') AS data,
                 a.formacaoCargo,
                 a.conselho,
@@ -416,6 +407,8 @@ class ProfissionalController {
         try {
             const { id } = req.params
             let data = req.body
+            console.log("🚀 ~ data:", data)
+
             let setores = data.fields.setores
             delete data.fields.setores
 
@@ -425,12 +418,6 @@ class ProfissionalController {
             delete data.fields.imagem
             const UpdateUser = `UPDATE profissional SET ? WHERE profissionalID = ?`
             await executeQuery(UpdateUser, [data.fields, id], 'update', 'profissional', 'profissionalID', id, logID)
-
-            // Exclui cargos / função
-            if (data.removedItems.length > 0) {
-                const sqlDeleteItens = `DELETE FROM profissional_cargo WHERE profissionalCargoID IN (${data.removedItems.join(',')})`
-                await executeQuery(sqlDeleteItens, [], 'delete', 'profissional_cargo', 'profissionalID', id, logID)
-            }
 
             // Setor 
             const existingItems = await db.promise().query(`SELECT profissionalSetorID FROM profissional_setor WHERE profissionalID = ?`, [id]);
@@ -468,17 +455,23 @@ class ProfissionalController {
                 }
             }
 
+            // Exclui cargos / função
+            if (data.removedItems.length > 0) {
+                const sqlDeleteItens = `DELETE FROM profissional_cargo WHERE profissionalCargoID IN (${data.removedItems.join(',')})`
+                await executeQuery(sqlDeleteItens, [], 'delete', 'profissional_cargo', 'profissionalID', id, logID)
+            }
+
             // Atualiza ou insere cargo | Função
             if (data.cargosFuncoes.length > 0) {
                 data.cargosFuncoes.map(async (row) => {
                     const formatedData = row.data.substring(0, 10)
-                    if (row && row.id > 0) { //? Já existe, atualiza
+                    if (row && row.profissionalCargoID > 0) { //? Já existe, atualiza
                         const sqlUpdateItem = `UPDATE profissional_cargo SET data = ?, formacaoCargo = ?, conselho = ?,  dataInativacao = ?, status = ?  WHERE profissionalCargoID = ?`
 
                         await executeQuery(sqlUpdateItem, [formatedData,
-                            row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), row.id], 'update', 'profissional_cargo', 'profissionalID', id, logID)
+                            row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), row.profissionalCargoID], 'update', 'profissional_cargo', 'profissionalID', id, logID)
 
-                    } else if (row && !row.id) {    //? Novo, insere
+                    } else if (row && !row.profissionalCargoID) {    //? Novo, insere
                         const sqlInsertItem = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, status, profissionalID) VALUES (?, ?, ?, ?, ?, ?)`
 
                         await executeQuery(sqlInsertItem, [formatedData, row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), data.fields.profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
