@@ -537,6 +537,18 @@ class RecebimentoMpController {
                 nome: result[0]?.preencheProfissionalNome
             } : null
 
+            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            const sqlSetores = `
+            SELECT 
+                b.setorID AS id, 
+                b.nome, 
+                a.tipo
+            FROM par_recebimentomp_modelo_setor AS a 
+                JOIN setor AS b ON (a.setorID = b.setorID)
+            WHERE a.parRecebimentoMpModeloID = ? AND b.status = 1
+            ORDER BY b.nome ASC`
+            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
+
             const data = {
                 unidade: unidade,
                 fieldsHeader: {
@@ -560,18 +572,18 @@ class RecebimentoMpController {
                         foto: result[0]?.fotoFornecedor ? `${process.env.BASE_URL_API}${result[0]?.fotoFornecedor}` : null,
                         email: result[0]?.emailFornecedor,
                         isUser: result[0]?.fornecedorIsUser == 1 ? true : false
-                    } : null
+                    } : null,
+                    //? Setores que preenchem
+                    setores: resultSetores.filter(row => row?.tipo === 1),
                 },
                 fieldsFooter: {
                     concluded: result[0]?.dataFim ? true : false,
-
                     dataConclusao: result[0]?.dataConclusao ?? today,
                     horaConclusao: result[0]?.horaConclusao ?? time,
                     profissional: result[0]?.aprovaProfissionalID > 0 ? {
                         id: result[0]?.aprovaProfissionalID,
                         nome: result[0]?.aprovaProfissionalNome
                     } : null,
-
                     conclusion: {
                         dataFim: result[0]?.dataFim,
                         horaFim: result[0]?.horaFim,
@@ -579,7 +591,9 @@ class RecebimentoMpController {
                             id: result[0]?.finalizaProfissionalID,
                             nome: result[0]?.finalizaProfissionalNome
                         } : null
-                    }
+                    },
+                    //? Setores que concluem
+                    setores: resultSetores.filter(row => row?.tipo === 2),
                 },
                 fields: resultFields,
                 produtos: resultProdutos ?? [],

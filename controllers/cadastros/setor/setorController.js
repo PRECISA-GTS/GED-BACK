@@ -3,6 +3,69 @@ const { deleteItem, hasConflict } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class SetorController {
+
+    async getProfissionaisSetoresAssinatura(req, res) {
+        const { formularioID, modeloID, unidadeID } = req.body
+
+        if (!formularioID || !modeloID) {
+            return res.status(400).json({ message: "Dados inválidos!" });
+        }
+
+        try {
+            let result = null
+
+            switch (formularioID) {
+                case 1: //* Fornecedor
+                    result = await getProfissionaisSetoresPreenchimento('par_fornecedor_modelo_setor', 'parFornecedorModeloID', modeloID, unidadeID)
+                    break;
+                case 2: //* Recebimento de MP
+                    result = await getProfissionaisSetoresPreenchimento('par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', modeloID, unidadeID)
+                    break;
+                case 3: //* Não conformidade do recebimento de MP
+                    result = await getProfissionaisSetoresPreenchimento('par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloID', modeloID, unidadeID)
+                    break;
+                case 4: //* Limpeza
+                    result = await getProfissionaisSetoresPreenchimento('par_limpeza_modelo_setor', 'parLimpezaModeloID', modeloID, unidadeID)
+                    break;
+            }
+
+            return res.status(200).json(result)
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+    //? Obtém os setores pra assinatura
+    async getSetoresAssinatura(req, res) {
+        const { formularioID, modeloID } = req.body
+
+        if (!formularioID || !modeloID) {
+            return res.status(400).json({ message: "Dados inválidos!" });
+        }
+
+        try {
+            let result = null
+
+            switch (formularioID) {
+                case 1: //* Fornecedor
+                    result = await getSetoresPreenchimento('par_fornecedor_modelo_setor', 'parFornecedorModeloID', modeloID)
+                    break;
+                case 2: //* Recebimento de MP
+                    result = await getSetoresPreenchimento('par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', modeloID)
+                    break;
+                case 3: //* Não conformidade do recebimento de MP
+                    result = await getSetoresPreenchimento('par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
+                    break;
+                case 4: //* Limpeza
+                    result = await getSetoresPreenchimento('par_limpeza_modelo_setor', 'parLimpezaModeloID', modeloID)
+                    break;
+            }
+
+            return res.status(200).json(result)
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
     async getList(req, res) {
         const { unidadeID } = req.body
         if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
@@ -16,10 +79,10 @@ class SetorController {
                 e.cor,
                 COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS profissionais
             FROM setor AS s
-                LEFT JOIN profissional_setor AS ps ON (s.setorID = ps.setorID)
+                LEFT JOIN profissional_setor AS ps ON (s.setorID = ps.setorID AND ps.status = 1)
                 LEFT JOIN profissional AS p ON (ps.profissionalID = p.profissionalID)
                 LEFT JOIN status as e ON (s.status = e.statusID)
-            WHERE s.unidadeID = ?
+            WHERE s.unidadeID = ? 
             GROUP BY s.setorID
             ORDER BY s.nome, p.nome ASC`
             const [result] = await db.promise().query(getList, [unidadeID]);
@@ -156,7 +219,7 @@ class SetorController {
                         item.profissional.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.dataFim ? 0 : 1, // Status
+                        item.dataFim && item.dataFim != '0000-00-00' ? 0 : 1, // Status
                         item.id,
                         id
                     ], 'update', 'profissional_setor', 'profissionalSetorID', item.id, logID);
@@ -167,7 +230,7 @@ class SetorController {
                         item.profissional.id,
                         item.dataInicio,
                         item.dataFim ?? null,
-                        item.dataFim ? 0 : 1 // Status
+                        item.dataFim && item.dataFim != '0000-00-00' ? 0 : 1 // Status
                     ], 'insert', 'profissional_setor', 'setorID', id, logID);
                 }
             }
@@ -185,6 +248,91 @@ class SetorController {
         const logID = await executeLog('Exclusão de setor', usuarioID, 1, req)
         return deleteItem(id, ['setor', 'profissional_setor'], 'setorID', logID, res)
     }
+}
+
+const getSetoresPreenchimento = async (table, key, modeloID) => {
+    const sqlPreenche = `
+    SELECT
+        b.setorID AS id, 
+        b.nome
+    FROM ${table} AS a
+        JOIN setor AS b ON (a.setorID = b.setorID)
+    WHERE a.${key} = ? AND a.tipo = 1
+    ORDER BY b.nome ASC`
+    const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
+
+    const sqlConclui = `
+    SELECT
+        b.setorID AS id, 
+        b.nome
+    FROM ${table} AS a
+        JOIN setor AS b ON (a.setorID = b.setorID)
+    WHERE a.${key} = ? AND a.tipo = 2
+    ORDER BY b.nome ASC`
+    const [resultConclui] = await db.promise().query(sqlConclui, [modeloID])
+
+    const result = {
+        preenche: resultPreenche ?? [],
+        conclui: resultConclui ?? []
+    }
+
+    return result
+}
+
+const getProfissionaisSetoresPreenchimento = async (table, key, modeloID, unidadeID) => {
+    //? Todos os profissionais ativos da unidade, caso não tenha setor vinculado ao modelo
+    const sqlProfissionaisAtivos = `
+    SELECT 
+        a.profissionalID AS id, 
+        a.nome 
+    FROM profissional AS a
+    WHERE a.unidadeID = ? AND a.status = 1`
+    const [resultProfissionaisAtivos] = await db.promise().query(sqlProfissionaisAtivos, [unidadeID])
+
+    //? Verifica quantidade de setores vinculados ao modelo (preenchimento e conclusão)
+    const sqlSetoresModelo = `
+    SELECT COUNT(*) AS qtd 
+    FROM ${table} AS a
+    WHERE a.${key} = ? AND a.tipo = 1`
+    const [resultSetoresModeloPreenchimento] = await db.promise().query(sqlSetoresModelo, [modeloID])
+    const sqlSetoresModeloConclusao = `
+    SELECT COUNT(*) AS qtd 
+    FROM ${table} AS a
+    WHERE a.${key} = ? AND a.tipo = 2`
+    const [resultSetoresModeloConclusao] = await db.promise().query(sqlSetoresModeloConclusao, [modeloID])
+
+    //? Obtém os profissionais vinculados aos setores selecionados no modelo (preenchimento e conclusão)
+    const sqlPreenche = `
+    SELECT
+        d.profissionalID AS id, 
+        d.nome
+    FROM ${table} AS a
+        JOIN setor AS b ON (a.setorID = b.setorID)
+        JOIN profissional_setor AS c ON (a.setorID = c.setorID)
+        JOIN profissional AS d ON (c.profissionalID = d.profissionalID)
+    WHERE a.${key} = ? AND a.tipo = 1 AND b.status = 1 AND c.status = 1 AND d.status = 1
+    GROUP BY d.profissionalID
+    ORDER BY d.nome ASC`
+    const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
+    const sqlConclui = `
+    SELECT
+        d.profissionalID AS id, 
+        d.nome
+    FROM ${table} AS a
+        JOIN setor AS b ON (a.setorID = b.setorID)
+        JOIN profissional_setor AS c ON (a.setorID = c.setorID)
+        JOIN profissional AS d ON (c.profissionalID = d.profissionalID)
+    WHERE a.${key} = ? AND a.tipo = 2 AND b.status = 1 AND c.status = 1 AND d.status = 1
+    GROUP BY d.profissionalID
+    ORDER BY d.nome ASC`
+    const [resultConclui] = await db.promise().query(sqlConclui, [modeloID])
+
+    const result = {
+        preenche: resultSetoresModeloPreenchimento[0].qtd > 0 ? resultPreenche : resultProfissionaisAtivos ?? [],
+        conclui: resultSetoresModeloConclusao[0].qtd > 0 ? resultConclui : resultProfissionaisAtivos ?? []
+    }
+
+    return result
 }
 
 module.exports = SetorController;

@@ -17,48 +17,12 @@ const jwtConfig = {
 }
 
 class AuthController {
-
-    // async testeFoto(req, res) {
-    //     const sql = `SELECT * FROM fotos WHERE unidadeID = ?`
-    //     const [result] = await dbFile.promise().query(sql, [1]);
-
-    //     for (const foto of result) {
-
-    //         if (foto.tipo == 'image/jpeg') {
-    //             foto.url = `data:${foto.tipo};base64,${foto.url}`;
-    //         } else {
-    //             // Converte para blob
-    //             const blob = Buffer.from(foto.url, 'base64');
-
-    //             // Converte para objectUrl pra conseguir abrir o arquivo em uma nova aba no frontend
-    //             const objectUrl = URL.createObjectURL(new Blob([blob]));
-    //             foto.url = objectUrl;
-    //         }
-    //     }
-
-    //     res.status(200).json(result);
-    // }
-
-    // async enviaFoto(req, res) {
-    //     console.log('chegou...')
-    //     const files = req.files;
-
-    //     for (const file of files) {
-    //         const base64 = file.binary.toString('base64');
-    //         // Gravar arquivos no banco de dados no formato blob
-    //         const sql = `INSERT INTO fotos (url, tipo, unidadeID) VALUES (?, ?, ?)`
-    //         const [result] = await dbFile.promise().query(sql, [base64, file.mimetype, 1]);
-    //     }
-
-    //     res.status(200).json({ message: 'Fotos salvas no BD!' });
-    // }
-
     //* Login da fábrica (CPF)
     async login(req, res) {
-        const { cpf, password } = req.body;
+        const { cpf, password, selectedUnit } = req.body;
 
         let error = {
-            email: ['Algo está errado!!']
+            email: ['Algo está errado!']
         }
 
         // LEFT JOIN profissao AS pr ON (uu.profissaoID = pr.profissaoID) , pr.nome as profissao
@@ -71,9 +35,9 @@ class AuthController {
             p.nome as papel,
             
             COALESCE(((SELECT COALESCE(pi.profissionalID, 0)
-            FROM profissional AS pi 
-            WHERE pi.usuarioID = u.usuarioID AND pi.unidadeID = uu.unidadeID
-        )), 1) AS profissionalID,
+                FROM profissional AS pi 
+                WHERE pi.usuarioID = u.usuarioID AND pi.unidadeID = uu.unidadeID
+            )), 1) AS profissionalID,
             
             (SELECT pi.imagem
             FROM profissional AS pi 
@@ -95,8 +59,24 @@ class AuthController {
 
             const accessToken = jwt.sign({ id: result[0]['usuarioID'] }, jwtConfig.secret, { expiresIn: jwtConfig.expirationTime })
 
+            //? Obtém os setores ativos do profissional 
+            const sqlSetores = `
+            SELECT s.setorID AS id, s.nome
+            FROM profissional_setor AS ps 
+                LEFT JOIN setor AS s ON (ps.setorID = s.setorID)                        
+            WHERE ps.profissionalID = ? AND ps.status = 1`
+
             // +1 UNIDADE, SELECIONA UNIDADE ANTES DE LOGAR
             if (result.length > 1) {
+                if (selectedUnit && selectedUnit.unidadeID > 0) {
+                    const profissionalID = result.find(r => r.unidadeID === selectedUnit.unidadeID).profissionalID
+                    if (!profissionalID) {
+                        return res.status(401).json({ message: 'CPF ou senha incorretos!' });
+                    }
+                    const [setores] = await db.promise().query(sqlSetores, [profissionalID]);
+                    result[0].setores = setores
+                }
+
                 const response = {
                     accessToken,
                     userData: {
@@ -112,6 +92,9 @@ class AuthController {
 
             // 1 UNIDADE, LOGA DIRETO
             else if (result.length === 1) {
+                const [setores] = await db.promise().query(sqlSetores, [result[0].profissionalID]);
+                result[0].setores = setores ?? []
+
                 const response = {
                     accessToken,
                     userData: {
@@ -191,7 +174,6 @@ class AuthController {
                     WHERE d.papelID = ${papelID} AND m.status = 1 OR s.status = 1`
                 } else {
                     // Não é admin, busca permissões da tabela permissao
-                    console.log('papel', papelID);
                     sqlRoutes = `
                     SELECT rota, papelID, ler, inserir, editar, excluir
                     FROM permissao                    

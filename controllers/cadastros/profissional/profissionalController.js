@@ -27,7 +27,7 @@ class ProfissionalController {
                     result = await getProfissionalPreenchimento('par_fornecedor_modelo_profissional', 'parFornecedorModeloID', modeloID)
                     break;
                 case 2: //* Recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', modeloID)
                     break;
                 case 3: //* Não conformidade do recebimento de MP
                     result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
@@ -728,10 +728,6 @@ class ProfissionalController {
             {
                 table: 'par_fornecedor_modelo_profissional',
                 column: ['profissionalID'],
-            },
-            {
-                table: 'par_recebimentomp_modelo_profissional',
-                column: ['profissionalID'],
             }
         ]
 
@@ -797,7 +793,7 @@ const getProfissionalPreenchimento = async (table, key, modeloID) => {
         JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
     WHERE a.${key} = ? AND a.tipo = 1
     ORDER BY b.nome ASC`
-    const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
+    // const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
 
     const sqlAprova = `
     SELECT
@@ -807,11 +803,11 @@ const getProfissionalPreenchimento = async (table, key, modeloID) => {
         JOIN profissional AS b ON (a.profissionalID = b.profissionalID)
     WHERE a.${key} = ? AND a.tipo = 2
     ORDER BY b.nome ASC`
-    const [resultAprova] = await db.promise().query(sqlAprova, [modeloID])
+    // const [resultAprova] = await db.promise().query(sqlAprova, [modeloID])
 
     const result = {
-        preenche: resultPreenche ?? [],
-        aprova: resultAprova ?? []
+        preenche: [],
+        aprova: []
     }
 
     return result

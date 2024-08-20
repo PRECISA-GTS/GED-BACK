@@ -132,17 +132,17 @@ class RecebimentoMpController {
                 blocks.push(objData);
             }
 
-            const sqlProfissionais = `
-            SELECT profissionalID AS id, nome
-            FROM profissional
+            const sqlSetores = `
+            SELECT setorID AS id, nome
+            FROM setor
             WHERE unidadeID = ? AND status = 1
             ORDER BY nome ASC`
-            const [resultProfissionais] = await db.promise().query(sqlProfissionais, [unidadeID])
+            const [resultSetores] = await db.promise().query(sqlSetores, [unidadeID])
 
             //? Options
             const objOptions = {
                 itens: resultItem ?? [],
-                profissionais: resultProfissionais ?? []
+                setores: resultSetores ?? []
             };
 
             //? Orientações
@@ -210,29 +210,29 @@ class RecebimentoMpController {
             WHERE parRecebimentoMpModeloID = ?`
             await executeQuery(sqlModel, [model?.nome, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', id, logID)
 
-            //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_recebimentomp_modelo_profissional
-            const sqlDeleteProfissionaisModelo = `DELETE FROM par_recebimentomp_modelo_profissional WHERE parRecebimentoMpModeloID = ?`
-            await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloID', id, logID)
+            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_recebimentomp_modelo_setor
+            const sqlDeleteSetoresModelo = `DELETE FROM par_recebimentomp_modelo_setor WHERE parRecebimentoMpModeloID = ?`
+            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', id, logID)
 
-            //? Insere profissionais que preenchem
-            if (model && model.profissionaisPreenchem && model.profissionaisPreenchem.length > 0) {
-                for (let i = 0; i < model.profissionaisPreenchem.length; i++) {
-                    if (model.profissionaisPreenchem[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_recebimentomp_modelo_profissional(parRecebimentoMpModeloID, profissionalID, tipo) 
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloProfissionalID', null, logID)
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
                     }
                 }
             }
-            //? Insere profissionais que aprovam
-            if (model && model.profissionaisAprovam && model.profissionaisAprovam.length > 0) {
-                for (let i = 0; i < model.profissionaisAprovam.length; i++) {
-                    if (model.profissionaisAprovam[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_recebimentomp_modelo_profissional(parRecebimentoMpModeloID, profissionalID, tipo) 
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisAprovam[i].id, 2], 'insert', 'par_recebimentomp_modelo_profissional', 'parRecebimentoMpModeloProfissionalID', null, logID)
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
                     }
                 }
             }
