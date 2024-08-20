@@ -1,4 +1,4 @@
 module.exports = {
     //? YYMMDD
-    version: '240816'
+    version: '240820'
 };

@@ -667,6 +667,8 @@ class RecebimentoMpController {
                 const resultDeleteProduto = await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
                 for (const produto of data.produtos) {
                     if (produto && produto.checked_) { //? Marcou o produto no checkbox
+                        console.log('marcou o produto: ', produto.produtoID, produto.nome)
+
                         if (produto && produto.produtoID > 0) {
                             const sqlInsertProduto = `
                             INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
