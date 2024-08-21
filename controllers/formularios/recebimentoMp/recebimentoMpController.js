@@ -342,7 +342,7 @@ class RecebimentoMpController {
                     rp.recebimentoMpProdutoID,
                     rp.quantidade,
                     DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d') AS dataFabricacao,
-                    rp.lote,
+                    rp.lote AS lote,
                     rp.nf,
                     DATE_FORMAT(rp.dataValidade, '%Y-%m-%d') AS dataValidade,
                     p.produtoID,
@@ -387,7 +387,7 @@ class RecebimentoMpController {
 
                 //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
                 const sqlSetores = `
-                SELECT s.nome
+                SELECT s.setorID AS id, s.nome
                 FROM par_recebimentomp_modelo_bloco_setor AS prmbs
                     JOIN setor AS s ON (prmbs.setorID = s.setorID)
                 WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
@@ -667,8 +667,6 @@ class RecebimentoMpController {
                 const resultDeleteProduto = await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
                 for (const produto of data.produtos) {
                     if (produto && produto.checked_) { //? Marcou o produto no checkbox
-                        console.log('marcou o produto: ', produto.produtoID, produto.nome)
-
                         if (produto && produto.produtoID > 0) {
                             const sqlInsertProduto = `
                             INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)

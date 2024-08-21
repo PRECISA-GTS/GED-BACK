@@ -60,7 +60,8 @@ class ProfissionalController {
             a.status AS statusID
         FROM profissional AS a 
             JOIN status AS e ON (a.status = e.statusID)
-        WHERE a.unidadeID = ?`
+        WHERE a.unidadeID = ?
+        ORDER BY a.nome ASC`
         const [result] = await db.promise().query(sql, [unidadeID])
 
         res.status(200).json(result)

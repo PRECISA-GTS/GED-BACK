@@ -13,5 +13,6 @@ setorRoutes.post(`${route}/new/insertData`, setorController.insertData);
 setorRoutes.delete(`${route}/:id/:unidadeID/:usuarioID`, setorController.deleteData);
 setorRoutes.post(`${route}/getSetoresAssinatura`, setorController.getSetoresAssinatura);
 setorRoutes.post(`${route}/getProfissionaisSetoresAssinatura`, setorController.getProfissionaisSetoresAssinatura);
+setorRoutes.post(`${route}/getProfessionals`, setorController.getProfessionals);
 
 module.exports = setorRoutes;

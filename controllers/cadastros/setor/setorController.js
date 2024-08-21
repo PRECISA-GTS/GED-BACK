@@ -4,6 +4,29 @@ const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class SetorController {
 
+    async getProfessionals(req, res) {
+        try {
+            const { setores, unidadeID } = req.body
+
+            if (!unidadeID || !setores || setores.length === 0) {
+                return res.status(200).json([]);
+            }
+
+            // obter todos os profissionais ativos nos setores 
+            const sql = `
+            SELECT p.profissionalID AS id, p.nome, ps.setorID
+            FROM profissional_setor AS ps 
+                JOIN profissional AS p ON (ps.profissionalID = p.profissionalID)
+            WHERE p.unidadeID = ? AND ps.setorID IN (?) AND ps.status = 1 AND p.status = 1
+            ORDER BY p.nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID, setores])
+
+            return res.status(200).json(result);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
     async getProfissionaisSetoresAssinatura(req, res) {
         const { formularioID, modeloID, unidadeID } = req.body
 

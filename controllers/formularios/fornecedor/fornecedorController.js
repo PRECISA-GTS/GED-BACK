@@ -17,7 +17,8 @@ const {
     createScheduling,
     deleteScheduling,
     getDateNow,
-    getTimeNow
+    getTimeNow,
+    floatToFractioned
 } = require('../../../defaults/functions');
 
 //? Email
@@ -196,6 +197,12 @@ class FornecedorController {
                     LIMIT 1
                 ) AS quantidade,
                 (
+                    SELECT rp.lote
+                    FROM recebimentomp_produto AS rp 
+                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
+                    LIMIT 1
+                ) AS lote,
+                (
                     SELECT DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d')
                     FROM recebimentomp_produto AS rp 
                     WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
@@ -259,7 +266,7 @@ class FornecedorController {
             const [resultProdutos] = await db.promise().query(sqlProdutos)
 
             for (const produto of resultProdutos) {
-                // produto.checked_ = true //produto.checked == '1' ? true : false //! descontinuado
+                produto.quantidade = floatToFractioned(produto.quantidade)
                 produto.apresentacao = produto.apresentacaoID > 0 ? {
                     id: produto.apresentacaoID,
                     nome: produto.apresentacaoNome
