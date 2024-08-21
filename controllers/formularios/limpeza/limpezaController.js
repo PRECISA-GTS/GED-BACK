@@ -190,6 +190,16 @@ class LimpezaController {
             for (const bloco of resultBlocos) {
                 const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco.parLimpezaModeloBlocoID])
 
+                //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
+                const sqlSetores = `
+                SELECT s.setorID AS id, s.nome
+                FROM par_limpeza_modelo_bloco_setor AS plmbs
+                    JOIN setor AS s ON (plmbs.setorID = s.setorID)
+                WHERE plmbs.parLimpezaModeloBlocoID = ?
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parLimpezaModeloBlocoID])
+                bloco['setores'] = resultSetores
+
                 //? Itens
                 for (const item of resultBloco) {
                     const sqlAlternativa = getAlternativasSql()
@@ -288,7 +298,18 @@ class LimpezaController {
 
             const today = getDateNow()
             const time = getTimeNow()
-            console.log("🚀 ~ time:", time)
+
+            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            const sqlSetores = `
+            SELECT 
+                b.setorID AS id, 
+                b.nome, 
+                a.tipo
+            FROM par_limpeza_modelo_setor AS a 
+                JOIN setor AS b ON (a.setorID = b.setorID)
+            WHERE a.parLimpezaModeloID = ? AND b.status = 1
+            ORDER BY b.nome ASC`
+            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
 
             const data = {
                 unidade: unidade,
@@ -308,7 +329,9 @@ class LimpezaController {
                     profissional: result[0].preencheProfissionalID > 0 ? {
                         id: result[0].preencheProfissionalID,
                         nome: result[0].preencheProfissionalNome
-                    } : null
+                    } : null,
+                    //? Setores que preenchem
+                    setores: resultSetores.filter(row => row?.tipo === 1),
                 },
                 fieldsFooter: {
                     concluded: result[0].dataFim ? true : false,
@@ -327,7 +350,9 @@ class LimpezaController {
                             id: result[0].finalizaProfissionalID,
                             nome: result[0].finalizaProfissionalNome
                         } : null
-                    }
+                    },
+                    //? Setores que concluem
+                    setores: resultSetores.filter(row => row?.tipo === 2),
                 },
                 fields: resultFields,
                 blocos: resultBlocos ?? [],

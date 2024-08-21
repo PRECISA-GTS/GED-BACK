@@ -132,17 +132,9 @@ class RecebimentoMpController {
                 blocks.push(objData);
             }
 
-            const sqlSetores = `
-            SELECT setorID AS id, nome
-            FROM setor
-            WHERE unidadeID = ? AND status = 1
-            ORDER BY nome ASC`
-            const [resultSetores] = await db.promise().query(sqlSetores, [unidadeID])
-
             //? Options
             const objOptions = {
                 itens: resultItem ?? [],
-                setores: resultSetores ?? []
             };
 
             //? Orientações

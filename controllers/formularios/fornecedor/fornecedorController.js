@@ -162,6 +162,11 @@ class FornecedorController {
 
     async getFornecedoresAprovados(req, res) {
         const { unidadeID, recebimentoMpID, modelo } = req.body
+
+        if (!unidadeID || !recebimentoMpID || !modelo) {
+            return res.status(200).json({ error: 'Parâmetros inválidos.' })
+        }
+
         const sql = `
         SELECT 
             f.fornecedorID AS id,
@@ -238,7 +243,7 @@ class FornecedorController {
                     LIMIT 1
                 ) AS ultimaAvaliacao,            
                 (
-                    SELECT DATE_FORMAT(DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo} DAY), "%d/%m/%Y") AS dataFim
+                    SELECT DATE_FORMAT(DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY), "%d/%m/%Y") AS dataFim
                     FROM fornecedor_produto AS a
                         JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
                     WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
@@ -247,7 +252,7 @@ class FornecedorController {
                 ) AS proximaAvialacao,
                 DATEDIFF(
                     (
-                        SELECT DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo} DAY) AS dataFim
+                        SELECT DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY) AS dataFim
                         FROM fornecedor_produto AS a
                             JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
                         WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
@@ -265,14 +270,15 @@ class FornecedorController {
             ORDER BY p.nome ASC`
             const [resultProdutos] = await db.promise().query(sqlProdutos)
 
-            for (const produto of resultProdutos) {
-                produto.quantidade = floatToFractioned(produto.quantidade)
-                produto.apresentacao = produto.apresentacaoID > 0 ? {
-                    id: produto.apresentacaoID,
-                    nome: produto.apresentacaoNome
-                } : null
+            if (resultProdutos.length > 0) {
+                for (const produto of resultProdutos) {
+                    produto.quantidade = floatToFractioned(produto.quantidade)
+                    produto.apresentacao = produto.apresentacaoID > 0 ? {
+                        id: produto.apresentacaoID,
+                        nome: produto.apresentacaoNome
+                    } : null
+                }
             }
-
             fornecedor['produtos'] = resultProdutos ?? []
         }
 
@@ -287,8 +293,7 @@ class FornecedorController {
             CONCAT(parFornecedorModeloID, ' - ', nome) AS name
         FROM par_fornecedor_modelo
         WHERE unidadeID = ? AND status = 1
-        ORDER BY nome ASC
-        `;
+        ORDER BY nome ASC`;
 
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.status(200).json(result);
@@ -800,6 +805,16 @@ class FornecedorController {
             for (const bloco of resultBlocos) {
                 const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco.parFornecedorModeloBlocoID])
 
+                //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
+                const sqlSetores = `
+                SELECT s.setorID AS id, s.nome
+                FROM par_fornecedor_modelo_bloco_setor AS pfmbs
+                    JOIN setor AS s ON (pfmbs.setorID = s.setorID)
+                WHERE pfmbs.parFornecedorModeloBlocoID = ?
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parFornecedorModeloBlocoID])
+                bloco['setores'] = resultSetores
+
                 //? Itens
                 for (const item of resultBloco) {
                     const sqlAlternativa = getAlternativasSql()
@@ -899,6 +914,18 @@ class FornecedorController {
             const today = getDateNow()
             const time = getTimeNow()
 
+            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            const sqlSetores = `
+            SELECT 
+                b.setorID AS id, 
+                b.nome, 
+                a.tipo
+            FROM par_fornecedor_modelo_setor AS a 
+                JOIN setor AS b ON (a.setorID = b.setorID)
+            WHERE a.parFornecedorModeloID = ? AND b.status = 1
+            ORDER BY b.nome ASC`
+            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
+
             const data = {
                 hasModel: true,
                 unidade: unidade,
@@ -922,16 +949,19 @@ class FornecedorController {
                     cnpj: resultFornecedor[0].cnpjFornecedor,
                     razaoSocial: resultFornecedor[0].razaoSocial,
                     nomeFantasia: resultFornecedor[0].nome,
-
+                    //? Setores que preenchem
+                    setores: resultSetores.filter(row => row?.tipo === 1),
                 },
                 fieldsFooter: {
                     concluded: resultFornecedor[0].dataFim ? true : false,
-                    dataFim: resultFornecedor[0].dataFim,
-                    horaFim: resultFornecedor[0].horaFim,
+                    dataFim: resultFornecedor[0].dataFim ?? today,
+                    horaFim: resultFornecedor[0].horaFim ?? time,
                     profissionalAprova: resultFornecedor[0].aprovaProfissionalID > 0 ? {
                         id: resultFornecedor[0].aprovaProfissionalID,
                         nome: resultFornecedor[0].profissionalAprova
-                    } : null
+                    } : null,
+                    //? Setores que concluem
+                    setores: resultSetores.filter(row => row?.tipo === 2),
                 },
                 fields: resultFields,
                 produtos: resultProdutos ?? [],

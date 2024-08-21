@@ -241,6 +241,18 @@ class FornecedorController {
             };
 
             for (const item of resultBlock) {
+                //? Setores que preenchem 
+                const sqlSetores = `
+                SELECT 
+                    pfmbs.parFornecedorModeloBlocoSetorID,
+                    s.setorID AS id, 
+                    s.nome
+                FROM par_fornecedor_modelo_bloco_setor AS pfmbs 
+                    JOIN setor AS s ON (pfmbs.setorID = s.setorID)
+                WHERE pfmbs.parFornecedorModeloBlocoID = ?
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [item.parFornecedorModeloBlocoID])
+
                 const [resultItem] = await db.promise().query(sqlItem, [item.parFornecedorModeloBlocoID])
 
                 for (const item of resultItem) {
@@ -258,7 +270,10 @@ class FornecedorController {
                 }
 
                 const objData = {
-                    dados: item,
+                    dados: {
+                        ...item,
+                        setores: resultSetores ?? [],
+                    },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
                 };
@@ -341,8 +356,34 @@ class FornecedorController {
             UPDATE par_fornecedor_modelo
             SET nome = ?, ciclo = ?, cabecalho = ?, status = ?
             WHERE parFornecedorModeloID = ?`
-
             await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_fornecedor_modelo', 'parFornecedorModeloID', id, logID)
+
+            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_fornecedor_modelo_setor
+            const sqlDeleteSetoresModelo = `DELETE FROM par_fornecedor_modelo_setor WHERE parFornecedorModeloID = ?`
+            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_fornecedor_modelo_setor', 'parFornecedorModeloID', id, logID)
+
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                    }
+                }
+            }
 
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_fornecedor_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_fornecedor_modelo_profissional WHERE parFornecedorModeloID = ?`
@@ -410,13 +451,15 @@ class FornecedorController {
                 if (block && block > 0) {
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`
-
                     await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloID', id, logID)
 
                     // Itens do bloco
                     const sqlDeleteBlockItems = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoID = ?`
-
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloID', id, logID)
+
+                    // Setores do bloco
+                    const sqlDeleteBlockSetores = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
                 }
             })
 
@@ -442,8 +485,19 @@ class FornecedorController {
                         (block.dados.obs ? 1 : 0),
                         (block.dados.status ? 1 : 0),
                         block.dados.parFornecedorModeloBlocoID], 'update', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloID', id, logID)
-
                         if (!resultUpdateBlock) { return res.json(err); }
+
+                        //? Setores do bloco 
+                        // deleta
+                        const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parFornecedorModeloBlocoID], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                        // insere novamente 
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_setor(parFornecedorModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parFornecedorModeloBlocoID, setor.id], 'insert', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                            }
+                        })
                     } else {
                         //? Bloco novo, Insert
                         const sqlNewBlock = `
@@ -461,6 +515,14 @@ class FornecedorController {
 
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parFornecedorModeloBlocoID = resultNewBlock //? parFornecedorModeloBlocoID que acabou de ser gerado
+
+                        //? Setores do bloco
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_setor(parFornecedorModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                            }
+                        })
                     }
 
                     //? Itens 

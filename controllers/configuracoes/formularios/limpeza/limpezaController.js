@@ -92,6 +92,18 @@ class LimpezaController {
             };
 
             for (const item of resultBlock) {
+                //? Setores que preenchem 
+                const sqlSetores = `
+                SELECT 
+                    plmbs.parLimpezaModeloBlocoSetorID,
+                    s.setorID AS id, 
+                    s.nome
+                FROM par_limpeza_modelo_bloco_setor AS plmbs 
+                    JOIN setor AS s ON (plmbs.setorID = s.setorID)
+                WHERE plmbs.parLimpezaModeloBlocoID = ?
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [item.parLimpezaModeloBlocoID])
+
                 const [resultItem] = await db.promise().query(sqlItem, [item.parLimpezaModeloBlocoID])
 
                 for (const item of resultItem) {
@@ -109,7 +121,10 @@ class LimpezaController {
                 }
 
                 const objData = {
-                    dados: item,
+                    dados: {
+                        ...item,
+                        setores: resultSetores ?? [],
+                    },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
                 };
@@ -195,6 +210,33 @@ class LimpezaController {
             WHERE parLimpezaModeloID = ?`
             await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_limpeza_modelo', 'parLimpezaModeloID', id, logID)
 
+            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_limpeza_modelo_setor
+            const sqlDeleteSetoresModelo = `DELETE FROM par_limpeza_modelo_setor WHERE parLimpezaModeloID = ?`
+            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_limpeza_modelo_setor', 'parLimpezaModeloID', id, logID)
+
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                    }
+                }
+            }
+
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_limpeza_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_limpeza_modelo_profissional WHERE parLimpezaModeloID = ?`
             await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_limpeza_modelo_profissional', 'parLimpezaModeloID', id, logID)
@@ -264,10 +306,14 @@ class LimpezaController {
                     // Itens do bloco
                     const sqlDeleteBlockItems = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', id, logID)
+
+                    // Setores do bloco
+                    const sqlDeleteBlockSetores = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
                 }
             })
 
-            //? Itens removidos dos blocos 
+            //? Itens removidos dos blocos (?)
             arrRemovedItems && arrRemovedItems.forEach(async (item) => {
                 if (item) {
                     const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoItemID = ?`
@@ -290,6 +336,18 @@ class LimpezaController {
                         (block.dados.status ? 1 : 0),
                         block.dados.parLimpezaModeloBlocoID], 'update', 'par_limpeza_modelo_bloco', 'parLimpezaModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
+
+                        //? Setores do bloco 
+                        // deleta
+                        const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parLimpezaModeloBlocoID], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                        // insere novamente 
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_setor(parLimpezaModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parLimpezaModeloBlocoID, setor.id], 'insert', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                            }
+                        })
                     } else {
                         //? Bloco novo, Insert
                         const sqlNewBlock = `
@@ -307,6 +365,14 @@ class LimpezaController {
 
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parLimpezaModeloBlocoID = resultNewBlock //? parLimpezaModeloBlocoID que acabou de ser gerado
+
+                        //? Setores do bloco
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_setor(parLimpezaModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                            }
+                        })
                     }
 
                     //? Itens 

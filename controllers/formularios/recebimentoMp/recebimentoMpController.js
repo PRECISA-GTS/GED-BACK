@@ -393,17 +393,7 @@ class RecebimentoMpController {
                 WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
                 ORDER BY s.nome ASC`
                 const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parRecebimentoMpModeloBlocoID])
-                const sqlProfissionaisSetores = `
-                SELECT p.profissionalID AS id, p.nome
-                FROM par_recebimentomp_modelo_bloco_setor AS prmbs
-                    JOIN profissional_setor AS ps ON (prmbs.setorID = ps.setorID)
-                    JOIN profissional AS p ON (ps.profissionalID = p.profissionalID)
-                WHERE prmbs.parRecebimentoMpModeloBlocoID = ? AND ps.status = 1 AND p.status = 1
-                GROUP BY p.profissionalID
-                ORDER BY p.nome ASC`
-                const [resultProfissionaisSetores] = await db.promise().query(sqlProfissionaisSetores, [bloco.parRecebimentoMpModeloBlocoID])
                 bloco['setores'] = resultSetores
-                bloco['profissionais'] = resultProfissionaisSetores
 
                 //? Itens
                 for (const item of resultBloco) {
