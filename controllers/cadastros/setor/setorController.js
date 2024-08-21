@@ -281,6 +281,7 @@ const getSetoresPreenchimento = async (table, key, modeloID) => {
     FROM ${table} AS a
         JOIN setor AS b ON (a.setorID = b.setorID)
     WHERE a.${key} = ? AND a.tipo = 1
+    GROUP BY b.setorID
     ORDER BY b.nome ASC`
     const [resultPreenche] = await db.promise().query(sqlPreenche, [modeloID])
 
@@ -291,6 +292,7 @@ const getSetoresPreenchimento = async (table, key, modeloID) => {
     FROM ${table} AS a
         JOIN setor AS b ON (a.setorID = b.setorID)
     WHERE a.${key} = ? AND a.tipo = 2
+    GROUP BY b.setorID
     ORDER BY b.nome ASC`
     const [resultConclui] = await db.promise().query(sqlConclui, [modeloID])
 

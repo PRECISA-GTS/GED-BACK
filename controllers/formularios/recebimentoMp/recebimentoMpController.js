@@ -391,6 +391,7 @@ class RecebimentoMpController {
                 FROM par_recebimentomp_modelo_bloco_setor AS prmbs
                     JOIN setor AS s ON (prmbs.setorID = s.setorID)
                 WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
+                GROUP BY s.setorID
                 ORDER BY s.nome ASC`
                 const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parRecebimentoMpModeloBlocoID])
                 bloco['setores'] = resultSetores

@@ -250,6 +250,7 @@ class FornecedorController {
                 FROM par_fornecedor_modelo_bloco_setor AS pfmbs 
                     JOIN setor AS s ON (pfmbs.setorID = s.setorID)
                 WHERE pfmbs.parFornecedorModeloBlocoID = ?
+                GROUP BY s.setorID
                 ORDER BY s.nome ASC`
                 const [resultSetores] = await db.promise().query(sqlSetores, [item.parFornecedorModeloBlocoID])
 

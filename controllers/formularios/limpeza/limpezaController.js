@@ -196,6 +196,7 @@ class LimpezaController {
                 FROM par_limpeza_modelo_bloco_setor AS plmbs
                     JOIN setor AS s ON (plmbs.setorID = s.setorID)
                 WHERE plmbs.parLimpezaModeloBlocoID = ?
+                GROUP BY s.setorID
                 ORDER BY s.nome ASC`
                 const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parLimpezaModeloBlocoID])
                 bloco['setores'] = resultSetores
