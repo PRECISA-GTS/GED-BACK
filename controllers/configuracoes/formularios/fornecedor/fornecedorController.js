@@ -447,8 +447,10 @@ class FornecedorController {
             })
 
             //? Blocos removidos
-            arrRemovedBlocks && arrRemovedBlocks.forEach(async (block) => {
+            arrRemovedBlocks && arrRemovedBlocks.length > 0 && arrRemovedBlocks.forEach(async (block) => {
                 if (block && block > 0) {
+                    const ids = arrRemovedBlocks.join(',')
+
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`
                     await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloID', id, logID)
