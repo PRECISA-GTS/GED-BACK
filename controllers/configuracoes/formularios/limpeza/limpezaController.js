@@ -189,6 +189,29 @@ class LimpezaController {
             const sqlModel = `INSERT INTO par_limpeza_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parLimpezaModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_limpeza_modelo', 'parLimpezaModeloID', null, logID)
 
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parLimpezaModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parLimpezaModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                    }
+                }
+            }
+
             return res.status(200).json({ id: parLimpezaModeloID });
 
         } catch (error) {

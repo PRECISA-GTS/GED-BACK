@@ -338,6 +338,29 @@ class FornecedorController {
             const sqlModel = `INSERT INTO par_fornecedor_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parFornecedorModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_fornecedor_modelo', 'parFornecedorModeloID', null, logID)
 
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parFornecedorModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parFornecedorModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                    }
+                }
+            }
+
             return res.status(200).json({ id: parFornecedorModeloID });
         } catch (error) {
             return res.json({ message: 'Erro ao receber dados!' })

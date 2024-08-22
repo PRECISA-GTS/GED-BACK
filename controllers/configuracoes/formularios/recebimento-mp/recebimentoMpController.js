@@ -181,6 +181,29 @@ class RecebimentoMpController {
             const sqlModel = `INSERT INTO par_recebimentomp_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parRecebimentoMpModeloID = await executeQuery(sqlModel, [model.nome, '0', model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', null, logID)
 
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                    }
+                }
+            }
+
             return res.status(200).json({ id: parRecebimentoMpModeloID });
 
         } catch (error) {
