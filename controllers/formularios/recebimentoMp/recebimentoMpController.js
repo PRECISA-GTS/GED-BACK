@@ -692,8 +692,9 @@ class RecebimentoMpController {
                             const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
                             const observacao = item.observacao != undefined ? item.observacao : ''
 
-                            if (resposta && resultVerificaResposta.length === 0) {
-                                const sqlInsert = `INSERT INTO recebimentomp_resposta(recebimentoMpID, parRecebimentoMpModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
+                            if (resposta && resultVerificaResposta.length == 0) {
+                                const sqlInsert = `
+                                INSERT INTO recebimentomp_resposta(recebimentoMpID, parRecebimentoMpModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
                                 const resultInsert = await executeQuery(sqlInsert, [
                                     id,
                                     bloco.parRecebimentoMpModeloBlocoID,
@@ -706,9 +707,9 @@ class RecebimentoMpController {
                                 if (!resultInsert) { return res.json('Error'); }
                             } else if (resposta && resultVerificaResposta.length > 0) {
                                 const sqlUpdate = `
-                            UPDATE recebimentomp_resposta 
-                            SET resposta = ?, respostaID = ?, obs = ?, recebimentoMpID = ?
-                            WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
+                                UPDATE recebimentomp_resposta 
+                                SET resposta = ?, respostaID = ?, obs = ?, recebimentoMpID = ?
+                                WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
                                 const resultUpdate = await executeQuery(sqlUpdate, [
                                     resposta,
                                     respostaID,
@@ -726,7 +727,6 @@ class RecebimentoMpController {
                             }
                         }
                     }
-
                 }
             } // laço blocos..
 

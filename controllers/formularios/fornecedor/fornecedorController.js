@@ -161,128 +161,131 @@ class FornecedorController {
     };
 
     async getFornecedoresAprovados(req, res) {
-        const { unidadeID, recebimentoMpID, modelo } = req.body
+        let { unidadeID, recebimentoMpID, modelo } = req.body
 
-        if (!unidadeID || !recebimentoMpID || !modelo) {
-            return res.status(200).json({ error: 'Parâmetros inválidos.' })
-        }
+        try {
+            if (!unidadeID) { return res.status(200).json([]) }
 
-        const sql = `
-        SELECT 
-            f.fornecedorID AS id,
-            NULLIF(CONCAT_WS(" - ", f.cnpj, f.nome, NULLIF(CONCAT_WS("/", f.cidade, f.estado), '')), '') AS nome,
-            f.nome AS nome_, 
-            f.cnpj,
-            f.cnpj AS cnpj_,
-            f.email,
-            f.telefone,
-            IF(f.cidade, CONCAT(f.cidade, "/", f.estado), null) AS cidade,
-            u.cabecalhoRelatorio AS foto
-        FROM fornecedor AS f
-            LEFT JOIN unidade AS u ON (f.cnpj = u.cnpj)
-        WHERE f.unidadeID = ? AND f.status IN (60, 70)
-        GROUP BY f.cnpj
-        ORDER BY f.nome ASC`
-        const [result] = await db.promise().query(sql, [unidadeID])
+            const sql = `
+            SELECT 
+                f.fornecedorID AS id,
+                NULLIF(CONCAT_WS(" - ", f.cnpj, f.nome, NULLIF(CONCAT_WS("/", f.cidade, f.estado), '')), '') AS nome,
+                f.nome AS nome_, 
+                f.cnpj,
+                f.cnpj AS cnpj_,
+                f.email,
+                f.telefone,
+                IF(f.cidade, CONCAT(f.cidade, "/", f.estado), null) AS cidade,
+                u.cabecalhoRelatorio AS foto
+            FROM fornecedor AS f
+                LEFT JOIN unidade AS u ON (f.cnpj = u.cnpj)
+            WHERE f.unidadeID = ? AND f.status IN (60, 70)
+            GROUP BY f.cnpj
+            ORDER BY f.nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID])
 
-        for (const fornecedor of result) {
-            fornecedor['foto'] = fornecedor.foto ? `${process.env.BASE_URL_API}${fornecedor.foto}` : null
+            for (const fornecedor of result) {
+                fornecedor['foto'] = fornecedor.foto ? `${process.env.BASE_URL_API}${fornecedor.foto}` : null
 
-            //? Obtém os produtos aprovados pra cada fornecedor
-            const sqlProdutos = `
-            SELECT
-                p.produtoID, 
-                CONCAT(p.nome, " (", um.nome, ")") AS nome,
+                //? Obtém os produtos aprovados pra cada fornecedor
+                const sqlProdutos = `
+                SELECT
+                    p.produtoID, 
+                    CONCAT(p.nome, " (", um.nome, ")") AS nome,
 
-                -- Recebimento de MP (valores)
-                (
-                    SELECT rp.quantidade
-                    FROM recebimentomp_produto AS rp 
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS quantidade,
-                (
-                    SELECT rp.lote
-                    FROM recebimentomp_produto AS rp 
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS lote,
-                (
-                    SELECT DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d')
-                    FROM recebimentomp_produto AS rp 
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS dataFabricacao,
-                (
-                    SELECT DATE_FORMAT(rp.dataValidade, '%Y-%m-%d')
-                    FROM recebimentomp_produto AS rp 
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS dataValidade,
-                (
-                    SELECT rp.apresentacaoID
-                    FROM recebimentomp_produto AS rp 
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS apresentacaoID,
-                (
-                    SELECT a.nome
-                    FROM recebimentomp_produto AS rp 
-                        JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
-                    WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-                    LIMIT 1
-                ) AS apresentacaoNome,            
-
-                -- Fornecedor (opções de produtos habilitados pro fornecedor selecionado)
-                (
-                    SELECT DATE_FORMAT(b.dataFim, "%d/%m/%Y") AS dataFim
-                    FROM fornecedor_produto AS a
-                        JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
-                    WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
-                    ORDER BY b.dataFim DESC
-                    LIMIT 1
-                ) AS ultimaAvaliacao,            
-                (
-                    SELECT DATE_FORMAT(DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY), "%d/%m/%Y") AS dataFim
-                    FROM fornecedor_produto AS a
-                        JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
-                    WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
-                    ORDER BY b.dataFim DESC
-                    LIMIT 1
-                ) AS proximaAvialacao,
-                DATEDIFF(
+                    -- Recebimento de MP (valores)
                     (
-                        SELECT DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY) AS dataFim
+                        SELECT rp.quantidade
+                        FROM recebimentomp_produto AS rp 
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS quantidade,
+                    (
+                        SELECT rp.lote
+                        FROM recebimentomp_produto AS rp 
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS lote,
+                    (
+                        SELECT DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d')
+                        FROM recebimentomp_produto AS rp 
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS dataFabricacao,
+                    (
+                        SELECT DATE_FORMAT(rp.dataValidade, '%Y-%m-%d')
+                        FROM recebimentomp_produto AS rp 
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS dataValidade,
+                    (
+                        SELECT rp.apresentacaoID
+                        FROM recebimentomp_produto AS rp 
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS apresentacaoID,
+                    (
+                        SELECT a.nome
+                        FROM recebimentomp_produto AS rp 
+                            JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
+                        WHERE rp.recebimentoMpID = ${recebimentoMpID ?? 0} AND rp.produtoID = fp.produtoID
+                        LIMIT 1
+                    ) AS apresentacaoNome,            
+
+                    -- Fornecedor (opções de produtos habilitados pro fornecedor selecionado)
+                    (
+                        SELECT DATE_FORMAT(b.dataFim, "%d/%m/%Y") AS dataFim
                         FROM fornecedor_produto AS a
                             JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
                         WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
                         ORDER BY b.dataFim DESC
                         LIMIT 1
-                    ),
-                    NOW()
-                ) AS diasRestantes       
-            FROM fornecedor_produto AS fp
-                JOIN fornecedor AS f ON (fp.fornecedorID = f.fornecedorID)
-                JOIN produto AS p ON (fp.produtoID = p.produtoID)
-                LEFT JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
-            WHERE f.cnpj = "${fornecedor.cnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
-            GROUP BY p.produtoID
-            ORDER BY p.nome ASC`
-            const [resultProdutos] = await db.promise().query(sqlProdutos)
+                    ) AS ultimaAvaliacao,            
+                    (
+                        SELECT DATE_FORMAT(DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY), "%d/%m/%Y") AS dataFim
+                        FROM fornecedor_produto AS a
+                            JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
+                        WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
+                        ORDER BY b.dataFim DESC
+                        LIMIT 1
+                    ) AS proximaAvialacao,
+                    DATEDIFF(
+                        (
+                            SELECT DATE_ADD(b.dataFim, INTERVAL ${modelo.ciclo ?? 0} DAY) AS dataFim
+                            FROM fornecedor_produto AS a
+                                JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
+                            WHERE a.produtoID = fp.produtoID AND b.cnpj = "${fornecedor.cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
+                            ORDER BY b.dataFim DESC
+                            LIMIT 1
+                        ),
+                        NOW()
+                    ) AS diasRestantes       
+                FROM fornecedor_produto AS fp
+                    JOIN fornecedor AS f ON (fp.fornecedorID = f.fornecedorID)
+                    JOIN produto AS p ON (fp.produtoID = p.produtoID)
+                    LEFT JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
+                WHERE f.cnpj = "${fornecedor.cnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
+                GROUP BY p.produtoID
+                ORDER BY p.nome ASC`
+                const [resultProdutos] = await db.promise().query(sqlProdutos)
 
-            if (resultProdutos.length > 0) {
-                for (const produto of resultProdutos) {
-                    produto.quantidade = floatToFractioned(produto.quantidade)
-                    produto.apresentacao = produto.apresentacaoID > 0 ? {
-                        id: produto.apresentacaoID,
-                        nome: produto.apresentacaoNome
-                    } : null
+                if (resultProdutos.length > 0) {
+                    for (const produto of resultProdutos) {
+                        produto.quantidade = floatToFractioned(produto.quantidade)
+                        produto.apresentacao = produto.apresentacaoID > 0 ? {
+                            id: produto.apresentacaoID,
+                            nome: produto.apresentacaoNome
+                        } : null
+                    }
                 }
+                fornecedor['produtos'] = resultProdutos ?? []
             }
-            fornecedor['produtos'] = resultProdutos ?? []
-        }
 
-        return res.status(200).json(result)
+            return res.status(200).json(result)
+
+        } catch (error) {
+            console.log(error)
+        }
     }
 
     async getModels(req, res) {
