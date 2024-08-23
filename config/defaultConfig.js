@@ -96,10 +96,10 @@ const getMenuPermissions = async (papelID, usuarioID, unidadeID) => {
     return menu;
 }
 
+
 const hasPending = async (id, arrPending) => {
-    if (!arrPending) {
-        // Se arrPending é nulo, você pode retornar uma Promise rejeitada com uma mensagem de erro
-        return Promise.reject('Erro hasPending: parâmetro arrPending é nulo');
+    if (!arrPending || arrPending.length === 0) {
+        return false;
     }
 
     const promises = arrPending.map(async (entry) => {

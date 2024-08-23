@@ -352,7 +352,7 @@ class UnidadeController {
 
 const setModelSupplierForm = async (values) => {
     // Verifica se há formulários de fornecedor sem modelo para esse cnpj 
-    const sql = `SELECT fornecedorID, unidadeID FROM fornecedor WHERE cnpj = "${values.cnpj}" AND parFornecedorModeloID = 0`
+    const sql = `SELECT fornecedorID, unidadeID FROM fornecedor WHERE cnpj = "${values.cnpj}" AND parFornecedorModeloID IS NULL`
     const [result] = await db.promise().query(sql)
 
     if (result.length > 0) {

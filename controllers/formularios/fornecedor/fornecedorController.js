@@ -113,10 +113,10 @@ class FornecedorController {
                     const sqlAnexoId = `SELECT anexoID FROM anexo_busca WHERE fornecedorID = ? AND principal = 1 AND assinado = 1`
                     const [resultAnexoId] = await db.promise().query(sqlAnexoId, [id])
                     const anexoId = resultAnexoId[0]?.anexoID
-                    const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
                     const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`
-                    await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', anexoId, logID)
+                    const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
                     await executeQuery(sqlDeleteBusca, [anexoId], 'delete', 'anexo_busca', 'anexoBuscaID', anexoId, logID)
+                    await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', anexoId, logID)
 
                     //? Insere em anexo
                     const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
@@ -366,12 +366,13 @@ class FornecedorController {
             const [resultAnexoId] = await db.promise().query(sqlAnexoId, [id])
             const anexoId = resultAnexoId[0]?.anexoID
 
-            //Deletar o atual
-            const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
-            await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', null, logID)
             // delete anexo busca
             const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`
             await executeQuery(sqlDeleteBusca, [anexoId], 'delete', 'anexo_busca', 'anexoBuscaID', null, logID)
+
+            //Deletar o atual
+            const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
+            await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', null, logID)
 
             //? Insere em anexodd
             const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
@@ -484,11 +485,11 @@ class FornecedorController {
         }
 
         //? Remove anexo do BD
-        const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`;
-        await executeQuery(sqlDelete, [anexoID], 'delete', 'anexo', 'anexoID', anexoID, logID)
-
         const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`;
         await executeQuery(sqlDeleteBusca, [anexoID], 'delete', 'anexo_busca', 'anexoID', anexoID, logID)
+
+        const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`;
+        await executeQuery(sqlDelete, [anexoID], 'delete', 'anexo', 'anexoID', anexoID, logID)
 
         res.status(200).json(anexoID);
     }
@@ -1198,15 +1199,16 @@ class FornecedorController {
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
-        console.log("🚀 ~ id, usuarioID, unidadeID:", id, usuarioID, unidadeID)
         const objDelete = {
-            table: ['fornecedor', 'fornecedor_grupoanexo', 'fornecedor_produto', 'fornecedor_resposta', 'fornecedor_sistemaqualidade'],
+            table: ['anexo_busca', 'fornecedor_grupoanexo', 'fornecedor_produto', 'fornecedor_resposta', 'fornecedor_sistemaqualidade', 'fornecedor'],
             column: 'fornecedorID'
         }
 
         const arrPending = [
-
-
+            {
+                table: 'recebimentomp',
+                column: ['fornecedorID'],
+            }
         ]
 
         if (!arrPending || arrPending.length === 0) {
@@ -1496,7 +1498,7 @@ class FornecedorController {
         VALUES
             (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         const fornecedorID = await executeQuery(sqlFornecedor, [
-            modeloID,
+            modeloID ?? null,
             values.razaoSocial,
             values.nomeFantasia,
             values.email,
@@ -1846,7 +1848,7 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
     }
 
     //* Verifica qual o modelo para esta categoria e risco
-    if (!risk) return 0
+    if (!risk) return null
     const sql = `
     SELECT frm.parFornecedorModeloID
     FROM fornecedorcategoria_risco AS fr
@@ -1854,9 +1856,9 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
     WHERE fr.fornecedorCategoriaRiscoID = ${risk} AND frm.unidadeID = ${unityID}`
     const [result] = await db.promise().query(sql)
 
-    if (!result) return 0
+    if (!result) return null
 
-    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? result[0]['parFornecedorModeloID'] : 0
+    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? result[0]['parFornecedorModeloID'] : null
 }
 
 const getSqlBloco = () => {

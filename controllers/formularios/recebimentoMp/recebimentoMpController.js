@@ -115,10 +115,10 @@ class RecebimentoMpController {
             data.fieldsHeader?.data + ' ' + data.fieldsHeader?.hora,
             profissionalID,
             unidadeID,
-            data.fieldsHeader?.profissional?.id ?? 0,
-            data.fieldsHeader?.fornecedor?.id ?? 0,
+            data.fieldsHeader?.profissional?.id ?? null,
+            data.fieldsHeader?.fornecedor?.id ?? null,
             data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : new Date(),
-            data.fieldsFooter?.profissional?.id ?? 0,
+            data.fieldsFooter?.profissional?.id ?? null,
             data.info?.obs,
             data?.obsConclusao,
             '30',
@@ -902,7 +902,7 @@ class RecebimentoMpController {
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
         const objDelete = {
-            table: ['recebimentomp', 'recebimentomp_produto', 'recebimentomp_resposta'],
+            table: ['anexo_busca', 'recebimentomp_produto', 'recebimentomp_resposta', 'recebimentomp'],
             column: 'recebimentoMpID'
         }
 

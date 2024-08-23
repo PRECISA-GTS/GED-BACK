@@ -110,7 +110,7 @@ class VersaoController {
 
             for (const item of data.fields.items) {
                 const sqlItem = 'INSERT INTO versao_item (versaoID, descricao, link) VALUES (?, ?, ?)'
-                await executeQuery(sqlItem, [id, item.descricao, item.link], 'insert', 'versao_item', 'versaoItemID', null, logID)
+                await executeQuery(sqlItem, [id, item.descricao, item.link ?? null], 'insert', 'versao_item', 'versaoItemID', null, logID)
             }
 
             const values = {
@@ -148,10 +148,10 @@ class VersaoController {
             for (const item of data.fields.items) {
                 if (item.versaoItemID) {
                     const sqlItemUpdate = `UPDATE versao_item SET descricao = ?, link = ? WHERE versaoItemID = ? AND versaoID = ?`;
-                    await executeQuery(sqlItemUpdate, [item.descricao, item.link, item.versaoItemID, id], 'update', 'versao_item', 'versaoItemID', item.versaoItemID, logID);
+                    await executeQuery(sqlItemUpdate, [item.descricao, item.link ?? null, item.versaoItemID, id], 'update', 'versao_item', 'versaoItemID', item.versaoItemID, logID);
                 } else {
                     const sqlItemInsert = `INSERT INTO versao_item (versaoID, descricao, link) VALUES (?, ?, ?)`;
-                    await executeQuery(sqlItemInsert, [id, item.descricao, item.link], 'insert', 'versao_item', 'versaoID', id, logID);
+                    await executeQuery(sqlItemInsert, [id, item.descricao, item.link ?? null], 'insert', 'versao_item', 'versaoID', id, logID);
                 }
             }
 
@@ -166,7 +166,7 @@ class VersaoController {
         const { id, usuarioID } = req.params
 
         const logID = await executeLog('Exclusão de versão', usuarioID, 1, req)
-        return deleteItem(id, ['versao', 'versao_item'], 'versaoID', logID, res)
+        return deleteItem(id, ['versao_item', 'versao'], 'versaoID', logID, res)
     }
 }
 

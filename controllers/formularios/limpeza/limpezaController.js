@@ -628,7 +628,7 @@ class LimpezaController {
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
         const objDelete = {
-            table: ['limpeza', 'limpeza_resposta'],
+            table: ['anexo_busca', 'limpeza_resposta', 'limpeza'],
             column: 'limpezaID'
         }
 

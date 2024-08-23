@@ -42,7 +42,7 @@ const formatFieldsToTable = async (table, fields) => {
         const sql = `SELECT nomeColuna FROM ${table} WHERE tabela = "${field.tabela}" `;
         const [result] = await db.promise().query(sql);
         if (result.length > 0) {
-            dataHeader[field.nomeColuna] = field[field.tabela]?.id > 0 ? field[field.tabela].id : 0;
+            dataHeader[field.nomeColuna] = field[field.tabela]?.id > 0 ? field[field.tabela].id : null;
         } else {
             dataHeader[field.nomeColuna] = field[field.nomeColuna] ? field[field.nomeColuna] : null
         }
