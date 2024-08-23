@@ -285,32 +285,33 @@ class RecebimentoMpController {
             })
 
             //? Blocos removidos
-            const removeBlocks = async () => {
-                if (arrRemovedBlocks && arrRemovedBlocks.length > 0) {
+            for (const block of arrRemovedBlocks) {
+                if (block && block > 0) {
                     const ids = arrRemovedBlocks.join(',')
 
-                    // Blocos
-                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlock, [], 'delete', 'par_recebimentomp_modelo_bloco', 'parRecebimentoMpModeloID', id, logID)
-
                     // Itens do bloco
-                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockItems, [], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoID', id, logID)
+                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoID', block, logID)
 
                     // Setores do bloco
                     const sqlDeleteBlockSetores = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', block, logID)
+
+                    // Blocos
+                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_recebimentomp_modelo_bloco', 'parRecebimentoMpModeloBlocoID', block, logID)
                 }
             }
-            removeBlocks()
 
-            //? Itens removidos dos blocos (?)
-            arrRemovedItems && arrRemovedItems.forEach(async (item) => {
-                if (item) {
-                    const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoItemID = ?`
-                    await executeQuery(sqlDelete, [item], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoItemID', id, logID)
+            //? Itens removidos dos blocos 
+            if (arrRemovedItems && arrRemovedItems.length > 0) {
+                for (const item of arrRemovedItems) {
+                    if (item) {
+                        const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoItemID = ?`
+                        await executeQuery(sqlDelete, [item], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoItemID', item, logID)
+                    }
                 }
-            })
+            }
 
             //? Blocos 
             blocks && blocks.forEach(async (block, index) => {
@@ -421,9 +422,12 @@ class RecebimentoMpController {
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
+
         const objDelete = {
-            table: ['par_recebimentomp_modelo'],
-            column: 'parRecebimentoMpModeloID'
+            table: [
+                'par_recebimentomp_modelo_cabecalho',
+                'par_recebimentomp_modelo'
+            ], column: 'parRecebimentoMpModeloID'
         }
 
         const arrPending = [
@@ -431,11 +435,10 @@ class RecebimentoMpController {
                 table: 'recebimentomp',
                 column: ['parRecebimentoMpModeloID',],
             },
-
         ]
 
         if (!arrPending || arrPending.length === 0) {
-            const logID = await executeLog('Exclusão de modelo de recebimento MP', usuarioID, unidadeID, req)
+            const logID = await executeLog('Exclusão de modelo de recebimento de MP', usuarioID, unidadeID, req)
             return deleteItem(id, objDelete.table, objDelete.column, logID, res)
         }
 
@@ -444,7 +447,31 @@ class RecebimentoMpController {
                 if (hasPending) {
                     res.status(409).json({ message: "Dado possui pendência." });
                 } else {
-                    const logID = await executeLog('Exclusão de modelo de recebimento MP', usuarioID, unidadeID, req)
+                    // Deleta de par_recebimentomp_modelo_bloco_item
+                    const sqlModeloBloco = `SELECT parRecebimentoMpModeloBlocoID FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloID = ?`
+                    const [resultModeloBloco] = await db.promise().query(sqlModeloBloco, [id])
+
+                    if (resultModeloBloco && resultModeloBloco.length > 0) {
+                        for (const bloco of resultModeloBloco) {
+                            // Deleta de par_recebimentomp_modelo_bloco_item
+                            const sqlModeloBlocoItem = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoItem, [bloco.parRecebimentoMpModeloBlocoID]);
+
+                            // Deleta de par_recebimentomp_modelo_bloco_setor 
+                            const sqlModeloBlocoSetor = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parRecebimentoMpModeloBlocoID]);
+
+                            // Deleta de par_recebimentomp_modelo_bloco
+                            const sqlModeloBloco = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBloco, [bloco.parRecebimentoMpModeloBlocoID]);
+                        }
+                    }
+
+                    // Deleta de par_recebimentomp_modelo_setor
+                    const sqlModeloSetor = `DELETE FROM par_recebimentomp_modelo_setor WHERE parRecebimentoMpModeloID = ?`;
+                    await db.promise().query(sqlModeloSetor, [id]);
+
+                    const logID = await executeLog('Exclusão de modelo de recebimento de MP', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)
                 }
             })

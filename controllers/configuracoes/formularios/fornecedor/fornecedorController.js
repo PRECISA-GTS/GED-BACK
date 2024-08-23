@@ -6,7 +6,6 @@ require('dotenv/config')
 const { executeLog, executeQuery } = require('../../../../config/executeQuery');
 
 class FornecedorController {
-
     async getLinkingForms(req, res) {
         const { unidadeID } = req.body
 
@@ -411,8 +410,8 @@ class FornecedorController {
 
             //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_fornecedor_modelo_profissional
             const sqlDeleteProfissionaisModelo = `DELETE FROM par_fornecedor_modelo_profissional WHERE parFornecedorModeloID = ?`
-            // const [resultDeleteProfissionaisModelo] = await db.promise().query(sqlDeleteProfissionaisModelo, [id])
             await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_fornecedor_modelo_profissional', 'parFornecedorModeloID', id, logID)
+
             //? Insere profissionais que aprovam
             if (model && model.profissionaisPreenchem && model.profissionaisPreenchem.length > 0) {
                 for (let i = 0; i < model.profissionaisPreenchem.length; i++) {
@@ -452,50 +451,54 @@ class FornecedorController {
                         UPDATE par_fornecedor_modelo_cabecalho
                         SET obrigatorio = ?, ordem = ?
                         WHERE parFornecedorModeloID = ? AND parFornecedorID = ?`
-
                         await executeQuery(sqlUpdate, [(item.obrigatorio ? '1' : '0'), (item.ordem ?? '0'), id, item.parFornecedorID], 'update', 'par_fornecedor_modelo_cabecalho', 'parFornecedorModeloID', id, logID)
                     } else { // Insert
                         const sqlInsert = `
                         INSERT INTO par_fornecedor_modelo_cabecalho (parFornecedorModeloID, parFornecedorID, obrigatorio, ordem)
                         VALUES (?, ?, ?, ?)`
-
-                        await executeQuery(sqlInsert, [id, item.parFornecedorID, (item.obrigatorio ? '1' : '0'), (item.ordem ?? '0')], 'insert', 'par_fornecedor_modelo_cabecalho', 'parFornecedorModeloCabecalhoID', null, logID)
+                        await executeQuery(sqlInsert, [
+                            id,
+                            item.parFornecedorID,
+                            (item.obrigatorio ? '1' : '0'),
+                            (item.ordem ?? '0')
+                        ], 'insert', 'par_fornecedor_modelo_cabecalho', 'parFornecedorModeloCabecalhoID', null, logID)
                     }
                 } else if (item) { // Deleta
                     const sqlDelete = `
                     DELETE FROM par_fornecedor_modelo_cabecalho
                     WHERE parFornecedorModeloID = ? AND parFornecedorID = ?`
-
                     await executeQuery(sqlDelete, [id, item.parFornecedorID], 'delete', 'par_fornecedor_modelo_cabecalho', 'parFornecedorModeloID', id, logID)
                 }
             })
 
             //? Blocos removidos
-            arrRemovedBlocks && arrRemovedBlocks.length > 0 && arrRemovedBlocks.forEach(async (block) => {
+            for (const block of arrRemovedBlocks) {
                 if (block && block > 0) {
                     const ids = arrRemovedBlocks.join(',')
 
-                    // Blocos
-                    const sqlDeleteBlock = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloID', id, logID)
-
                     // Itens do bloco
                     const sqlDeleteBlockItems = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloID', id, logID)
+                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', block, logID)
 
                     // Setores do bloco
                     const sqlDeleteBlockSetores = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', block, logID)
+
+                    // Blocos
+                    const sqlDeleteBlock = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloBlocoID', block, logID)
                 }
-            })
+            }
 
             //? Itens removidos dos blocos 
-            arrRemovedItems && arrRemovedItems.forEach(async (item) => {
-                if (item) {
-                    const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoItemID = ?`
-                    await executeQuery(sqlDelete, [item], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoItemID', id, logID)
+            if (arrRemovedItems && arrRemovedItems.length > 0) {
+                for (const item of arrRemovedItems) {
+                    if (item) {
+                        const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoItemID = ?`
+                        await executeQuery(sqlDelete, [item], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoItemID', item, logID)
+                    }
                 }
-            })
+            }
 
             //? Blocos 
             blocks && blocks.forEach(async (block, index) => {
@@ -566,7 +569,8 @@ class FornecedorController {
                                 (item.status ? 1 : 0),
                                 item.parFornecedorModeloBlocoItemID
                             ], 'update', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
-                        } else if (item && item.new && !item.parFornecedorModeloBlocoItemID) { //? Insert                            
+                        } else if (item && item.new && !item.parFornecedorModeloBlocoItemID) { //? Insert     
+                            console.log('insere item ', item)
                             // Valida duplicidade do item 
                             const sqlItem = `
                             SELECT COUNT(*) AS count
@@ -603,12 +607,15 @@ class FornecedorController {
         }
     }
 
+
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
-        // return
+
         const objDelete = {
-            table: ['par_fornecedor_modelo'],
-            column: 'parFornecedorModeloID'
+            table: [
+                'par_fornecedor_modelo_cabecalho',
+                'par_fornecedor_modelo'
+            ], column: 'parFornecedorModeloID'
         }
 
         const arrPending = [
@@ -616,7 +623,6 @@ class FornecedorController {
                 table: 'fornecedor',
                 column: ['parFornecedorModeloID',],
             },
-
         ]
 
         if (!arrPending || arrPending.length === 0) {
@@ -629,6 +635,30 @@ class FornecedorController {
                 if (hasPending) {
                     res.status(409).json({ message: "Dado possui pendência." });
                 } else {
+                    // Deleta de par_fornecedor_modelo_bloco_item
+                    const sqlModeloBloco = `SELECT parFornecedorModeloBlocoID FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloID = ?`
+                    const [resultModeloBloco] = await db.promise().query(sqlModeloBloco, [id])
+
+                    if (resultModeloBloco && resultModeloBloco.length > 0) {
+                        for (const bloco of resultModeloBloco) {
+                            // Deleta de par_fornecedor_modelo_bloco_item
+                            const sqlModeloBlocoItem = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoItem, [bloco.parFornecedorModeloBlocoID]);
+
+                            // Deleta de par_fornecedor_modelo_bloco_setor 
+                            const sqlModeloBlocoSetor = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parFornecedorModeloBlocoID]);
+
+                            // Deleta de par_fornecedor_modelo_bloco
+                            const sqlModeloBloco = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBloco, [bloco.parFornecedorModeloBlocoID]);
+                        }
+                    }
+
+                    // Deleta de par_fornecedor_modelo_setor
+                    const sqlModeloSetor = `DELETE FROM par_fornecedor_modelo_setor WHERE parFornecedorModeloID = ?`;
+                    await db.promise().query(sqlModeloSetor, [id]);
+
                     const logID = await executeLog('Exclusão de modelo de fornecedor', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)
                 }

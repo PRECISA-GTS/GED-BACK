@@ -308,12 +308,12 @@ class ItemController {
 
             //? Atualiza item_opcao
             // Delete
-            const sqlDelete = `DELETE FROM item_opcao WHERE itemID = ? `
-            await executeQuery(sqlDelete, [id], 'delete', 'item_opcao', 'itemID', id, logID)
-
-            // Delete
             const sqlDeleteAnexo = `DELETE FROM item_opcao_anexo WHERE itemID = ? `
             await executeQuery(sqlDeleteAnexo, [id], 'delete', 'item_opcao_anexo', 'itemID', id, logID)
+
+            // Delete
+            const sqlDelete = `DELETE FROM item_opcao WHERE itemID = ? `
+            await executeQuery(sqlDelete, [id], 'delete', 'item_opcao', 'itemID', id, logID)
 
             // Insert
             const sqlInsertOpcao = `INSERT INTO item_opcao(itemID, alternativaItemID, anexo, bloqueiaFormulario, observacao) VALUES(?, ?, ?, ?, ?)`
@@ -350,10 +350,9 @@ class ItemController {
 
         // Tabelas que quero deletar
         const objDelete = {
-            table: ['item', 'item_opcao', 'item_opcao_anexo'],
+            table: ['item_opcao_anexo', 'item_opcao', 'item'],
             column: 'itemID'
         };
-
 
         const arrPending = [
             {

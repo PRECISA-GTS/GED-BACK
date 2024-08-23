@@ -269,7 +269,7 @@ class SetorController {
         const { id, usuarioID } = req.params
 
         const logID = await executeLog('Exclusão de setor', usuarioID, 1, req)
-        return deleteItem(id, ['setor', 'profissional_setor'], 'setorID', logID, res)
+        return deleteItem(id, ['profissional_setor', 'setor'], 'setorID', logID, res)
     }
 }
 

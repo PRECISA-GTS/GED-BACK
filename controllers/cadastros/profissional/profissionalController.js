@@ -408,7 +408,6 @@ class ProfissionalController {
         try {
             const { id } = req.params
             let data = req.body
-            console.log("🚀 ~ data:", data)
 
             let setores = data.fields.setores
             delete data.fields.setores
@@ -417,6 +416,7 @@ class ProfissionalController {
 
             // Atualiza dados do profissional
             delete data.fields.imagem
+
             const UpdateUser = `UPDATE profissional SET ? WHERE profissionalID = ?`
             await executeQuery(UpdateUser, [data.fields, id], 'update', 'profissional', 'profissionalID', id, logID)
 
@@ -468,13 +468,11 @@ class ProfissionalController {
                     const formatedData = row.data.substring(0, 10)
                     if (row && row.profissionalCargoID > 0) { //? Já existe, atualiza
                         const sqlUpdateItem = `UPDATE profissional_cargo SET data = ?, formacaoCargo = ?, conselho = ?,  dataInativacao = ?, status = ?  WHERE profissionalCargoID = ?`
-
                         await executeQuery(sqlUpdateItem, [formatedData,
                             row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), row.profissionalCargoID], 'update', 'profissional_cargo', 'profissionalID', id, logID)
 
                     } else if (row && !row.profissionalCargoID) {    //? Novo, insere
                         const sqlInsertItem = `INSERT INTO profissional_cargo (data, formacaoCargo, conselho, dataInativacao, status, profissionalID) VALUES (?, ?, ?, ?, ?, ?)`
-
                         await executeQuery(sqlInsertItem, [formatedData, row.formacaoCargo, row.conselho, (row.dataInativacao), (row.dataInativacao ? '0' : '1'), data.fields.profissionalID], 'insert', 'profissional_cargo', 'profissionalCargoID', null, logID)
                     }
                 })
@@ -600,9 +598,7 @@ class ProfissionalController {
             //* Desmarcou usuário do sistema
             else {
                 const UpdateUser = `UPDATE profissional SET usuarioID = ? WHERE profissionalID = ?`
-
-                await executeQuery(UpdateUser, [0, id], 'update', 'profissional', 'profissionalID', id, logID)
-
+                await executeQuery(UpdateUser, [null, id], 'update', 'profissional', 'profissionalID', id, logID)
 
                 res.status(200).json({ message: 'Dados atualizados com sucesso!' })
             }
@@ -698,16 +694,14 @@ class ProfissionalController {
 
     async deleteData(req, res) {
         const { id, unidadeID, usuarioID } = req.params
-        console.log("🚀 ~ id, unidadeID, usuarioID:", id, unidadeID, usuarioID)
 
         //? Obtém usuarioID pra deletar tabelas usuario e usuario_unidade depois de apagar o profissional
         const sqlUser = `SELECT usuarioID FROM profissional WHERE profissionalID = ?`
         const [resultUser] = await db.promise().query(sqlUser, [id])
         const usuarioIDelete = resultUser[0].usuarioID
 
-
         const objDelete = {
-            table: ['profissional', 'profissional_cargo'],
+            table: ['profissional_setor', 'profissional_cargo', 'profissional'],
             column: 'profissionalID'
         }
         const arrPending = [
@@ -737,15 +731,16 @@ class ProfissionalController {
                 } else {
                     const logID = await executeLog('Exclusão de profissional', usuarioID, unidadeID, req)
                     if (usuarioIDelete) {
+                        // Deleta de notificacao_usuario
+                        const sqlDeleteNotificacaoUsuario = `DELETE FROM notificacao_usuario WHERE usuarioID = ?`
+                        await executeQuery(sqlDeleteNotificacaoUsuario, [usuarioIDelete], 'delete', 'notificacao_usuario', 'usuarioID', id, logID)
 
                         //? Deleta usuario e usuario_unidade
                         const sqlDeleteUsuarioUnidade = `DELETE FROM usuario_unidade WHERE usuarioID = ?`
-
                         await executeQuery(sqlDeleteUsuarioUnidade, [usuarioIDelete], 'delete', 'usuario_unidade', 'usuarioID', id, logID)
                     }
 
                     const sqlDeleteUsuario = `DELETE FROM usuario WHERE usuarioID = ?`
-
                     await executeQuery(sqlDeleteUsuario, [usuarioIDelete], 'delete', 'usuario', 'usuarioID', id, logID)
 
                     //? Deleta profissional e profissional_cargo

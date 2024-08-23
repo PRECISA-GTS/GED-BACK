@@ -321,31 +321,33 @@ class LimpezaController {
             })
 
             //? Blocos removidos
-            arrRemovedBlocks && arrRemovedBlocks.length > 0 && arrRemovedBlocks.forEach(async (block) => {
+            for (const block of arrRemovedBlocks) {
                 if (block && block > 0) {
                     const ids = arrRemovedBlocks.join(',')
 
-                    // Blocos
-                    const sqlDeleteBlock = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_limpeza_modelo_bloco', 'parLimpezaModeloID', id, logID)
-
                     // Itens do bloco
                     const sqlDeleteBlockItems = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`
-                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', id, logID)
+                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', block, logID)
 
                     // Setores do bloco
                     const sqlDeleteBlockSetores = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
-                }
-            })
+                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', block, logID)
 
-            //? Itens removidos dos blocos (?)
-            arrRemovedItems && arrRemovedItems.forEach(async (item) => {
-                if (item) {
-                    const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoItemID = ?`
-                    await executeQuery(sqlDelete, [item], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoItemID', id, logID)
+                    // Blocos
+                    const sqlDeleteBlock = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_limpeza_modelo_bloco', 'parLimpezaModeloBlocoID', block, logID)
                 }
-            })
+            }
+
+            //? Itens removidos dos blocos 
+            if (arrRemovedItems && arrRemovedItems.length > 0) {
+                for (const item of arrRemovedItems) {
+                    if (item) {
+                        const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoItemID = ?`
+                        await executeQuery(sqlDelete, [item], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoItemID', item, logID)
+                    }
+                }
+            }
 
             //? Blocos 
             blocks && blocks.forEach(async (block, index) => {
@@ -458,9 +460,12 @@ class LimpezaController {
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
+
         const objDelete = {
-            table: ['par_limpeza_modelo'],
-            column: 'parLimpezaModeloID'
+            table: [
+                'par_limpeza_modelo_cabecalho',
+                'par_limpeza_modelo'
+            ], column: 'parLimpezaModeloID'
         }
 
         const arrPending = [
@@ -468,7 +473,6 @@ class LimpezaController {
                 table: 'limpeza',
                 column: ['parLimpezaModeloID',],
             },
-
         ]
 
         if (!arrPending || arrPending.length === 0) {
@@ -481,6 +485,30 @@ class LimpezaController {
                 if (hasPending) {
                     res.status(409).json({ message: "Dado possui pendência." });
                 } else {
+                    // Deleta de par_limpeza_modelo_bloco_item
+                    const sqlModeloBloco = `SELECT parLimpezaModeloBlocoID FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloID = ?`
+                    const [resultModeloBloco] = await db.promise().query(sqlModeloBloco, [id])
+
+                    if (resultModeloBloco && resultModeloBloco.length > 0) {
+                        for (const bloco of resultModeloBloco) {
+                            // Deleta de par_limpeza_modelo_bloco_item
+                            const sqlModeloBlocoItem = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoItem, [bloco.parLimpezaModeloBlocoID]);
+
+                            // Deleta de par_limpeza_modelo_bloco_setor 
+                            const sqlModeloBlocoSetor = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parLimpezaModeloBlocoID]);
+
+                            // Deleta de par_limpeza_modelo_bloco
+                            const sqlModeloBloco = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBloco, [bloco.parLimpezaModeloBlocoID]);
+                        }
+                    }
+
+                    // Deleta de par_limpeza_modelo_setor
+                    const sqlModeloSetor = `DELETE FROM par_limpeza_modelo_setor WHERE parLimpezaModeloID = ?`;
+                    await db.promise().query(sqlModeloSetor, [id]);
+
                     const logID = await executeLog('Exclusão de modelo de limpeza', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)
                 }

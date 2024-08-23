@@ -277,7 +277,7 @@ class UnidadeController {
         const { id, usuarioID, unidadeID } = req.params
 
         const objDelete = {
-            table: ['unidade'],
+            table: ['unidade_extensao', 'unidade'],
             column: 'unidadeID'
         }
         const arrPending = [

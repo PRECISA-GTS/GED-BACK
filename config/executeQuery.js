@@ -18,38 +18,77 @@ const executeLog = async (nome, usuarioID, unidadeID, req) => {
 }
 
 const executeQuery = async (sql, params, operation, tableName, uniqueColumnName, id, logID, objEmail = null, loginObj = null) => {
-
     try {
-        let changeData = null
-        if (operation == 'email') {
-            changeData = getChangedData(null, null, operation, objEmail, null)
-        } else if (operation == 'login') {
-            changeData = getChangedData(null, null, operation, null, loginObj)
+        let changeData = null;
+
+        if (operation === 'email') {
+            changeData = getChangedData(null, null, operation, objEmail, null);
+        } else if (operation === 'login') {
+            changeData = getChangedData(null, null, operation, null, loginObj);
         } else {
             const sqlSelect = `SELECT * FROM ${tableName} WHERE ${uniqueColumnName} = ?`;
-            // Antes de executar a consulta, obtenha os dados atuais da tabela (antes da operação)
+
+            // Obtém os dados antes da operação
             const [rowsBefore] = await db.promise().query(sqlSelect, [id]);
-            const beforeData = rowsBefore;
 
-            // Execute a consulta real (insert, update ou delete)
-            if (operation == 'delete' && rowsBefore.length == 0) return false //! É exclusão, mas não existe o registro, ignora...
-            const [results] = await db.promise().query(sql, params); //* Executa query...
-            if (operation == 'insert') id = results.insertId
+            if (operation === 'delete' && rowsBefore.length === 0) {
+                console.log(`No record found at [${tableName}] with [${uniqueColumnName}] = [${id}] to delete.`);
+                return null; // Registro não encontrado para exclusão
+            }
 
-            // Após a execução da consulta, obtenha os dados atualizados da tabela (depois da operação)
+            // Executa a query de inserção, atualização ou exclusão
+            const [results] = await db.promise().query(sql, params);
+            if (operation === 'insert') {
+                id = results.insertId;
+            }
+
+            // Obtém os dados após a operação
             const [rowsAfter] = await db.promise().query(sqlSelect, [id]);
-            const afterData = rowsAfter;
-            changeData = getChangedData(beforeData, afterData, operation, null)
+            changeData = getChangedData(rowsBefore, rowsAfter, operation, null);
         }
 
-        // Registre os detalhes na tabela de log
-        logDatabaseOperation(operation, tableName, changeData, logID);
+        // Registra a operação no log
+        await logDatabaseOperation(operation, tableName, changeData, logID);
 
         return id;
     } catch (err) {
         console.error('Error executing query:', err);
+        throw err; // Lança o erro para tratamento superior
     }
 };
+
+// const executeQuery = async (sql, params, operation, tableName, uniqueColumnName, id, logID, objEmail = null, loginObj = null) => {
+//     try {
+//         let changeData = null
+//         if (operation == 'email') {
+//             changeData = getChangedData(null, null, operation, objEmail, null)
+//         } else if (operation == 'login') {
+//             changeData = getChangedData(null, null, operation, null, loginObj)
+//         } else {
+//             const sqlSelect = `SELECT * FROM ${tableName} WHERE ${uniqueColumnName} = ?`;
+//             // Antes de executar a consulta, obtenha os dados atuais da tabela (antes da operação)
+//             const [rowsBefore] = await db.promise().query(sqlSelect, [id]);
+//             const beforeData = rowsBefore;
+
+//             // Execute a consulta real (insert, update ou delete)
+//             if (operation == 'delete' && rowsBefore.length == 0) return false //! É exclusão, mas não existe o registro, ignora...
+//             const [results] = await db.promise().query(sql, params); //* Executa query...
+//             if (operation == 'insert') id = results.insertId
+
+//             // Após a execução da consulta, obtenha os dados atualizados da tabela (depois da operação)
+//             const [rowsAfter] = await db.promise().query(sqlSelect, [id]);
+//             const afterData = rowsAfter;
+//             changeData = getChangedData(beforeData, afterData, operation, null)
+//         }
+
+//         // Registre os detalhes na tabela de log
+//         logDatabaseOperation(operation, tableName, changeData, logID);
+
+//         return id;
+//     } catch (err) {
+//         console.error('Error executing query:', err);
+//     }
+// };
 
 const getChangedData = (beforeData, afterData, operation, objEmail, loginObj) => {
     switch (operation) {
