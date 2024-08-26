@@ -1459,7 +1459,7 @@ class FornecedorController {
     }
 
     async makeFornecedor(req, res) {
-        const {
+        let {
             usuarioID,
             unidadeID,
             papelID,
@@ -1478,7 +1478,7 @@ class FornecedorController {
         //? Senha gerada será os 4 primeiros caracteres do CNPJ
         const password = gerarSenhaCaracteresIniciais(values.cnpj, 4)
 
-        //? Verifica se cnpj já é um fornecedor apto
+        //? Verifica se cnpj/cpf já é um fornecedor apto
         const sqlVerify = `
         SELECT *
         FROM fabrica_fornecedor
@@ -1550,26 +1550,33 @@ class FornecedorController {
         const movimentation = await addFormStatusMovimentation(1, fornecedorID, usuarioID, unidadeID, papelID, '0', initialStatus, '')
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário!" }) }
 
-        //! Verifica se CNPJ já tem um usuario cadastrado, se não tiver cadastra
+        //! Verifica se CNPJ/CPF já tem um usuario cadastrado, se não tiver cadastra
         const userExists = isCpf ? `SELECT * FROM usuario WHERE cpf = "${values.cnpj}"` : `SELECT * FROM usuario WHERE cnpj = "${values.cnpj}"`
         const [resultUserExists] = await db.promise().query(userExists)
 
+        let newUsuarioID = usuarioID
         if (resultUserExists.length == 0) {
             // Salva usuário
             const sqlNewUuser = `
             INSERT INTO usuario(nome, cnpj, cpf, email, senha)
             VALUES(?, ?, ?, ?, ?)`
-            const usuarioID = await executeQuery(sqlNewUuser, [
+            newUsuarioID = await executeQuery(sqlNewUuser, [
                 values.razaoSocial,
                 !isCpf ? values.cnpj : null, // CNPJ
                 isCpf ? values.cnpj : null, // CPF
                 values.email,
                 criptoMd5(password)
             ], 'insert', 'usuario', 'usuarioID', null, logID)
+        }
 
+        const unityExists = `SELECT * FROM unidade WHERE cnpj = "${values.cnpj}" AND cpf = ?`
+        const [resultUnityExists] = await db.promise().query(unityExists, (isCpf ? 1 : 0))
+
+        let newUnidadeID = unidadeID
+        if (resultUnityExists.length == 0) {
             // Salva a unidade
             const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, fornecedorCategoriaID, fornecedorCategoriaRiscoID, dataCadastro, dataAtualizacao, cpf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            const newUnidadeID = await executeQuery(sqlInsertUnity, [
+            newUnidadeID = await executeQuery(sqlInsertUnity, [
                 values.razaoSocial,
                 values.nomeFantasia,
                 values.cnpj,
@@ -1580,12 +1587,22 @@ class FornecedorController {
                 new Date(),
                 (isCpf ? 1 : 0)
             ], 'insert', 'unidade', 'unidadeID', null, logID)
+        }
 
+        const sqlUserUnityExists = `SELECT * FROM usuario_unidade WHERE usuarioID = ? AND unidadeID = ? AND papelID = ?`
+        const [resultUserUnityExists] = await db.promise().query(sqlUserUnityExists, [newUsuarioID, newUnidadeID, 2])
+
+        if (resultUserUnityExists.length == 0) {
             // Salva usuario_unidade
             const sqlNewUserUnity = `
-            INSERT INTO usuario_unidade(usuarioID, unidadeID, papelID)
-            VALUES(?, ?, ?)`
-            await executeQuery(sqlNewUserUnity, [usuarioID, newUnidadeID, 2], 'insert', 'usuario_unidade', 'usuarioUnidadeID', null, logID)
+            INSERT INTO usuario_unidade(usuarioID, unidadeID, papelID, primeiroAcesso)
+            VALUES(?, ?, ?, 1)`
+            await executeQuery(sqlNewUserUnity, [
+                newUsuarioID,
+                newUnidadeID,
+                2,
+                1
+            ], 'insert', 'usuario_unidade', 'usuarioUnidadeID', null, logID)
         }
 
         // Obtem dados da fabrica
