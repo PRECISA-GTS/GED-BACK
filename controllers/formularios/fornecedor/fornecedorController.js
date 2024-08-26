@@ -583,6 +583,7 @@ class FornecedorController {
                 
                 f.status,
                 f.obs,
+                f.cpf,
                 
                 DATE_FORMAT(f.dataFim, '%d/%m/%Y') AS dataFim, 
                 DATE_FORMAT(f.dataFim, '%H:%i') AS horaFim, 
@@ -956,6 +957,7 @@ class FornecedorController {
                     nomeFantasia: resultFornecedor[0].nome,
                     //? Setores que preenchem
                     setores: resultSetores.filter(row => row?.tipo === 1),
+                    cpf: resultFornecedor[0].cpf === 1 ? true : false,
                 },
                 fieldsFooter: {
                     concluded: resultFornecedor[0].dataFim ? true : false,
@@ -1238,7 +1240,7 @@ class FornecedorController {
         SELECT *
                 FROM fabrica_fornecedor AS ff 
             JOIN unidade AS u ON(ff.unidadeID = u.unidadeID) 
-        WHERE ff.fornecedorCnpj = "${cnpj}" AND ff.status = 1`
+        WHERE ff.fornecedorCnpjCpf = "${cnpj}" AND ff.status = 1`
         const [result] = await db.promise().query(sql)
 
         res.status(200).json(result);
@@ -1264,13 +1266,13 @@ class FornecedorController {
     }
 
     async getFornecedorByCnpj(req, res) {
-        const { unidadeID, cnpj } = req.body;
+        const { type, unidadeID, cnpj } = req.body;
         // Verifica se está vinculado como um fornecedor
         const sqlFornecedor = `
         SELECT *
         FROM fabrica_fornecedor
-        WHERE unidadeID = ? AND fornecedorCnpj = ? AND status = ? `
-        const [resultFornecedor] = await db.promise().query(sqlFornecedor, [unidadeID, cnpj, 1])
+        WHERE unidadeID = ? AND fornecedorCnpjCpf = ? AND status = ? AND cpf = ?`
+        const [resultFornecedor] = await db.promise().query(sqlFornecedor, [unidadeID, cnpj, 1, (type === 'cpf' ? 1 : 0)])
 
         // Verifica se já possui formulário preenchido pra minha empresa
         const sqlFormulario = `
@@ -1293,10 +1295,10 @@ class FornecedorController {
             ) AS gruposAnexo
         FROM fornecedor AS f
             JOIN par_fornecedor_modelo AS pfm ON(f.parFornecedorModeloID = pfm.parFornecedorModeloID)            
-        WHERE f.unidadeID = ? AND f.cnpj = ? 
+        WHERE f.unidadeID = ? AND f.cnpj = ? AND f.cpf = ?
         ORDER BY f.fornecedorID DESC
         LIMIT 1`
-        const [resultFormulario] = await db.promise().query(sqlFormulario, [unidadeID, cnpj])
+        const [resultFormulario] = await db.promise().query(sqlFormulario, [unidadeID, cnpj, (type === 'cpf' ? 1 : 0)])
 
         // dados da unidade quando já for fornecedor carrega os dados da unidade
         const sqlUnity = `
@@ -1304,8 +1306,8 @@ class FornecedorController {
         FROM unidade AS u
             LEFT JOIN fornecedorcategoria AS fc ON (u.fornecedorCategoriaID = fc.fornecedorCategoriaID)
             LEFT JOIN fornecedorcategoria_risco AS fcr ON (fcr.fornecedorCategoriaID = fc.fornecedorCategoriaID)
-        WHERE u.cnpj = "${cnpj}"`
-        const [resultUnity] = await db.promise().query(sqlUnity)
+        WHERE u.cnpj = "${cnpj}" AND u.cpf = ?`
+        const [resultUnity] = await db.promise().query(sqlUnity, [type === 'cpf' ? 1 : 0])
 
         // Modelo de formulário (se houver apenas 1, já vem selecionado)
         const sqlModelo = `
@@ -1465,7 +1467,8 @@ class FornecedorController {
             habilitaQuemPreencheFormFornecedor,
             values,
             fornecedorCategoriaID,
-            fornecedorCategoriaRiscoID
+            fornecedorCategoriaRiscoID,
+            isCpf
         } = req.body;
         const quemPreenche = habilitaQuemPreencheFormFornecedor ?? 2
         let message = 'Fornecedor criado com sucesso!'
@@ -1479,12 +1482,12 @@ class FornecedorController {
         const sqlVerify = `
         SELECT *
         FROM fabrica_fornecedor
-        WHERE unidadeID = ? AND fornecedorCnpj = "${values.cnpj}"`
-        const [resultVerify] = await db.promise().query(sqlVerify, [unidadeID])
+        WHERE unidadeID = ? AND fornecedorCnpjCpf = "${values.cnpj}" AND cpf = ?`
+        const [resultVerify] = await db.promise().query(sqlVerify, [unidadeID, (isCpf ? 1 : 0)])
         if (resultVerify.length === 0) {
             //? Insere na tabela fabrica_fornecedor 
-            const sqlInsert = `INSERT INTO fabrica_fornecedor(unidadeID, fornecedorCnpj, status) VALUES(?, "${values.cnpj}", ?)`
-            await executeQuery(sqlInsert, [unidadeID, 1], 'insert', 'fabrica_fornecedor', 'fabricaFornecedorID', null, logID)
+            const sqlInsert = `INSERT INTO fabrica_fornecedor(unidadeID, fornecedorCnpjCpf, status, cpf) VALUES(?, "${values.cnpj}", ?, ?)`
+            await executeQuery(sqlInsert, [unidadeID, 1, (isCpf ? 1 : 0)], 'insert', 'fabrica_fornecedor', 'fabricaFornecedorID', null, logID)
         }
 
         //? Se fornecedor foi criado com preenchimento da fábrica, já foi definido a categoria e risco e portanto já é possível definir o modelo
@@ -1494,9 +1497,9 @@ class FornecedorController {
         const initialStatus = 10
         const sqlFornecedor = `
         INSERT INTO fornecedor
-            (parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche, telefone, cep, logradouro, numero, complemento, bairro, cidade, estado, pais, principaisClientes, registroSipeagro, ie) 
+            (parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche, telefone, cep, logradouro, numero, complemento, bairro, cidade, estado, pais, principaisClientes, registroSipeagro, ie, cpf) 
         VALUES
-            (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         const fornecedorID = await executeQuery(sqlFornecedor, [
             modeloID ?? null,
             values.razaoSocial,
@@ -1519,7 +1522,8 @@ class FornecedorController {
             values.pais,
             values.principaisClientes,
             values.registroSipeagro,
-            values.ie
+            values.ie,
+            (isCpf ? 1 : 0)
         ], 'insert', 'fornecedor', 'fornecedorID', null, logID)
 
         //? Grava grupos de anexo do fornecedor
@@ -1547,19 +1551,35 @@ class FornecedorController {
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário!" }) }
 
         //! Verifica se CNPJ já tem um usuario cadastrado, se não tiver cadastra
-        const userExists = `SELECT * FROM usuario WHERE cnpj = "${values.cnpj}"`
+        const userExists = isCpf ? `SELECT * FROM usuario WHERE cpf = "${values.cnpj}"` : `SELECT * FROM usuario WHERE cnpj = "${values.cnpj}"`
         const [resultUserExists] = await db.promise().query(userExists)
 
         if (resultUserExists.length == 0) {
             // Salva usuário
             const sqlNewUuser = `
-            INSERT INTO usuario(nome, cnpj, email, senha)
-            VALUES(?, ?, ?, ?)`
-            const usuarioID = await executeQuery(sqlNewUuser, [values.razaoSocial, values.cnpj, values.email, criptoMd5(password)], 'insert', 'usuario', 'usuarioID', null, logID)
+            INSERT INTO usuario(nome, cnpj, cpf, email, senha)
+            VALUES(?, ?, ?, ?, ?)`
+            const usuarioID = await executeQuery(sqlNewUuser, [
+                values.razaoSocial,
+                !isCpf ? values.cnpj : null, // CNPJ
+                isCpf ? values.cnpj : null, // CPF
+                values.email,
+                criptoMd5(password)
+            ], 'insert', 'usuario', 'usuarioID', null, logID)
 
             // Salva a unidade
-            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, fornecedorCategoriaID, fornecedorCategoriaRiscoID, dataCadastro, dataAtualizacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-            const newUnidadeID = await executeQuery(sqlInsertUnity, [values.razaoSocial, values.nomeFantasia, values.cnpj, values.email, fornecedorCategoriaID ?? null, fornecedorCategoriaRiscoID ?? null, new Date(), new Date()], 'insert', 'unidade', 'unidadeID', null, logID)
+            const sqlInsertUnity = `INSERT INTO unidade (razaoSocial, nomeFantasia, cnpj, email, fornecedorCategoriaID, fornecedorCategoriaRiscoID, dataCadastro, dataAtualizacao, cpf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            const newUnidadeID = await executeQuery(sqlInsertUnity, [
+                values.razaoSocial,
+                values.nomeFantasia,
+                values.cnpj,
+                values.email,
+                fornecedorCategoriaID ?? null,
+                fornecedorCategoriaRiscoID ?? null,
+                new Date(),
+                new Date(),
+                (isCpf ? 1 : 0)
+            ], 'insert', 'unidade', 'unidadeID', null, logID)
 
             // Salva usuario_unidade
             const sqlNewUserUnity = `
@@ -1654,13 +1674,13 @@ class FornecedorController {
         const sqlVerify = `
             SELECT *
                 FROM fabrica_fornecedor
-        WHERE unidadeID = ? AND fornecedorCnpj = ? `
+        WHERE unidadeID = ? AND fornecedorCnpjCpf = ? `
         const [resultVerify] = await db.promise().query(sqlVerify, [unidadeID, cnpj])
 
         if (resultVerify.length === 0) {
             // insere registro 
             const sqlInsert = `
-            INSERT INTO fabrica_fornecedor(unidadeID, fornecedorCnpj, status)
+            INSERT INTO fabrica_fornecedor(unidadeID, fornecedorCnpjCpf, status)
             VALUES(?, ?, ?)`
             // const [resultInsert] = await db.promise().query(sqlInsert, [unidadeID, cnpj, status])
             const resultInsert = await executeQuery(sqlInsertUsuarioUnity, [unidadeID, cnpj, status], 'insert', 'fabrica_fornecedor', 'fabricaFornecedorID', null, logID)
@@ -1669,7 +1689,7 @@ class FornecedorController {
             const sqlUpdate = `
             UPDATE fabrica_fornecedor
             SET status = ?
-                WHERE unidadeID = ? AND fornecedorCnpj = ? `
+                WHERE unidadeID = ? AND fornecedorCnpjCpf = ? `
             // const [resultUpdate] = await db.promise().query(sqlUpdate, [status, unidadeID, cnpj])
             const resultUpdate = await executeQuery(sqlUpdate, [status, unidadeID, cnpj], 'update', 'fabrica_fornecedor', 'fabricaFornecedorID', unidadeID, logID)
         }

@@ -18,18 +18,19 @@ class AuthControllerFornecedor {
 
     //* Login do fornecedor (CNPJ)
     loginFornecedor(req, res) {
-        const { cnpj, password } = req.body;
+        const { type, cnpjCpf, password } = req.body;
+
         const sql = `
         SELECT u.*, un.*, p.papelID, p.nome as papel
         FROM usuario AS u 
             LEFT JOIN usuario_unidade AS uu ON (u.usuarioID = uu.usuarioID)
             LEFT JOIN unidade AS un ON (uu.unidadeID = un.unidadeID)
             LEFT JOIN papel AS p ON (uu.papelID = p.papelID)
-        WHERE u.cnpj = ? AND u.senha = "${criptoMd5(password)}" AND uu.status = 1 
+        WHERE u.${type} = ? AND u.senha = "${criptoMd5(password)}" AND uu.status = 1 
         AND p.papelID = 2
         ORDER BY un.nomeFantasia ASC`;
 
-        db.query(sql, [cnpj], (err, result) => {
+        db.query(sql, [cnpjCpf], (err, result) => {
             if (err) { res.status(409).json({ message: err.message }); }
             if (result.length == 0) {
                 return res.status(401).json({ message: 'CNPJ ou senha incorretos' });
@@ -205,17 +206,20 @@ class AuthControllerFornecedor {
     }
     // Verifica se o CNPJ já existe na tabela de fabrica_forncedor
     async ValidationCNPJ(req, res) {
-        const cnpj = req.body.cnpj;
+        const { type, cnpjCpf } = req.body;
 
-        const existTableUsuario = `SELECT * FROM usuario WHERE cnpj = ?`;
-        const existTableFabricaFornecedor = `SELECT * FROM fabrica_fornecedor WHERE fornecedorCnpj = ?`;
-        const [resultUsuario] = await db.promise().query(existTableUsuario, [cnpj]);
-        const [resultFabricaFornecedor] = await db.promise().query(existTableFabricaFornecedor, [cnpj]);
+        //? Fornecedor pode ser CPF ou CNPJ
+        const existTableUsuario = type === 'cpf' ? `SELECT * FROM usuario WHERE cpf = ?` : `SELECT * FROM usuario WHERE cnpj = ?`;
+        const existTableFabricaFornecedor = type === 'cpf' ?
+            `SELECT * FROM fabrica_fornecedor WHERE fornecedorCnpjCpf = ? AND cpf = 1` :
+            `SELECT * FROM fabrica_fornecedor WHERE fornecedorCnpjCpf = ? AND cpf = 0`;
+        const [resultUsuario] = await db.promise().query(existTableUsuario, [cnpjCpf]);
+        const [resultFabricaFornecedor] = await db.promise().query(existTableFabricaFornecedor, [cnpjCpf]);
 
         if (resultFabricaFornecedor.length > 0 && resultUsuario.length === 0) {
             res.status(201).json({ message: 'É necessário se cadastrar' });
         } else if (resultFabricaFornecedor.length === 0 && resultUsuario.length === 0) {
-            res.status(202).json({ message: 'É necessário que uma fábrica habilite o seu CNPJ para fazer cadastro' });
+            res.status(202).json({ message: `É necessário que uma fábrica habilite o seu ${type === 'cpf' ? 'CPF' : 'CNPJ'} para fazer cadastro` });
         } else {
             res.status(200).json({ message: 'Tudo certo, só fazer login' });
         }
@@ -226,7 +230,7 @@ async function hasFormActive(cnpj) {
     const sql = ` 
     SELECT COUNT(*) AS count
     FROM fabrica_fornecedor AS ff
-    WHERE ff.fornecedorCnpj = "${cnpj}" AND ff.status = 1 `;
+    WHERE ff.fornecedorCnpjCpf = "${cnpj}" AND ff.status = 1 `;
     const [result] = await db.promise().query(sql);
     return result[0]['count'];
 }
