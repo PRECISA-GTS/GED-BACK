@@ -1812,7 +1812,7 @@ class FornecedorController {
 
         if (id && parFormularioID) {
             const sql = `
-            SELECT u.nome AS usuario, un.nomeFantasia AS unidade, m.papelID, DATE_FORMAT(m.dataHora, "%d/%m/%Y") AS data, DATE_FORMAT(m.dataHora, "%H:%ih") AS hora, m.statusAnterior, m.statusAtual, m.observacao
+            SELECT u.nome AS usuario, un.nomeFantasia AS unidade, m.papelID, DATE_FORMAT(m.dataHora, "%d/%m/%Y") AS data, DATE_FORMAT(m.dataHora, "%H:%i") AS hora, m.statusAnterior, m.statusAtual, m.observacao
             FROM movimentacaoformulario AS m
                 LEFT JOIN usuario AS u ON(m.usuarioID = u.usuarioID)
                 LEFT JOIN unidade AS un ON(m.unidadeID = un.unidadeID)
