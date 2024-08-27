@@ -1123,11 +1123,9 @@ class FornecedorController {
             createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.unidade.ciclo, unidadeID)
         }
 
-        //? Gera histórico de alteração de status (se houve alteração)
-        if (resultFornecedor[0]['status'] != newStatus) {
-            const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', newStatus, data?.obsConclusao)
-            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
-        }
+        //? Gera histórico de alteração de status
+        const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+        if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         res.status(200).json({})
     }

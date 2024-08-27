@@ -763,10 +763,8 @@ class RecebimentoMpController {
             }
 
             //? Gera histórico de alteração de status (se houve alteração)
-            if (result[0]['status'] != newStatus) {
-                const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
-                if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
-            }
+            const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             res.status(200).json({ message: 'Função do email sucesso' })
 

@@ -479,11 +479,9 @@ class LimpezaController {
                 id
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 
-            //? Gera histórico de alteração de status (se houve alteração)
-            if (result[0]['status'] != newStatus) {
-                const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
-                if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
-            }
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             //? Cria agendamento no calendário com a data de vencimento
             if (concluido == '1' && newStatus >= 40) {
