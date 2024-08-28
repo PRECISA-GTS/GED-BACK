@@ -1091,35 +1091,36 @@ const getNcDynamicFields = async (recebimentoMpNaoConformidadeID, parRecebimento
 }
 
 const getNcDynamicProfessionals = async (parRecebimentoMpNaoConformidadeModeloID) => {
-    const sqlConfig = `
-    SELECT p.profissionalID AS id, p.nome, prnmp.tipo
-    FROM par_recebimentomp_naoconformidade_modelo AS prnm
-        JOIN par_recebimentomp_naoconformidade_modelo_profissional AS prnmp ON (prnmp.parRecebimentoMpNaoConformidadeModeloID = prnm.parRecebimentoMpNaoConformidadeModeloID)
-        JOIN profissional AS p ON (p.profissionalID = prnmp.profissionalID)
-    WHERE prnm.parRecebimentoMpNaoConformidadeModeloID = ? `
-    const [resultDynamicProfessionals] = await db.promise().query(sqlConfig, [parRecebimentoMpNaoConformidadeModeloID])
+    // const sqlConfig = `
+    // SELECT p.profissionalID AS id, p.nome, prnmp.tipo
+    // FROM par_recebimentomp_naoconformidade_modelo AS prnm
+    //     JOIN par_recebimentomp_naoconformidade_modelo_profissional AS prnmp ON (prnmp.parRecebimentoMpNaoConformidadeModeloID = prnm.parRecebimentoMpNaoConformidadeModeloID)
+    //     JOIN profissional AS p ON (p.profissionalID = prnmp.profissionalID)
+    // WHERE prnm.parRecebimentoMpNaoConformidadeModeloID = ? `
+    // const [resultDynamicProfessionals] = await db.promise().query(sqlConfig, [parRecebimentoMpNaoConformidadeModeloID])
 
-    const profissionaisPreenchimento = []
-    const profissionaisConclusao = []
+    // const profissionaisPreenchimento = []
+    // const profissionaisConclusao = []
 
-    for (const row of resultDynamicProfessionals) {
-        if (row.tipo == 1) {
-            profissionaisPreenchimento.push({
-                id: row.id,
-                nome: row.nome
-            })
-        } else if (row.tipo == 2) {
-            profissionaisConclusao.push({
-                id: row.id,
-                nome: row.nome
-            })
-        }
-    }
+    // for (const row of resultDynamicProfessionals) {
+    //     if (row.tipo == 1) {
+    //         profissionaisPreenchimento.push({
+    //             id: row.id,
+    //             nome: row.nome
+    //         })
+    //     } else if (row.tipo == 2) {
+    //         profissionaisConclusao.push({
+    //             id: row.id,
+    //             nome: row.nome
+    //         })
+    //     }
+    // }
 
-    return {
-        profissionaisPreenchimento: profissionaisPreenchimento,
-        profissionaisConclusao: profissionaisConclusao
-    }
+    // return {
+    //     profissionaisPreenchimento: profissionaisPreenchimento,
+    //     profissionaisConclusao: profissionaisConclusao
+    // }
+    return []
 }
 
 //* Obtém colunas

@@ -261,34 +261,6 @@ class LimpezaController {
                 }
             }
 
-            //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_limpeza_modelo_profissional
-            const sqlDeleteProfissionaisModelo = `DELETE FROM par_limpeza_modelo_profissional WHERE parLimpezaModeloID = ?`
-            await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_limpeza_modelo_profissional', 'parLimpezaModeloID', id, logID)
-
-            //? Insere profissionais que preenchem
-            if (model && model.profissionaisPreenchem && model.profissionaisPreenchem.length > 0) {
-                for (let i = 0; i < model.profissionaisPreenchem.length; i++) {
-                    if (model.profissionaisPreenchem[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_limpeza_modelo_profissional(parLimpezaModeloID, profissionalID, tipo) 
-                        VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_profissional', 'parLimpezaModeloProfissionalID', null, logID)
-                    }
-                }
-            }
-
-            //? Insere profissionais que aprovam
-            if (model && model.profissionaisAprovam && model.profissionaisAprovam.length > 0) {
-                for (let i = 0; i < model.profissionaisAprovam.length; i++) {
-                    if (model.profissionaisAprovam[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_limpeza_modelo_profissional(parLimpezaModeloID, profissionalID, tipo) 
-                        VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisAprovam[i].id, 2], 'insert', 'par_limpeza_modelo_profissional', 'parLimpezaModeloProfissionalID', null, logID)
-                    }
-                }
-            }
-
             //? Header
             header && header.forEach(async (item) => {
                 if (item && item.mostra == true) {

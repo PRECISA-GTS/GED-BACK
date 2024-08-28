@@ -24,16 +24,16 @@ class ProfissionalController {
 
             switch (formularioID) {
                 case 1: //* Fornecedor
-                    result = await getProfissionalPreenchimento('par_fornecedor_modelo_profissional', 'parFornecedorModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_fornecedor_modelo_setor', 'parFornecedorModeloID', modeloID)
                     break;
                 case 2: //* Recebimento de MP
                     result = await getProfissionalPreenchimento('par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', modeloID)
                     break;
                 case 3: //* Não conformidade do recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
                     break;
                 case 4: //* Limpeza
-                    result = await getProfissionalPreenchimento('par_limpeza_modelo_profissional', 'parLimpezaModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_limpeza_modelo_setor', 'parLimpezaModeloID', modeloID)
                     break;
             }
 
@@ -714,7 +714,7 @@ class ProfissionalController {
                 column: ['profissionalID', 'aprovaProfissionalID'],
             },
             {
-                table: 'par_fornecedor_modelo_profissional',
+                table: 'profissional_setor',
                 column: ['profissionalID'],
             }
         ]
