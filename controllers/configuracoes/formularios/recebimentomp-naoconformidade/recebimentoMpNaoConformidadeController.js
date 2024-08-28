@@ -92,6 +92,19 @@ class RecebimentoMpNaoConformidadeController {
             };
 
             for (const item of resultBlock) {
+                //? Setores que preenchem 
+                const sqlSetores = `
+                SELECT 
+                    prmbs.parRecebimentoMpNaoConformidadeModeloBlocoSetorID,
+                    s.setorID AS id, 
+                    s.nome
+                FROM par_recebimentomp_naoconformidade_modelo_bloco_setor AS prmbs 
+                    JOIN setor AS s ON (prmbs.setorID = s.setorID)
+                WHERE prmbs.parRecebimentoMpNaoConformidadeModeloBlocoID = ?
+                GROUP BY s.setorID
+                ORDER BY s.nome ASC`
+                const [resultSetores] = await db.promise().query(sqlSetores, [item.parRecebimentoMpNaoConformidadeModeloBlocoID])
+
                 const [resultItem] = await db.promise().query(sqlItem, [item.parRecebimentoMpNaoConformidadeModeloBlocoID])
 
                 for (const item of resultItem) {
@@ -108,10 +121,11 @@ class RecebimentoMpNaoConformidadeController {
                     }
                 }
 
-
-
                 const objData = {
-                    dados: item,
+                    dados: {
+                        ...item,
+                        setores: resultSetores ?? [],
+                    },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
                 };
@@ -119,17 +133,9 @@ class RecebimentoMpNaoConformidadeController {
                 blocks.push(objData);
             }
 
-            const sqlProfissionais = `
-            SELECT profissionalID AS id, nome
-            FROM profissional
-            WHERE unidadeID = ? AND status = 1
-            ORDER BY nome ASC`
-            const [resultProfissionais] = await db.promise().query(sqlProfissionais, [unidadeID])
-
             //? Options
             const objOptions = {
                 itens: resultItem ?? [],
-                profissionais: resultProfissionais ?? []
             };
 
             //? Orientações
@@ -143,7 +149,6 @@ class RecebimentoMpNaoConformidadeController {
                 options: objOptions ?? [],
                 orientations: resultOrientacoes[0] ?? null
             }
-            console.log("🚀 ~ result:", result)
 
             return res.status(200).json(result)
         } catch (error) {
@@ -162,6 +167,29 @@ class RecebimentoMpNaoConformidadeController {
             //? Model
             const sqlModel = `INSERT INTO par_recebimentomp_naoconformidade_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES(?, ?, ?, ?, ?)`
             const parRecebimentoMpNaoConformidadeModeloID = await executeQuery(sqlModel, [model.nome, '0', model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', null, logID)
+
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_naoconformidade_modelo_setor(parRecebimentoMpNaoConformidadeModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpNaoConformidadeModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloSetorID', null, logID)
+                    }
+                }
+            }
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_naoconformidade_modelo_setor(parRecebimentoMpNaoConformidadeModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpNaoConformidadeModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloSetorID', null, logID)
+                    }
+                }
+            }
 
             return res.status(200).json({ id: parRecebimentoMpNaoConformidadeModeloID });
 
@@ -185,29 +213,29 @@ class RecebimentoMpNaoConformidadeController {
             WHERE parRecebimentoMpNaoConformidadeModeloID = ? `
             await executeQuery(sqlModel, [model?.nome, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_naoconformidade_modelo', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
 
-            //? Atualiza profissionais que aprovam e assinam o modelo. tabela: par_recebimentomp_naoconformidade_modelo_profissional
-            const sqlDeleteProfissionaisModelo = `DELETE FROM par_recebimentomp_naoconformidade_modelo_profissional WHERE parRecebimentoMpNaoConformidadeModeloID = ? `
-            await executeQuery(sqlDeleteProfissionaisModelo, [id], 'delete', 'par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
+            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_recebimentomp_naoconformidade_modelo_setor
+            const sqlDeleteSetoresModelo = `DELETE FROM par_recebimentomp_naoconformidade_modelo_setor WHERE parRecebimentoMpNaoConformidadeModeloID = ?`
+            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
 
-            //? Insere profissionais que preenchem
-            if (model && model.profissionaisPreenchem && model.profissionaisPreenchem.length > 0) {
-                for (let i = 0; i < model.profissionaisPreenchem.length; i++) {
-                    if (model.profissionaisPreenchem[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_recebimentomp_naoconformidade_modelo_profissional(parRecebimentoMpNaoConformidadeModeloID, profissionalID, tipo)
-            VALUES(?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisPreenchem[i].id, 1], 'insert', 'par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloProfissionalID', null, logID)
+            //? Insere setores que preenchem
+            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
+                for (let i = 0; i < model.setoresPreenchem.length; i++) {
+                    if (model.setoresPreenchem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_naoconformidade_modelo_setor(parRecebimentoMpNaoConformidadeModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloSetorID', null, logID)
                     }
                 }
             }
-            //? Insere profissionais que aprovam
-            if (model && model.profissionaisAprovam && model.profissionaisAprovam.length > 0) {
-                for (let i = 0; i < model.profissionaisAprovam.length; i++) {
-                    if (model.profissionaisAprovam[i].id > 0) {
-                        const sqlInsertProfissionalModelo = `
-                        INSERT INTO par_recebimentomp_naoconformidade_modelo_profissional(parRecebimentoMpNaoConformidadeModeloID, profissionalID, tipo)
-                        VALUES(?, ?, ?)`
-                        await executeQuery(sqlInsertProfissionalModelo, [id, model.profissionaisAprovam[i].id, 2], 'insert', 'par_recebimentomp_naoconformidade_modelo_profissional', 'parRecebimentoMpNaoConformidadeModeloProfissionalID', null, logID)
+            //? Insere setores que concluem
+            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
+                for (let i = 0; i < model.setoresConcluem.length; i++) {
+                    if (model.setoresConcluem[i].id > 0) {
+                        const sqlInsertSetorModelo = `
+                        INSERT INTO par_recebimentomp_naoconformidade_modelo_setor(parRecebimentoMpNaoConformidadeModeloID, setorID, tipo) 
+                        VALUES (?, ?, ?)`
+                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloSetorID', null, logID)
                     }
                 }
             }
@@ -244,25 +272,33 @@ class RecebimentoMpNaoConformidadeController {
             })
 
             //? Blocos removidos
-            arrRemovedBlocks && arrRemovedBlocks.forEach(async (block) => {
+            for (const block of arrRemovedBlocks) {
                 if (block && block > 0) {
-                    // Blocos
-                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ? `
-                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco', 'parFornecedorModeloID', id, logID)
+                    const ids = arrRemovedBlocks.join(',')
 
                     // Itens do bloco
-                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_item WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ? `
-                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_item', 'parRecebimentoMpNaoConformidadeModeloBlocoID', id, logID)
+                    const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_item WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_item', 'parRecebimentoMpNaoConformidadeModeloBlocoID', block, logID)
+
+                    // Setores do bloco
+                    const sqlDeleteBlockSetores = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_setor WHERE parRecebimentoMpNaoConformidadeModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_setor', 'parRecebimentoMpNaoConformidadeModeloBlocoID', block, logID)
+
+                    // Blocos
+                    const sqlDeleteBlock = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`
+                    await executeQuery(sqlDeleteBlock, [block], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco', 'parRecebimentoMpNaoConformidadeModeloBlocoID', block, logID)
                 }
-            })
+            }
 
             //? Itens removidos dos blocos 
-            arrRemovedItems && arrRemovedItems.forEach(async (item) => {
-                if (item) {
-                    const sqlDelete = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_item WHERE parRecebimentoMpNaoConformidadeModeloBlocoItemID = ? `
-                    await executeQuery(sqlDelete, [item.parRecebimentoMpNaoConformidadeModeloBlocoItemID], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_item', 'parFornecedorModeloBlocoID', id, logID)
+            if (arrRemovedItems && arrRemovedItems.length > 0) {
+                for (const item of arrRemovedItems) {
+                    if (item) {
+                        const sqlDelete = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_item WHERE parRecebimentoMpNaoConformidadeModeloBlocoItemID = ?`
+                        await executeQuery(sqlDelete, [item], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_item', 'parRecebimentoMpNaoConformidadeModeloBlocoItemID', item, logID)
+                    }
                 }
-            })
+            }
 
             //? Blocos 
             blocks && blocks.forEach(async (block, index) => {
@@ -279,6 +315,18 @@ class RecebimentoMpNaoConformidadeController {
                         (block.dados.status ? 1 : 0),
                         block.dados.parRecebimentoMpNaoConformidadeModeloBlocoID], 'update', 'par_recebimentomp_naoconformidade_modelo_bloco', 'parRecebimentoMpNaoConformidadeModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
+
+                        //? Setores do bloco 
+                        // deleta
+                        const sqlDelete = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_setor WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpNaoConformidadeModeloBlocoID], 'delete', 'par_recebimentomp_naoconformidade_modelo_bloco_setor', 'parRecebimentoMpNaoConformidadeModeloBlocoID', block.dados.parRecebimentoMpNaoConformidadeModeloBlocoID, logID)
+                        // insere novamente 
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_naoconformidade_modelo_bloco_setor(parRecebimentoMpNaoConformidadeModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parRecebimentoMpNaoConformidadeModeloBlocoID, setor.id], 'insert', 'par_recebimentomp_naoconformidade_modelo_bloco_setor', 'parRecebimentoMpNaoConformidadeModeloBlocoID', id, logID)
+                            }
+                        })
                     } else {
                         //? Bloco novo, Insert
                         const sqlNewBlock = `
@@ -295,6 +343,14 @@ class RecebimentoMpNaoConformidadeController {
                         const modeloBlocoID = await executeQuery(sqlNewBlock, dataNewBlock, 'insert', 'par_recebimentomp_naoconformidade_modelo_bloco', 'parRecebimentoMpNaoConformidadeModeloBlocoID', null, logID)
                         if (!modeloBlocoID) { return res.json(err); }
                         block.dados.parRecebimentoMpNaoConformidadeModeloBlocoID = modeloBlocoID //? parRecebimentoMpNaoConformidadeModeloBlocoID que acabou de ser gerado
+
+                        //? Setores do bloco
+                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
+                            if (setor && setor.id && setor.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_naoconformidade_modelo_bloco_setor(parRecebimentoMpNaoConformidadeModeloBlocoID, setorID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [modeloBlocoID, setor.id], 'insert', 'par_recebimentomp_naoconformidade_modelo_bloco_setor', 'parRecebimentoMpNaoConformidadeModeloBlocoID', id, logID)
+                            }
+                        })
                     }
 
                     //? Itens 
@@ -311,9 +367,7 @@ class RecebimentoMpNaoConformidadeController {
                             (item.obrigatorio ? 1 : 0),
                             (item.status ? 1 : 0),
                             item.parRecebimentoMpNaoConformidadeModeloBlocoItemID], 'update', 'par_recebimentomp_naoconformidade_modelo_bloco_item', 'parRecebimentoMpNaoConformidadeModeloBlocoID', id, logID)
-
-                        } else if (item && item.new && !item.parRecebimentoMpNaoConformidadeModeloBlocoItemID) { //? Insert                            
-
+                        } else if (item && item.new && !item.parRecebimentoMpNaoConformidadeModeloBlocoItemID) { //? Insert       
                             // Valida duplicidade do item 
                             const sqlItem = `
                             SELECT COUNT(*) AS count
@@ -356,7 +410,7 @@ class RecebimentoMpNaoConformidadeController {
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
         const objDelete = {
-            table: ['par_recebimentomp_naoconformidade_modelo'],
+            table: ['par_recebimentomp_naoconformidade_modelo_cabecalho', 'par_recebimentomp_naoconformidade_modelo'],
             column: 'parRecebimentoMpNaoConformidadeModeloID'
         }
 
@@ -378,7 +432,31 @@ class RecebimentoMpNaoConformidadeController {
                 if (hasPending) {
                     res.status(409).json({ message: "Dado possui pendência." });
                 } else {
-                    const logID = await executeLog('Exclusão de modelo de não conformidade do recebimento de MP', usuarioID, unidadeID, req)
+                    // Deleta de par_recebimentomp_naoconformidade_modelo_bloco_item
+                    const sqlModeloBloco = `SELECT parRecebimentoMpNaoConformidadeModeloBlocoID FROM par_recebimentomp_naoconformidade_modelo_bloco WHERE parRecebimentoMpNaoConformidadeModeloID = ?`
+                    const [resultModeloBloco] = await db.promise().query(sqlModeloBloco, [id])
+
+                    if (resultModeloBloco && resultModeloBloco.length > 0) {
+                        for (const bloco of resultModeloBloco) {
+                            // Deleta de par_recebimentomp_naoconformidade_modelo_bloco_item
+                            const sqlModeloBlocoItem = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_item WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoItem, [bloco.parRecebimentoMpNaoConformidadeModeloBlocoID]);
+
+                            // Deleta de par_recebimentomp_naoconformidade_modelo_bloco_setor 
+                            const sqlModeloBlocoSetor = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco_setor WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parRecebimentoMpNaoConformidadeModeloBlocoID]);
+
+                            // Deleta de par_recebimentomp_naoconformidade_modelo_bloco
+                            const sqlModeloBloco = `DELETE FROM par_recebimentomp_naoconformidade_modelo_bloco WHERE parRecebimentoMpNaoConformidadeModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBloco, [bloco.parRecebimentoMpNaoConformidadeModeloBlocoID]);
+                        }
+                    }
+
+                    // Deleta de par_recebimentomp_naoconformidade_modelo_setor
+                    const sqlModeloSetor = `DELETE FROM par_recebimentomp_naoconformidade_modelo_setor WHERE parRecebimentoMpNaoConformidadeModeloID = ?`;
+                    await db.promise().query(sqlModeloSetor, [id]);
+
+                    const logID = await executeLog('Exclusão de modelo de Não conformidade do Recebimento de MP', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)
                 }
             })

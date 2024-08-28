@@ -340,7 +340,7 @@ class LimpezaController {
                         //? Setores do bloco 
                         // deleta
                         const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID = ?`
-                        await executeQuery(sqlDelete, [block.dados.parLimpezaModeloBlocoID], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                        await executeQuery(sqlDelete, [block.dados.parLimpezaModeloBlocoID], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', block.dados.parLimpezaModeloBlocoID, logID)
                         // insere novamente 
                         block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
                             if (setor && setor.id && setor.id > 0) {

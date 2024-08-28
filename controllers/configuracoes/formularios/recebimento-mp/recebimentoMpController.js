@@ -332,7 +332,7 @@ class RecebimentoMpController {
                         //? Setores do bloco 
                         // deleta
                         const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID = ?`
-                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpModeloBlocoID], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpModeloBlocoID], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', block.dados.parRecebimentoMpModeloBlocoID, logID)
                         // insere novamente 
                         block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
                             if (setor && setor.id && setor.id > 0) {
