@@ -20,4 +20,10 @@ const route = '/formularios/recebimento-mp/nao-conformidade';
 //Email fornecedor preenche
 naoConformidadeRoutes.post(`${route}/fornecedor-preenche`, naoConformidadeController.fornecedorPreenche);
 
+//? Módulo 2.0 (agosto 2024)
+naoConformidadeRoutes.get(`${route}/getList/:unidadeID/:papelID/:usuarioID`, naoConformidadeController.getList);
+naoConformidadeRoutes.post(`${route}/getData`, naoConformidadeController.getData);
+naoConformidadeRoutes.post(`${route}/getModelos`, naoConformidadeController.getModelos);
+naoConformidadeRoutes.post(`${route}/getProdutosRecebimento`, naoConformidadeController.getProdutosRecebimento);
+
 module.exports = naoConformidadeRoutes;

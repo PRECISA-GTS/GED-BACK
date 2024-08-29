@@ -4,6 +4,26 @@ const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class ProdutoController {
 
+    //? Produtos ativos (obtidos em outros módulos)
+    async getProdutos(req, res) {
+        const { unidadeID } = req.body
+        try {
+            const sql = `
+            SELECT
+                p.produtoID AS id,
+                CONCAT(p.nome, ' (', u.nome, ')') AS nome
+            FROM produto AS p
+                JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
+            WHERE p.unidadeID = ? AND p.status = 1
+            ORDER BY p.nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID])
+
+            return res.status(200).json(result)
+        } catch (error) {
+            return res.status(500).json(error)
+        }
+    }
+
     async getFormularios(req, res) {
         const sql = `
         SELECT parFormularioID AS id, nome
@@ -13,118 +33,6 @@ class ProdutoController {
 
         return res.status(200).json(result)
     }
-
-    // async getProdutosFornecedor(req, res) {
-    //     const { recebimentoMpID, fornecedorID } = req.body
-
-    //     //? Obtém o CNPJ do fornecedor
-    //     const sqlFornecedor = `SELECT parFornecedorModeloID, cnpj, unidadeID FROM fornecedor WHERE fornecedorID = ?`
-    //     const [resultFornecedor] = await db.promise().query(sqlFornecedor, [fornecedorID])
-    //     const cnpj = resultFornecedor[0].cnpj
-    //     const unidadeID = resultFornecedor[0].unidadeID
-    //     const parFornecedorModeloID = resultFornecedor[0].parFornecedorModeloID
-
-    //     //? Prazo do modelo do formulário
-    //     const sqlModelo = `
-    //     SELECT ciclo 
-    //     FROM par_fornecedor_modelo
-    //     WHERE parFornecedorModeloID = ${parFornecedorModeloID}`
-    //     const [resultModelo] = await db.promise().query(sqlModelo)
-
-    //     //? Busca os produtos habilitados por esse fornecedor (cnpj)
-    //     const sqlProduto = `
-    //     SELECT 
-    //         p.produtoID, 
-    //         CONCAT(p.nome, " (", um.nome, ")") AS nome,
-
-    //         -- Recebimento de MP (valores)
-    //         (
-    //         	SELECT IF(COUNT(*) > 0, 1, 0)
-    //             FROM recebimentomp_produto AS rp 
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS checked,            
-    //         (
-    //         	SELECT rp.quantidade
-    //             FROM recebimentomp_produto AS rp 
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS quantidade,
-    //         (
-    //         	SELECT DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d')
-    //             FROM recebimentomp_produto AS rp 
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS dataFabricacao,
-    //         (
-    //         	SELECT DATE_FORMAT(rp.dataValidade, '%Y-%m-%d')
-    //             FROM recebimentomp_produto AS rp 
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS dataValidade,
-    //         (
-    //         	SELECT rp.apresentacaoID
-    //             FROM recebimentomp_produto AS rp 
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS apresentacaoID,
-    //         (
-    //         	SELECT a.nome
-    //             FROM recebimentomp_produto AS rp 
-    //                 JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
-    //             WHERE rp.recebimentoMpID = ${recebimentoMpID} AND rp.produtoID = fp.produtoID
-    //             LIMIT 1
-    //         ) AS apresentacaoNome,            
-
-    //         -- Fornecedor (opções de produtos habilitados pro fornecedor selecionado)
-    //         (
-    //             SELECT DATE_FORMAT(b.dataFim, "%d/%m/%Y") AS dataFim
-    //             FROM fornecedor_produto AS a
-    //                 JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
-    //             WHERE a.produtoID = fp.produtoID AND b.cnpj = "${cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
-    //             ORDER BY b.dataFim DESC
-    //             LIMIT 1
-    //         ) AS ultimaAvaliacao,            
-    //         (
-    //             SELECT DATE_FORMAT(DATE_ADD(b.dataFim, INTERVAL ${resultModelo[0].ciclo} DAY), "%d/%m/%Y") AS dataFim
-    //             FROM fornecedor_produto AS a
-    //                 JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
-    //             WHERE a.produtoID = fp.produtoID AND b.cnpj = "${cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
-    //             ORDER BY b.dataFim DESC
-    //             LIMIT 1
-    //         ) AS proximaAvialacao,
-    //         DATEDIFF(
-    //             (
-    //                 SELECT DATE_ADD(b.dataFim, INTERVAL ${resultModelo[0].ciclo} DAY) AS dataFim
-    //                 FROM fornecedor_produto AS a
-    //                     JOIN fornecedor AS b ON (a.fornecedorID = b.fornecedorID)
-    //                 WHERE a.produtoID = fp.produtoID AND b.cnpj = "${cnpj}" AND b.status IN (60, 70) AND b.unidadeID = ${unidadeID}
-    //                 ORDER BY b.dataFim DESC
-    //                 LIMIT 1
-    //             ),
-    //             NOW()
-    //         ) AS diasRestantes            
-
-    //     FROM fornecedor_produto AS fp 
-    //         JOIN fornecedor AS f ON (fp.fornecedorID = f.fornecedorID)
-    //         JOIN produto AS p ON (fp.produtoID = p.produtoID)
-    //         JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
-    //     WHERE f.cnpj = "${cnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
-    //     GROUP BY p.produtoID
-    //     ORDER BY p.nome ASC`
-    //     console.log("🚀 ~ sqlProduto:", sqlProduto)
-    //     const [resultProduto] = await db.promise().query(sqlProduto)
-
-    //     for (let i = 0; i < resultProduto.length; i++) {
-    //         resultProduto[i].checked = resultProduto[i].checked == '1' ? true : false
-    //         resultProduto[i].apresentacao = resultProduto[i].apresentacaoID > 0 ? {
-    //             id: resultProduto[i].apresentacaoID,
-    //             nome: resultProduto[i].apresentacaoNome
-    //         } : null
-    //     }
-
-    //     return res.status(200).json(resultProduto)
-    // }
 
     async getList(req, res) {
         const { unidadeID } = req.params
