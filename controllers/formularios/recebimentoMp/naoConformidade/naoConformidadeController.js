@@ -2,6 +2,8 @@ const db = require('../../../../config/db');
 const { gerarSenhaCaracteresIniciais, criptoMd5 } = require('../../../../config/defaultConfig');
 const sendMailConfig = require('../../../../config/email');
 const { executeQuery, executeLog } = require('../../../../config/executeQuery');
+const { getDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
+const { getDynamicHeaderFields } = require('../../../../defaults/dynamicFields');
 const instructionsNewFornecedor = require('../../../../email/template/fornecedor/instructionsNewFornecedor');
 const fornecedorPreenche = require('../../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 
@@ -69,12 +71,16 @@ class NaoConformidade {
             const sql = `
             SELECT 
                 rn.recebimentoMpID, 
+                rn.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
+                DATE_FORMAT(rn.data, "%Y-%m-%d") AS data,
+                DATE_FORMAT(rn.data, "%H:%i") AS hora,
                 rn.recebimentoMpNaoConformidadeID AS id, 
                 rn.quemPreenche,
                 rn.fornecedorAcessaRecebimento,
                 rn.tipo, 
                 rn.descricao, 
                 rn.prazoSolucao,
+                rn.status,
 
                 prnm.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
                 prnm.nome AS modelo
@@ -95,8 +101,22 @@ class NaoConformidade {
             ORDER BY p.nome ASC`
             const [resultProdutos] = await db.promise().query(sqlProdutos, [id])
 
+            //? Função que retorna fields dinâmicos definidos no modelo!
+            const fields = await getDynamicHeaderFields(
+                id,
+                result[0].modeloID,
+                unidadeID,
+                'par_recebimentomp_naoconformidade',
+                'parRecebimentoMpNaoConformidadeID',
+                'parRecebimentoMpNaoConformidadeModeloID',
+                'recebimentomp_naoconformidade',
+                'recebimentoMpNaoConformidadeID'
+            )
+
             const header = {
                 recebimentoMpID: result[0].recebimentoMpID,
+                data: result[0].data,
+                hora: result[0].hora,
                 quemPreenche: result[0].quemPreenche,
                 fornecedorAcessaRecebimento: result[0].fornecedorAcessaRecebimento == 1 ? true : false,
                 transporte: result[0].tipo !== 2 ? true : false,
@@ -104,18 +124,29 @@ class NaoConformidade {
                 produtos: resultProdutos ?? [],
                 descricao: result[0].descricao,
                 prazoSolucao: result[0].prazoSolucao,
+                status: result[0].status,
                 modelo: {
                     id: result[0].modeloID,
                     nome: result[0].modelo
                 },
+                fields
             }
 
-            const response = {
-                header
-            }
-            console.log("🚀 ~ response:", response)
+            //? Função que retorna blocos dinâmicos definidos no modelo!
+            const blocos = await getDynamicBlocks(
+                id,
+                result[0].modeloID,
+                'recebimentoMpNaoConformidadeID',
+                'par_recebimentomp_naoconformidade_modelo_bloco',
+                'parRecebimentoMpNaoConformidadeModeloID',
+                'recebimentomp_naoconformidade_resposta',
+                'par_recebimentomp_naoconformidade_modelo_bloco_item',
+                'parRecebimentoMpNaoConformidadeModeloBlocoItemID',
+                'parRecebimentoMpNaoConformidadeModeloBlocoID',
+                'par_recebimentomp_naoconformidade_modelo_bloco_setor'
+            )
 
-            return res.json(response);
+            return res.json({ header, blocos });
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }
