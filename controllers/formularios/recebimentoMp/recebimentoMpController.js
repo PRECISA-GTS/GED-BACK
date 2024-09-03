@@ -9,6 +9,9 @@ const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { send } = require('process');
 const fornecedorPreenche = require('../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 const sendMailConfig = require('../../../config/email');
+const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
+const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
+const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 
 class RecebimentoMpController {
     async getList(req, res) {
@@ -206,7 +209,7 @@ class RecebimentoMpController {
         }
 
         //? Gera histórico de alteração de status (se houve alteração)        
-        const movimentation = await addFormStatusMovimentation(2, recebimentoMpID, usuarioID, unidadeID, papelID, '10', '30', data?.obsConclusao)
+        const movimentation = await addFormStatusMovimentation(2, recebimentoMpID, usuarioID, unidadeID, papelID, '30', data?.obsConclusao)
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         return res.status(200).json({ recebimentoMpID })
@@ -280,62 +283,19 @@ class RecebimentoMpController {
                 modeloID = result?.[0]?.parRecebimentoMpModeloID ?? 0
             }
 
-            // Fields do header
-            const sqlFields = `
-            SELECT *
-            FROM par_recebimentomp AS pr
-                LEFT JOIN par_recebimentomp_modelo_cabecalho AS prmc ON(pr.parRecebimentoMpID = prmc.parRecebimentoMpID)
-            WHERE prmc.parRecebimentoMpModeloID = ?
-            ORDER BY prmc.ordem ASC`
-            const [resultFields] = await db.promise().query(sqlFields, [modeloID])
-
-            // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
-            for (const alternatives of resultFields) {
-                if (alternatives.tipo === 'int' && alternatives.tabela) {
-                    // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
-                    const sqlOptions = `
-                    SELECT ${alternatives.tabela}ID AS id, nome
-                    FROM ${alternatives.tabela} 
-                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidadeID} ` : ``}
-                    ORDER BY nome ASC`
-
-                    // Executar select e inserir no objeto alternatives
-                    const [resultOptions] = await db.promise().query(sqlOptions)
-                    alternatives.options = resultOptions
-                }
-            }
-
-            // Varrer result, pegando nomeColuna e inserir em um array se row.tabela == null
-            let columns = []
-            for (const row of resultFields) {
-                if (!row.tabela) { columns.push(row.nomeColuna) }
-            }
+            //? Função que retorna fields dinâmicos definidos no modelo!
+            const fields = await getDynamicHeaderFields(
+                id,
+                modeloID,
+                unidadeID,
+                'par_recebimentomp',
+                'parRecebimentoMpID',
+                'parRecebimentoMpModeloID',
+                'recebimentomp',
+                'recebimentoMpID'
+            )
 
             if (id && id > 0) {
-                // varrer resultFields 
-                for (const field of resultFields) {
-                    if (field.tabela) {
-                        // Monta objeto pra preencher select 
-                        // Ex.: profissional:{
-                        //     id: 1,
-                        //     nome: 'Fulano'
-                        // }
-                        const sqlFieldData = `
-                        SELECT t.${field.nomeColuna} AS id, t.nome
-                        FROM recebimentomp AS r
-                            JOIN ${field.tabela} AS t ON(r.${field.nomeColuna} = t.${field.nomeColuna}) 
-                        WHERE r.recebimentoMpID = ${id} `
-                        let [temp] = await db.promise().query(sqlFieldData)
-                        if (temp) {
-                            field[field.tabela] = temp[0]
-                        }
-                    } else {
-                        const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM recebimentomp WHERE recebimentoMpID = ? `;
-                        let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
-                        field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
-                    }
-                }
-
                 //? Produtos
                 const sqlProdutos = `
                 SELECT
@@ -380,86 +340,19 @@ class RecebimentoMpController {
             ORDER BY ordem ASC`
             const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
 
-            //? Blocos
-            const sqlBloco = getSqlBloco()
-            for (const bloco of resultBlocos) {
-                const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco.parRecebimentoMpModeloBlocoID])
-
-                //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
-                const sqlSetores = `
-                SELECT s.setorID AS id, s.nome
-                FROM par_recebimentomp_modelo_bloco_setor AS prmbs
-                    JOIN setor AS s ON (prmbs.setorID = s.setorID)
-                WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
-                GROUP BY s.setorID
-                ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parRecebimentoMpModeloBlocoID])
-                bloco['setores'] = resultSetores
-
-                //? Itens
-                for (const item of resultBloco) {
-                    const sqlAlternativa = getAlternativasSql()
-                    const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parRecebimentoMpModeloBlocoItemID']])
-
-                    // Obter os anexos vinculados as alternativas
-                    const sqlRespostaAnexos = `
-                    SELECT io.alternativaItemID, io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
-                    FROM item_opcao AS io 
-                        JOIN item_opcao_anexo AS ioa ON(io.itemOpcaoID = ioa.itemOpcaoID)
-                    WHERE io.itemID = ? `
-                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
-
-                    if (resultRespostaAnexos.length > 0) {
-                        for (const respostaAnexo of resultRespostaAnexos) {
-                            //? Verifica se cada anexo exigido existe 1 ou mais arquivos anexados
-                            const sqlArquivosAnexadosResposta = `
-                            SELECT *
-                            FROM anexo AS a 
-                                JOIN anexo_busca AS ab ON(a.anexoID = ab.anexoID)
-                            WHERE ab.recebimentoMpID = ? AND ab.parRecebimentoMpModeloBlocoID = ? AND ab.itemOpcaoAnexoID = ? `
-                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
-                                id,
-                                bloco.parRecebimentoMpModeloBlocoID,
-                                respostaAnexo.itemOpcaoAnexoID
-                            ])
-
-                            let anexos = []
-                            for (const anexo of resultArquivosAnexadosResposta) {
-                                const objAnexo = {
-                                    exist: true,
-                                    anexoID: anexo.anexoID,
-                                    path: `${process.env.BASE_URL_API}${anexo.diretorio}${anexo.arquivo} `,
-                                    nome: anexo.titulo,
-                                    tipo: anexo.tipo,
-                                    size: anexo.tamanho,
-                                    time: anexo.dataHora
-                                }
-                                anexos.push(objAnexo)
-                            }
-                            respostaAnexo['anexos'] = anexos ?? []
-                        }
-                    }
-
-                    //? Insere lista de anexos solicitados pras alternativas
-                    for (const alternativa of resultAlternativa) {
-                        alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
-                    }
-                    item.alternativas = resultAlternativa
-
-                    // Cria objeto da resposta (se for de selecionar)
-                    if (item?.respostaID > 0) {
-                        item.resposta = {
-                            id: item.respostaID,
-                            nome: item.resposta,
-                            bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
-                            observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
-                            anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
-                            anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
-                        }
-                    }
-                }
-                bloco.itens = resultBloco
-            }
+            //? Função que retorna blocos dinâmicos definidos no modelo!
+            const blocos = await getDynamicBlocks(
+                id,
+                modeloID,
+                'recebimentoMpID',
+                'par_recebimentomp_modelo_bloco',
+                'parRecebimentoMpModeloID',
+                'recebimentomp_resposta',
+                'par_recebimentomp_modelo_bloco_item',
+                'parRecebimentoMpModeloBlocoItemID',
+                'parRecebimentoMpModeloBlocoID',
+                'par_recebimentomp_modelo_bloco_setor'
+            )
 
             // Observação e status
             const sqlOtherInformations = getSqlOtherInfos()
@@ -528,17 +421,11 @@ class RecebimentoMpController {
                 nome: result[0]?.preencheProfissionalNome
             } : null
 
-            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
-            const sqlSetores = `
-            SELECT 
-                b.setorID AS id, 
-                b.nome, 
-                a.tipo
-            FROM par_recebimentomp_modelo_setor AS a 
-                JOIN setor AS b ON (a.setorID = b.setorID)
-            WHERE a.parRecebimentoMpModeloID = ? AND b.status = 1
-            ORDER BY b.nome ASC`
-            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
+            const sectors = await getHeaderSectors(
+                modeloID,
+                'par_recebimentomp_modelo_setor',
+                'parRecebimentoMpModeloID'
+            )
 
             const data = {
                 unidade: unidade,
@@ -565,7 +452,7 @@ class RecebimentoMpController {
                         isUser: result[0]?.fornecedorIsUser == 1 ? true : false
                     } : null,
                     //? Setores que preenchem
-                    setores: resultSetores.filter(row => row?.tipo === 1),
+                    setores: sectors.fill, // resultSetores.filter(row => row?.tipo === 1),
                 },
                 fieldsFooter: {
                     concluded: result[0]?.dataFim ? true : false,
@@ -584,11 +471,11 @@ class RecebimentoMpController {
                         } : null
                     },
                     //? Setores que concluem
-                    setores: resultSetores.filter(row => row?.tipo === 2),
+                    setores: sectors.conclude, // resultSetores.filter(row => row?.tipo === 2),
                 },
-                fields: resultFields,
+                fields: fields,
                 produtos: resultProdutos ?? [],
-                blocos: resultBlocos ?? [],
+                blocos: blocos ?? [],
                 grupoAnexo: [],
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
                 info: {
@@ -600,7 +487,7 @@ class RecebimentoMpController {
                 },
                 link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
                 naoConformidade: {
-                    itens: await getNaoConformidades(id),
+                    itens: [], //await getNaoConformidades(id),
                     // varrer array resultProdutos e retornar somente o objeto produto
                     produtos: resultProdutos.map(produto => {
                         return produto.produto
@@ -678,57 +565,16 @@ class RecebimentoMpController {
                 }
             }
 
-            //? Blocos 
-            for (const bloco of data.blocos) {
-                // Itens 
-                if (bloco && bloco.parRecebimentoMpModeloBlocoID && bloco.parRecebimentoMpModeloBlocoID > 0 && bloco.itens) {
-                    for (const item of bloco.itens) {
-                        if (item && item.itemID && item.itemID > 0) {
-                            // Verifica se já existe registro em recebimentomp_resposta, com o recebimentompID, parRecebimentoMpModeloBlocoID e itemID, se houver, faz update, senao faz insert 
-                            const sqlVerificaResposta = `SELECT * FROM recebimentomp_resposta WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
-                            const [resultVerificaResposta] = await db.promise().query(sqlVerificaResposta, [id, bloco.parRecebimentoMpModeloBlocoID, item.itemID])
-
-                            const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
-                            const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
-                            const observacao = item.observacao != undefined ? item.observacao : ''
-
-                            if (resposta && resultVerificaResposta.length == 0) {
-                                const sqlInsert = `
-                                INSERT INTO recebimentomp_resposta(recebimentoMpID, parRecebimentoMpModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
-                                const resultInsert = await executeQuery(sqlInsert, [
-                                    id,
-                                    bloco.parRecebimentoMpModeloBlocoID,
-                                    item.itemID,
-                                    resposta,
-                                    respostaID,
-                                    observacao
-                                ], 'insert', 'recebimentomp_resposta', 'recebimentoMpRespostaID', null, logID)
-
-                                if (!resultInsert) { return res.json('Error'); }
-                            } else if (resposta && resultVerificaResposta.length > 0) {
-                                const sqlUpdate = `
-                                UPDATE recebimentomp_resposta 
-                                SET resposta = ?, respostaID = ?, obs = ?, recebimentoMpID = ?
-                                WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
-                                const resultUpdate = await executeQuery(sqlUpdate, [
-                                    resposta,
-                                    respostaID,
-                                    observacao,
-                                    id,
-                                    id,
-                                    bloco.parRecebimentoMpModeloBlocoID,
-                                    item.itemID
-                                ], 'update', 'recebimentomp_resposta', 'recebimentoMpID', id, logID)
-                                if (!resultUpdate) { return res.json('Error'); }
-                            }
-                            else if (!resposta) {
-                                const sqlDelete = `DELETE FROM recebimentomp_resposta WHERE recebimentoMpID = ? AND parRecebimentoMpModeloBlocoID = ? AND itemID = ? `
-                                const resultDelete = await executeQuery(sqlDelete, [id, bloco.parRecebimentoMpModeloBlocoID, item.itemID], 'delete', 'recebimentomp_resposta', 'recebimentoMpID', id, logID)
-                            }
-                        }
-                    }
-                }
-            } // laço blocos..
+            //? Atualiza blocos do modelo 
+            await updateDynamicBlocks(
+                id,
+                data.blocos,
+                'recebimentomp_resposta',
+                'recebimentoMpID',
+                'parRecebimentoMpModeloBlocoID',
+                'recebimentoMpRespostaID',
+                logID
+            )
 
             // Observação
             const sqlUpdateObs = `UPDATE recebimentomp SET obs = ?, obsConclusao = ? WHERE recebimentoMpID = ? `
@@ -763,7 +609,7 @@ class RecebimentoMpController {
             }
 
             //? Gera histórico de alteração de status (se houve alteração)
-            const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+            const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, newStatus, data?.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             res.status(200).json({ message: 'Função do email sucesso' })

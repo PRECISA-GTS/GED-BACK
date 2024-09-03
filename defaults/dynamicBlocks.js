@@ -1,4 +1,6 @@
 const db = require('../config/db');
+const { executeQuery } = require('../config/executeQuery');
+const { getBlockSectors } = require('./sector/getSectors');
 
 /*
 * Params ex:
@@ -48,15 +50,8 @@ const getDynamicBlocks = async (id, modeloID, rootKey, tableConfig, columnKeyCon
         const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco[columnKeyConfigBlock]])
 
         //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
-        const sqlSetores = `
-        SELECT s.setorID AS id, s.nome
-        FROM ${tableConfigSetor} AS prmbs
-            JOIN setor AS s ON (prmbs.setorID = s.setorID)
-        WHERE prmbs.${columnKeyConfigBlock} = ?
-        GROUP BY s.setorID
-        ORDER BY s.nome ASC`
-        const [resultSetores] = await db.promise().query(sqlSetores, [bloco[columnKeyConfigBlock]])
-        bloco['setores'] = resultSetores
+        const sectors = await getBlockSectors(bloco[columnKeyConfigBlock], tableConfigSetor, columnKeyConfigBlock)
+        bloco['setores'] = sectors
 
         //? Itens
         for (const item of resultBloco) {
@@ -133,4 +128,69 @@ const getDynamicBlocks = async (id, modeloID, rootKey, tableConfig, columnKeyCon
     return resultBlocos ?? []
 }
 
-module.exports = { getDynamicBlocks }
+/*
+* Params ex:
+    * id
+    * blocks (array)
+    * 'recebimentomp_resposta'
+    * 'recebimentoMpID'
+    * 'parRecebimentoMpModeloBlocoID'
+    * 'recebimentoMpRespostaID'
+    * logID
+*/
+const updateDynamicBlocks = async (id, blocks, tableResponse, columnKey, columnKeyConfigBlock, columnKeyResponse, logID) => {
+    for (const bloco of blocks) {
+        // Itens 
+        if (bloco && bloco[columnKeyConfigBlock] && bloco[columnKeyConfigBlock] > 0 && bloco.itens) {
+            for (const item of bloco.itens) {
+                if (item && item.itemID && item.itemID > 0) {
+                    // Verifica se já existe registro em tableResponse, com o columnKey, columnKeyConfigBlock e itemID, se houver, faz update, senao faz insert 
+                    const sqlVerificaResposta = `SELECT * FROM ${tableResponse} WHERE ${columnKey} = ? AND ${columnKeyConfigBlock} = ? AND itemID = ? `
+                    const [resultVerificaResposta] = await db.promise().query(sqlVerificaResposta, [id, bloco[columnKeyConfigBlock], item.itemID])
+
+                    const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
+                    const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
+                    const observacao = item.observacao != undefined ? item.observacao : ''
+
+                    if (resposta && resultVerificaResposta.length == 0) {
+                        const sqlInsert = `
+                        INSERT INTO ${tableResponse}(${columnKey}, ${columnKeyConfigBlock}, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
+                        const resultInsert = await executeQuery(sqlInsert, [
+                            id,
+                            bloco[columnKeyConfigBlock],
+                            item.itemID,
+                            resposta,
+                            respostaID,
+                            observacao
+                        ], 'insert', tableResponse, columnKeyResponse, null, logID)
+
+                        if (!resultInsert) { return res.json('Error'); }
+                    } else if (resposta && resultVerificaResposta.length > 0) {
+                        const sqlUpdate = `
+                        UPDATE ${tableResponse} 
+                        SET resposta = ?, respostaID = ?, obs = ?, ${columnKey} = ?
+                        WHERE ${columnKey} = ? AND ${columnKeyConfigBlock} = ? AND itemID = ? `
+                        const resultUpdate = await executeQuery(sqlUpdate, [
+                            resposta,
+                            respostaID,
+                            observacao,
+                            id,
+                            id,
+                            bloco[columnKeyConfigBlock],
+                            item.itemID
+                        ], 'update', tableResponse, columnKey, id, logID)
+                        if (!resultUpdate) { return res.json('Error'); }
+                    }
+                    else if (!resposta) {
+                        const sqlDelete = `DELETE FROM ${tableResponse} WHERE ${columnKey} = ? AND ${columnKeyConfigBlock} = ? AND itemID = ? `
+                        await executeQuery(sqlDelete, [id, bloco[columnKeyConfigBlock], item.itemID], 'delete', tableResponse, columnKey, id, logID)
+                    }
+                }
+            }
+        }
+    }
+
+    return true
+}
+
+module.exports = { getDynamicBlocks, updateDynamicBlocks }

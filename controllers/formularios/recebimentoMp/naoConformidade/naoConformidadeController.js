@@ -1,39 +1,16 @@
 const db = require('../../../../config/db');
-const { gerarSenhaCaracteresIniciais, criptoMd5 } = require('../../../../config/defaultConfig');
+const { gerarSenhaCaracteresIniciais, criptoMd5, hasPending, deleteItem } = require('../../../../config/defaultConfig');
 const sendMailConfig = require('../../../../config/email');
 const { executeQuery, executeLog } = require('../../../../config/executeQuery');
-const { getDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
+const { getDynamicBlocks, updateDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
 const { getDynamicHeaderFields } = require('../../../../defaults/dynamicFields');
+const { formatFieldsToTable, addFormStatusMovimentation, floatToFractioned, fractionedToFloat } = require('../../../../defaults/functions');
+const { getHeaderSectors } = require('../../../../defaults/sector/getSectors');
 const instructionsNewFornecedor = require('../../../../email/template/fornecedor/instructionsNewFornecedor');
 const fornecedorPreenche = require('../../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 
 
 class NaoConformidade {
-    async getProdutosRecebimento(req, res) {
-        const { recebimentoMpID, unidadeID } = req.body
-
-        try {
-            if (!recebimentoMpID) return res.status(400).json({ error: 'RecebimentoMP não informado!' })
-
-            const sql = `
-            SELECT
-                p.produtoID AS id,
-                CONCAT(p.nome, ' (', u.nome, ')') AS nome
-            FROM recebimentomp AS r 
-                JOIN recebimentomp_produto AS rp ON (r.recebimentoMpID = rp.recebimentoMpID)
-                JOIN produto AS p ON (rp.produtoID = p.produtoID)
-                JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
-            WHERE r.recebimentoMpID = ? AND p.status = 1
-            ORDER BY p.nome ASC`
-            const [result] = await db.promise().query(sql, [recebimentoMpID])
-
-            return res.status(200).json(result)
-
-        } catch (e) {
-            console.log(e)
-        }
-    }
-
     async getList(req, res) {
         const { unidadeID, papelID, usuarioID } = req.params;
 
@@ -83,23 +60,56 @@ class NaoConformidade {
                 rn.status,
 
                 prnm.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
-                prnm.nome AS modelo
+                prnm.nome AS modelo,
+
+                DATE_FORMAT(r.data, "%d/%m/%Y") AS dataRecebimentoMp,
+                DATE_FORMAT(r.data, "%H:%i") AS horaRecebimentoMp,
+                r.nf AS nfRecebimentoMp,
+                CONCAT(f.nome, ' (', f.cnpj, ')') AS fornecedor
             FROM recebimentomp_naoconformidade AS rn
                 JOIN par_recebimentomp_naoconformidade_modelo AS prnm ON (rn.parRecebimentoMpNaoConformidadeModeloID = prnm.parRecebimentoMpNaoConformidadeModeloID)
+
+                JOIN recebimentomp AS r ON (r.recebimentoMpID = rn.recebimentoMpID)
+                JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
             WHERE rn.recebimentoMpNaoConformidadeID = ? AND rn.unidadeID = ?
             ORDER BY rn.data DESC, rn.status ASC`
             const [result] = await db.promise().query(sql, [id, unidadeID])
 
             const sqlProdutos = `
-            SELECT 
+            SELECT
+                rp.recebimentoMpProdutoID,
                 p.produtoID AS id,
-                CONCAT(p.nome, ' (', u.nome, ')') AS nome
-            FROM recebimentomp_naoconformidade_produto AS rnp
-                JOIN produto AS p ON (rnp.produtoID = p.produtoID)
+                CONCAT(p.nome, ' (', u.nome, ')') AS nome,
+
+                (SELECT IF(COUNT(*) > 0, 1, 0)
+                FROM recebimentomp_naoconformidade_produto AS rnp
+                    JOIN recebimentomp_naoconformidade AS rn ON (rnp.recebimentoMpNaoConformidadeID = rn.recebimentoMpNaoConformidadeID)
+                WHERE rn.recebimentoMpNaoConformidadeID = ? AND rnp.produtoID = p.produtoID
+                ) AS checked_,
+
+                rp.quantidade,
+                rp.quantidadeEntrada,
+                DATE_FORMAT(rp.dataFabricacao, "%d/%m/%Y") AS dataFabricacao,
+                DATE_FORMAT(rp.dataValidade, "%d/%m/%Y") AS dataValidade,
+                rp.lote, 
+                a.apresentacaoID,
+                a.nome AS apresentacao
+            FROM recebimentomp_produto AS rp
+                JOIN produto AS p ON (rp.produtoID = p.produtoID)
                 JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
-            WHERE rnp.recebimentoMpNaoConformidadeID = ?
+                LEFT JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
+            WHERE rp.recebimentoMpID = ?
             ORDER BY p.nome ASC`
-            const [resultProdutos] = await db.promise().query(sqlProdutos, [id])
+            let [resultProdutos] = await db.promise().query(sqlProdutos, [id, result[0].recebimentoMpID])
+            resultProdutos = resultProdutos.map(row => ({
+                ...row,
+                checked_: row.checked_ === 1 ? true : false,
+                quantidade: floatToFractioned(row.quantidade),
+                apresentacao: {
+                    id: row.apresentacaoID,
+                    nome: row.apresentacao
+                }
+            }));
 
             //? Função que retorna fields dinâmicos definidos no modelo!
             const fields = await getDynamicHeaderFields(
@@ -113,8 +123,19 @@ class NaoConformidade {
                 'recebimentoMpNaoConformidadeID'
             )
 
+            const sectors = await getHeaderSectors(
+                result[0].modeloID,
+                'par_recebimentomp_naoconformidade_modelo_setor',
+                'parRecebimentoMpNaoConformidadeModeloID'
+            )
+
             const header = {
                 recebimentoMpID: result[0].recebimentoMpID,
+                dataRecebimentoMp: result[0].dataRecebimentoMp,
+                horaRecebimentoMp: result[0].horaRecebimentoMp,
+                nfRecebimentoMp: result[0].nfRecebimentoMp,
+                fornecedor: result[0].fornecedor,
+
                 data: result[0].data,
                 hora: result[0].hora,
                 quemPreenche: result[0].quemPreenche,
@@ -129,7 +150,9 @@ class NaoConformidade {
                     id: result[0].modeloID,
                     nome: result[0].modelo
                 },
-                fields
+                fields,
+                setoresPreenchimento: sectors.fill ?? [],
+                setoresConclusao: sectors.conclude ?? []
             }
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
@@ -150,6 +173,176 @@ class NaoConformidade {
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }
+    }
+
+    async updateData(req, res) {
+        const { id } = req.params
+        const { form, auth } = req.body
+        const { header, blocos } = form
+        const { usuarioID, unidadeID, papelID, profissionalID } = auth
+
+        try {
+            if (!id || id == 'undefined') return res.status(400).json({ error: 'ID do formulário não informado!' })
+
+            const logID = await executeLog('Edição formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
+
+            //? Atualiza itens fixos (header)
+            const sql = `
+            UPDATE recebimentomp_naoconformidade SET 
+                parRecebimentoMpNaoConformidadeModeloID = ?, 
+                data = ?, 
+                prazoSolucao = ?, 
+                quemPreenche = ?, 
+                fornecedorAcessaRecebimento = ?, 
+                tipo = ?
+            WHERE recebimentoMpNaoConformidadeID = ?`
+            await executeQuery(sql, [
+                header.modelo.id,
+                header.data + ' ' + header.hora + ':00',
+                header.prazoSolucao,
+                header.quemPreenche,
+                header.fornecedorAcessaRecebimento ? '1' : '0',
+                header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
+                id
+            ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+
+            //? Atualizar o header dinâmico e setar o status        
+            if (header.fields) {
+                //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+                let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
+                if (Object.keys(dataHeader).length > 0) {
+                    const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
+                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                }
+            }
+
+            //? Atualiza produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
+            if (header.produtos && header.produtos.length > 0) {
+                const checkedProducts = header.produtos.filter(product => product.checked_ === true)
+                const checkedProductIds = checkedProducts.map(product => product.id);
+                const existingProducts = await db.promise().query(
+                    'SELECT produtoID AS id FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ?', [id]
+                );
+                const existingProductIds = existingProducts[0].map(row => row.id);
+                const productsToDelete = existingProductIds.filter(id => !checkedProductIds.includes(id));
+                const productsToInsert = checkedProducts.filter(product => !existingProductIds.includes(product.id));
+                // Deletar os produtos desmarcados
+                if (productsToDelete.length > 0) {
+                    await executeQuery(
+                        'DELETE FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ? AND produtoID IN (?)',
+                        [id, productsToDelete, productsToDelete.join(',')],
+                        'delete', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', id, logID
+                    );
+                }
+                // Inserir os novos produtos marcados
+                if (productsToInsert.length > 0) {
+                    const insertValues = productsToInsert.map(product => `(${id}, ${product.id})`).join(',');
+                    await executeQuery(
+                        `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`, null,
+                        'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID
+                    );
+                }
+            }
+
+            //? Atualiza blocos do modelo 
+            await updateDynamicBlocks(
+                id,
+                blocos,
+                'recebimentomp_naoconformidade_resposta',
+                'recebimentoMpNaoConformidadeID',
+                'parRecebimentoMpNaoConformidadeModeloBlocoID',
+                'recebimentoMpNaoConformidadeRespostaID',
+                logID
+            )
+
+            //? Gera histórico de alteração de status (se houve alteração)
+            const newStatus = header.status < 30 ? 30 : header.status
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, newStatus, null)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+            return res.status(201).json({ message: "Formulário atualizado com sucesso!" })
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async conclude(req, res) {
+        const { id, recebimentoMpID, usuarioID, papelID, unidadeID, profissionalID } = req.body.params
+        const form = req.body.form
+
+        try {
+            if (!id || !recebimentoMpID) {
+                return res.status(400).json({ error: 'Formulário não informado!' })
+            }
+
+            const logID = await executeLog('Conclusão formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
+            const sql = `
+            UPDATE recebimentomp_naoconformidade 
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, conclusao = ?
+            WHERE recebimentoMpNaoConformidadeID = ?`
+            await executeQuery(sql, [
+                form.status,
+                profissionalID,
+                new Date(),
+                form.obsConclusao ?? '',
+                id
+            ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+
+            //? Atualiza a nova quantidade de produtos do recebimento de MP 
+            if (form.products && form.products.length > 0) {
+                for (const product of form.products) {
+                    if (product && product.novaQuantidade && product.recebimentoMpProdutoID) {
+                        const sql = `
+                        UPDATE recebimentomp_produto 
+                        SET quantidadeEntrada = ? 
+                        WHERE recebimentoMpProdutoID = ?`;
+                        await executeQuery(sql, [
+                            fractionedToFloat(product.novaQuantidade),
+                            product.recebimentoMpProdutoID
+                        ], 'update', 'recebimentomp_produto', 'recebimentoMpProdutoID', product.recebimentoMpProdutoID, logID);
+                    }
+                }
+            }
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+            return res.status(201).json({ message: "Formulário concluído com sucesso!" })
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async reOpen(req, res) {
+        const { id } = req.params
+        const { status, observacao } = req.body
+        const { usuarioID, papelID, unidadeID } = req.body.auth
+
+        const logID = await executeLog('Edição do status do formulário de Não Conformidade do recebimento de MP', usuarioID, unidadeID, req)
+
+        //? É uma fábrica, e formulário já foi concluído
+        if (status && papelID == 1) {
+            const sqlUpdateStatus = `
+            UPDATE recebimentomp_naoconformidade
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, conclusao = ?
+            WHERE recebimentoMpNaoConformidadeID = ?`
+            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
+                status,
+                null,
+                null,
+                null,
+                id
+            ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, status, observacao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+        }
+
+        res.status(200).json({ message: 'Ok' })
     }
 
     async getModelos(req, res) {
@@ -267,6 +460,35 @@ class NaoConformidade {
         await db.promise().query(sqlUpdateRecebimentoMp, [data.recebimentoMpID])
 
         res.status(200).json('Email enviado!')
+    }
+
+    async deleteData(req, res) {
+        const { id, usuarioID, unidadeID } = req.params
+        const objDelete = {
+            table: ['recebimentomp_naoconformidade_produto', 'recebimentomp_naoconformidade_resposta', 'recebimentomp_naoconformidade'],
+            column: 'recebimentoMpNaoConformidadeID'
+        }
+
+        const arrPending = []
+
+        if (!arrPending || arrPending.length === 0) {
+            const logID = await executeLog('Exclusão formulário de Não Conformidade do recebimento Mp', usuarioID, unidadeID, req)
+            return deleteItem(id, objDelete.table, objDelete.column, logID, res)
+        }
+
+        hasPending(id, arrPending)
+            .then(async (hasPending) => {
+                if (hasPending) {
+                    res.status(409).json({ message: "Dado possui pendência." });
+                } else {
+                    const logID = await executeLog('Exclusão formulário de Não Conformidade do recebimento Mp', usuarioID, unidadeID, req)
+                    return deleteItem(id, objDelete.table, objDelete.column, logID, res)
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+                res.status(500).json(err);
+            });
     }
 }
 

@@ -7,13 +7,13 @@ const FormData = require('form-data');
 const path = require('path');
 const timeZone = 'America/Sao_Paulo'
 
-const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAnterior, statusAtual, observacao) => {
+const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAtual, observacao) => {
 
-    if (parFormularioID && id && usuarioID && unidadeID && papelID && statusAnterior && statusAtual) {
+    if (parFormularioID && id && usuarioID && unidadeID && papelID && statusAtual) {
         const sql = `
         INSERT INTO 
-        movimentacaoformulario (parFormularioID, id, usuarioID, unidadeID, papelID, dataHora, statusAnterior, statusAtual, observacao) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        movimentacaoformulario (parFormularioID, id, usuarioID, unidadeID, papelID, dataHora, statusAtual, observacao) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         const [result] = await db.promise().query(sql, [
             parFormularioID,
             id,
@@ -21,7 +21,6 @@ const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidad
             unidadeID,
             papelID,
             new Date(),
-            statusAnterior,
             statusAtual,
             observacao ?? ''
         ])

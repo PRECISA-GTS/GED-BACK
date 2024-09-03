@@ -26,6 +26,9 @@ const layoutNotification = require('../../../email/template/notificacao');
 const instructionsNewFornecedor = require('../../../email/template/fornecedor/instructionsNewFornecedor');
 const instructionsExistFornecedor = require('../../../email/template/fornecedor/instructionsExistFornecedor');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
+const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
+const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
+const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 
 class FornecedorController {
     async verifyIfHasModel(req, res) {
@@ -648,60 +651,17 @@ class FornecedorController {
                 return res.status(200).json(data)
             }
 
-            // Fields do header
-            const sqlFields = `
-            SELECT *
-            FROM par_fornecedor AS pf 
-                LEFT JOIN par_fornecedor_modelo_cabecalho AS pfmc ON (pf.parFornecedorID = pfmc.parFornecedorID)
-            WHERE pfmc.parFornecedorModeloID = ? 
-            ORDER BY pfmc.ordem ASC`
-            const [resultFields] = await db.promise().query(sqlFields, [modeloID])
-
-            // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
-            for (const alternatives of resultFields) {
-                if (alternatives.tipo === 'int' && alternatives.tabela) {
-                    // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
-                    const sqlOptions = `
-                    SELECT ${alternatives.tabela}ID AS id, nome
-                    FROM ${alternatives.tabela} 
-                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidade.unidadeID} ` : ``}
-                    ORDER BY nome ASC`
-
-                    // Executar select e inserir no objeto alternatives
-                    const [resultOptions] = await db.promise().query(sqlOptions)
-                    alternatives.options = resultOptions
-                }
-            }
-
-            // Varrer result, pegando nomeColuna e inserir em um array se row.tabela == null
-            let columns = []
-            for (const row of resultFields) {
-                if (!row.tabela) { columns.push(row.nomeColuna) }
-            }
-
-            // varrer resultFields 
-            for (const field of resultFields) {
-                if (field.tabela) {
-                    // Monta objeto pra preencher select 
-                    // Ex.: profissional:{
-                    //     id: 1,
-                    //     nome: 'Fulano'
-                    // }
-                    const sqlFieldData = `
-                    SELECT t.${field.nomeColuna} AS id, t.nome
-                    FROM fornecedor AS f 
-                        JOIN ${field.tabela} AS t ON(f.${field.nomeColuna} = t.${field.nomeColuna}) 
-                    WHERE f.fornecedorID = ${id} `
-                    let [temp] = await db.promise().query(sqlFieldData)
-                    if (temp) {
-                        field[field.tabela] = temp[0]
-                    }
-                } else {
-                    const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM fornecedor WHERE fornecedorID = ? `;
-                    let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
-                    field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
-                }
-            }
+            //? Função que retorna fields dinâmicos definidos no modelo!
+            const fields = await getDynamicHeaderFields(
+                id,
+                modeloID,
+                unidade.unidadeID,
+                'par_fornecedor',
+                'parFornecedorID',
+                'parFornecedorModeloID',
+                'fornecedor',
+                'fornecedorID'
+            )
 
             //* PRODUTOS
             const sqlProdutos = `
@@ -805,87 +765,19 @@ class FornecedorController {
             ORDER BY ordem ASC`
             const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
 
-            //? Blocos
-            const sqlBloco = getSqlBloco()
-            for (const bloco of resultBlocos) {
-                const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco.parFornecedorModeloBlocoID])
-
-                //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
-                const sqlSetores = `
-                SELECT s.setorID AS id, s.nome
-                FROM par_fornecedor_modelo_bloco_setor AS pfmbs
-                    JOIN setor AS s ON (pfmbs.setorID = s.setorID)
-                WHERE pfmbs.parFornecedorModeloBlocoID = ?
-                GROUP BY s.setorID
-                ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parFornecedorModeloBlocoID])
-                bloco['setores'] = resultSetores
-
-                //? Itens
-                for (const item of resultBloco) {
-                    const sqlAlternativa = getAlternativasSql()
-                    const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parFornecedorModeloBlocoItemID']])
-                    item.alternativas = resultAlternativa
-
-                    // Obter os anexos vinculados as alternativas
-                    const sqlRespostaAnexos = `
-                    SELECT io.alternativaItemID, io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
-                    FROM item_opcao AS io 
-                        JOIN item_opcao_anexo AS ioa ON (io.itemOpcaoID = ioa.itemOpcaoID)
-                    WHERE io.itemID = ?`
-                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
-
-                    if (resultRespostaAnexos.length > 0) {
-                        for (const respostaAnexo of resultRespostaAnexos) {
-                            //? Verifica se cada anexo exigido existe 1 ou mais arquivos anexados
-                            const sqlArquivosAnexadosResposta = `
-                            SELECT * 
-                            FROM anexo AS a 
-                                JOIN anexo_busca AS ab ON (a.anexoID = ab.anexoID)
-                            WHERE ab.fornecedorID = ? AND ab.parFornecedorModeloBlocoID = ? AND ab.itemOpcaoAnexoID = ?`
-                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
-                                id,
-                                bloco.parFornecedorModeloBlocoID,
-                                respostaAnexo.itemOpcaoAnexoID
-                            ])
-
-                            let anexos = []
-                            for (const anexo of resultArquivosAnexadosResposta) {
-                                const objAnexo = {
-                                    exist: true,
-                                    anexoID: anexo.anexoID,
-                                    path: `${process.env.BASE_URL_API}${anexo.diretorio}${anexo.arquivo} `,
-                                    nome: anexo.titulo,
-                                    tipo: anexo.tipo,
-                                    size: anexo.tamanho,
-                                    time: anexo.dataHora
-                                }
-                                anexos.push(objAnexo)
-                            }
-                            respostaAnexo['anexos'] = anexos ?? []
-                        }
-                    }
-
-                    //? Insere lista de anexos solicitados pras alternativas
-                    for (const alternativa of resultAlternativa) {
-                        alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
-                    }
-                    item.alternativas = resultAlternativa
-
-                    // Cria objeto da resposta (se for de selecionar)
-                    if (item?.respostaID > 0) {
-                        item.resposta = {
-                            id: item.respostaID,
-                            nome: item.resposta,
-                            bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
-                            observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
-                            anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
-                            anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
-                        }
-                    }
-                }
-                bloco.itens = resultBloco
-            }
+            //? Função que retorna blocos dinâmicos definidos no modelo!
+            const blocos = await getDynamicBlocks(
+                id,
+                modeloID,
+                'fornecedorID',
+                'par_fornecedor_modelo_bloco',
+                'parFornecedorModeloID',
+                'fornecedor_resposta',
+                'par_fornecedor_modelo_bloco_item',
+                'parFornecedorModeloBlocoItemID',
+                'parFornecedorModeloBlocoID',
+                'par_fornecedor_modelo_bloco_setor'
+            )
 
             // Observação e status
             const sqlOtherInformations = getSqlOtherInfos()
@@ -932,6 +824,12 @@ class FornecedorController {
             ORDER BY b.nome ASC`
             const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
 
+            const sectors = await getHeaderSectors(
+                modeloID,
+                'par_fornecedor_modelo_setor',
+                'parFornecedorModeloID'
+            )
+
             const data = {
                 hasModel: true,
                 unidade: unidade,
@@ -956,7 +854,7 @@ class FornecedorController {
                     razaoSocial: resultFornecedor[0].razaoSocial,
                     nomeFantasia: resultFornecedor[0].nome,
                     //? Setores que preenchem
-                    setores: resultSetores.filter(row => row?.tipo === 1),
+                    setores: sectors.fill,
                     cpf: resultFornecedor[0].cpf === 1 ? true : false,
                 },
                 fieldsFooter: {
@@ -968,11 +866,11 @@ class FornecedorController {
                         nome: resultFornecedor[0].profissionalAprova
                     } : null,
                     //? Setores que concluem
-                    setores: resultSetores.filter(row => row?.tipo === 2),
+                    setores: sectors.conclude,
                 },
-                fields: resultFields,
+                fields: fields,
                 produtos: resultProdutos ?? [],
-                blocos: resultBlocos ?? [],
+                blocos: blocos ?? [],
                 grupoAnexo: gruposAnexo ?? [],
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
                 info: {
@@ -1034,55 +932,16 @@ class FornecedorController {
         //* Atualiza dados na unidade do fornecedor (pelo CNPJ)
         updateUnitySupplier(data.fieldsHeader, dataHeader)
 
-        //? Blocos 
-        for (const bloco of data.blocos) {
-            // Itens 
-            if (bloco && bloco.parFornecedorModeloBlocoID && bloco.parFornecedorModeloBlocoID > 0 && bloco.itens) {
-                for (const item of bloco.itens) {
-                    if (item && item.itemID && item.itemID > 0) {
-                        // Verifica se já existe registro em fornecedor_resposta, com o fornecedorID, parFornecedorModeloBlocoID e itemID, se houver, faz update, senao faz insert 
-                        const sqlVerificaResposta = `SELECT * FROM fornecedor_resposta WHERE fornecedorID = ? AND parFornecedorModeloBlocoID = ? AND itemID = ? `
-                        const [resultVerificaResposta] = await db.promise().query(sqlVerificaResposta, [id, bloco.parFornecedorModeloBlocoID, item.itemID])
-
-                        const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
-                        const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
-                        const observacao = item.observacao != undefined ? item.observacao : ''
-
-                        if (resposta && resultVerificaResposta.length === 0) {
-                            const sqlInsert = `INSERT INTO fornecedor_resposta(fornecedorID, parFornecedorModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
-                            const resultInsert = await executeQuery(sqlInsert, [
-                                id,
-                                bloco.parFornecedorModeloBlocoID,
-                                item.itemID,
-                                resposta,
-                                respostaID,
-                                observacao
-                            ], 'insert', 'fornecedor_resposta', 'fornecedorRespostaID', null, logID)
-                            if (!resultInsert) { return res.json('Error'); }
-                        } else if (resposta && resultVerificaResposta.length > 0) {
-                            const sqlUpdate = `
-                            UPDATE fornecedor_resposta 
-                            SET resposta = ?, respostaID = ?, obs = ?, fornecedorID = ?
-                            WHERE fornecedorID = ? AND parFornecedorModeloBlocoID = ? AND itemID = ? `
-                            const resultUpdate = await executeQuery(sqlUpdate, [
-                                resposta,
-                                respostaID,
-                                observacao,
-                                id,
-                                id,
-                                bloco.parFornecedorModeloBlocoID,
-                                item.itemID
-                            ], 'update', 'fornecedor_resposta', 'fornecedorID', id, logID)
-                            if (!resultUpdate) { return res.json('Error'); }
-                        }
-                        else if (!resposta) {
-                            const sqlDelete = `DELETE FROM fornecedor_resposta WHERE fornecedorID = ? AND parFornecedorModeloBlocoID = ? AND itemID = ? `
-                            const resultDelete = await executeQuery(sqlDelete, [id, bloco.parFornecedorModeloBlocoID, item.itemID], 'delete', 'fornecedor_resposta', 'fornecedorID', id, logID)
-                        }
-                    }
-                }
-            }
-        } // laço blocos..
+        //? Atualiza blocos do modelo 
+        await updateDynamicBlocks(
+            id,
+            data.blocos,
+            'fornecedor_resposta',
+            'fornecedorID',
+            'parFornecedorModeloBlocoID',
+            'fornecedorRespostaID',
+            logID
+        )
 
         // Observação
         const sqlUpdateObs = `UPDATE fornecedor SET obs = ?, obsConclusao = ? WHERE fornecedorID = ? `
@@ -1124,7 +983,7 @@ class FornecedorController {
         }
 
         //? Gera histórico de alteração de status
-        const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+        const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, newStatus, data?.obsConclusao)
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         res.status(200).json({})
@@ -1148,7 +1007,7 @@ class FornecedorController {
                 const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
                 //? Gera histórico de alteração de status
-                const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', status, '')
+                const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, status, '')
                 if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
             }
         }
@@ -1178,16 +1037,13 @@ class FornecedorController {
 
         const logID = await executeLog('Edição do status do formulário do fornecedor', usuarioID, unidadeID, req)
 
-        const sqlSelect = `SELECT status FROM fornecedor WHERE fornecedorID = ? `
-        const [resultFornecedor] = await db.promise().query(sqlSelect, [id])
-
         //? É uma fábrica, e formulário já foi concluído pelo fornecedor
         if (status && papelID == 1) {
             const sqlUpdateStatus = `UPDATE fornecedor SET status = ?, dataFim = ?, aprovaProfissionalID = ? WHERE fornecedorID = ? `
             const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, null, null, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
             //? Gera histórico de alteração de status
-            const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', status, observacao)
+            const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, status, observacao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
         }
 
@@ -1545,7 +1401,7 @@ class FornecedorController {
         }
 
         //? Gera histórico de alteração de status
-        const movimentation = await addFormStatusMovimentation(1, fornecedorID, usuarioID, unidadeID, papelID, '0', initialStatus, '')
+        const movimentation = await addFormStatusMovimentation(1, fornecedorID, usuarioID, unidadeID, papelID, initialStatus, '')
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário!" }) }
 
         //! Verifica se CNPJ/CPF já tem um usuario cadastrado, se não tiver cadastra
@@ -1728,10 +1584,6 @@ class FornecedorController {
         const { id } = req.params;
         const { usuarioID, unidadeID, papelID } = req.body;
 
-        //? Obtém o status atual pra setar como status anterior da movimentação
-        const sqlSelect = `SELECT status FROM fornecedor WHERE fornecedorID = ? `
-        const [resultFornecedor] = await db.promise().query(sqlSelect, [id])
-
         //? Atualiza pro status de conclusão do formulário (40)
         const newStatus = 40
         const sqlUpdate = `UPDATE fornecedor SET status = ?, dataFim = ? WHERE fornecedorID = ? `
@@ -1739,7 +1591,7 @@ class FornecedorController {
         if (resultUpdate.length === 0) { return res.status(201).json({ message: 'Erro ao atualizar status do formulário! ' }) }
 
         //? Gera histórico de alteração de status
-        const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, resultFornecedor[0]['status'] ?? '0', newStatus, '')
+        const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, newStatus, '')
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         //? Envia e-mail pra fábrica

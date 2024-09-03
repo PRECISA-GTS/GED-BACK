@@ -2,9 +2,12 @@ const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, createScheduling, deleteScheduling, getDateNow, getTimeNow } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, createScheduling, deleteScheduling, getDateNow, getTimeNow } = require('../../../defaults/functions');
 const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
+const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
+const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
+const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 
 class LimpezaController {
     async getList(req, res) {
@@ -124,59 +127,17 @@ class LimpezaController {
             }
             const modeloID = result[0]['parLimpezaModeloID']
 
-            // Fields do header
-            const sqlFields = `
-            SELECT *
-            FROM par_limpeza AS pr
-                LEFT JOIN par_limpeza_modelo_cabecalho AS prmc ON(pr.parlimpezaID = prmc.parlimpezaID)
-            WHERE prmc.parLimpezaModeloID = ?
-            ORDER BY prmc.ordem ASC`
-            const [resultFields] = await db.promise().query(sqlFields, [modeloID])
-
-            // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
-            for (const alternatives of resultFields) {
-                if (alternatives.tipo === 'int' && alternatives.tabela) {
-                    // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
-                    const sqlOptions = `
-                    SELECT ${alternatives.tabela}ID AS id, nome
-                    FROM ${alternatives.tabela} 
-                    WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidade.unidadeID} ` : ``}
-                    ORDER BY nome ASC`
-                    // Executar select e inserir no objeto alternatives
-                    const [resultOptions] = await db.promise().query(sqlOptions)
-                    alternatives.options = resultOptions
-                }
-            }
-
-            // Varrer result, pegando nomeColuna e inserir em um array se row.tabela == null
-            let columns = []
-            for (const row of resultFields) {
-                if (!row.tabela) { columns.push(row.nomeColuna) }
-            }
-
-            // varrer resultFields 
-            for (const field of resultFields) {
-                if (field.tabela) {
-                    // Monta objeto pra preencher select 
-                    // Ex.: profissional:{
-                    //     id: 1,
-                    //     nome: 'Fulano'
-                    // }
-                    const sqlFieldData = `
-                    SELECT t.${field.nomeColuna} AS id, t.nome
-                    FROM limpeza AS r
-                        JOIN ${field.tabela} AS t ON(r.${field.nomeColuna} = t.${field.nomeColuna}) 
-                    WHERE r.limpezaID = ${id} `
-                    let [temp] = await db.promise().query(sqlFieldData)
-                    if (temp) {
-                        field[field.tabela] = temp[0]
-                    }
-                } else {
-                    const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM limpeza WHERE limpezaID = ? `;
-                    let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
-                    field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
-                }
-            }
+            //? Função que retorna fields dinâmicos definidos no modelo!
+            const fields = await getDynamicHeaderFields(
+                id,
+                modeloID,
+                unidadeID,
+                'par_limpeza',
+                'parLimpezaID',
+                'parLimpezaModeloID',
+                'limpeza',
+                'limpezaID'
+            )
 
             const sqlBlocos = `
             SELECT *
@@ -185,87 +146,19 @@ class LimpezaController {
             ORDER BY ordem ASC`
             const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
 
-            //? Blocos
-            const sqlBloco = getSqlBloco()
-            for (const bloco of resultBlocos) {
-                const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco.parLimpezaModeloBlocoID])
-
-                //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
-                const sqlSetores = `
-                SELECT s.setorID AS id, s.nome
-                FROM par_limpeza_modelo_bloco_setor AS plmbs
-                    JOIN setor AS s ON (plmbs.setorID = s.setorID)
-                WHERE plmbs.parLimpezaModeloBlocoID = ?
-                GROUP BY s.setorID
-                ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [bloco.parLimpezaModeloBlocoID])
-                bloco['setores'] = resultSetores
-
-                //? Itens
-                for (const item of resultBloco) {
-                    const sqlAlternativa = getAlternativasSql()
-                    const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item['parLimpezaModeloBlocoItemID']])
-                    item.alternativas = resultAlternativa
-
-                    // Obter os anexos vinculados as alternativas
-                    const sqlRespostaAnexos = `
-                    SELECT io.alternativaItemID, io.itemOpcaoID, io.anexo, io.bloqueiaFormulario, io.observacao, ioa.itemOpcaoAnexoID, ioa.nome, ioa.obrigatorio
-                    FROM item_opcao AS io 
-                        JOIN item_opcao_anexo AS ioa ON(io.itemOpcaoID = ioa.itemOpcaoID)
-                    WHERE io.itemID = ?`
-                    const [resultRespostaAnexos] = await db.promise().query(sqlRespostaAnexos, [item.itemID])
-
-                    if (resultRespostaAnexos.length > 0) {
-                        for (const respostaAnexo of resultRespostaAnexos) {
-                            //? Verifica se cada anexo exigido existe 1 ou mais arquivos anexados
-                            const sqlArquivosAnexadosResposta = `
-                            SELECT *
-                            FROM anexo AS a 
-                                JOIN anexo_busca AS ab ON(a.anexoID = ab.anexoID)
-                            WHERE ab.limpezaID = ? AND ab.parLimpezaModeloBlocoID = ? AND ab.itemOpcaoAnexoID = ? `
-                            const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
-                                id,
-                                bloco.parLimpezaModeloBlocoID,
-                                respostaAnexo.itemOpcaoAnexoID
-                            ])
-
-                            let anexos = []
-                            for (const anexo of resultArquivosAnexadosResposta) {
-                                const objAnexo = {
-                                    exist: true,
-                                    anexoID: anexo.anexoID,
-                                    path: `${process.env.BASE_URL_API}${anexo.diretorio}${anexo.arquivo} `,
-                                    nome: anexo.titulo,
-                                    tipo: anexo.tipo,
-                                    size: anexo.tamanho,
-                                    time: anexo.dataHora
-                                }
-                                anexos.push(objAnexo)
-                            }
-                            respostaAnexo['anexos'] = anexos ?? []
-                        }
-                    }
-
-                    //? Insere lista de anexos solicitados pras alternativas
-                    for (const alternativa of resultAlternativa) {
-                        alternativa['anexosSolicitados'] = resultRespostaAnexos.filter(row => row.alternativaItemID == alternativa.id)
-                    }
-                    item.alternativas = resultAlternativa
-
-                    // Cria objeto da resposta (se for de selecionar)
-                    if (item?.respostaID > 0) {
-                        item.resposta = {
-                            id: item.respostaID,
-                            nome: item.resposta,
-                            bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
-                            observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
-                            anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
-                            anexosSolicitados: resultRespostaAnexos.filter(a => a.alternativaItemID == item.respostaID) ?? []
-                        }
-                    }
-                }
-                bloco.itens = resultBloco
-            }
+            //? Função que retorna blocos dinâmicos definidos no modelo!
+            const blocos = await getDynamicBlocks(
+                id,
+                modeloID,
+                'limpezaID',
+                'par_limpeza_modelo_bloco',
+                'parLimpezaModeloID',
+                'limpeza_resposta',
+                'par_limpeza_modelo_bloco_item',
+                'parLimpezaModeloBlocoItemID',
+                'parLimpezaModeloBlocoID',
+                'par_limpeza_modelo_bloco_setor'
+            )
 
             // Observação e status
             const sqlOtherInformations = getSqlOtherInfos()
@@ -301,16 +194,11 @@ class LimpezaController {
             const time = getTimeNow()
 
             //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
-            const sqlSetores = `
-            SELECT 
-                b.setorID AS id, 
-                b.nome, 
-                a.tipo
-            FROM par_limpeza_modelo_setor AS a 
-                JOIN setor AS b ON (a.setorID = b.setorID)
-            WHERE a.parLimpezaModeloID = ? AND b.status = 1
-            ORDER BY b.nome ASC`
-            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
+            const sectors = await getHeaderSectors(
+                modeloID,
+                'par_limpeza_modelo_setor',
+                'parLimpezaModeloID'
+            )
 
             const data = {
                 unidade: unidade,
@@ -332,7 +220,7 @@ class LimpezaController {
                         nome: result[0].preencheProfissionalNome
                     } : null,
                     //? Setores que preenchem
-                    setores: resultSetores.filter(row => row?.tipo === 1),
+                    setores: sectors.fill,
                 },
                 fieldsFooter: {
                     concluded: result[0].dataFim ? true : false,
@@ -353,10 +241,10 @@ class LimpezaController {
                         } : null
                     },
                     //? Setores que concluem
-                    setores: resultSetores.filter(row => row?.tipo === 2),
+                    setores: sectors.conclude
                 },
-                fields: resultFields,
-                blocos: resultBlocos ?? [],
+                fields: fields,
+                blocos: blocos ?? [],
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
                 info: {
                     obs: resultOtherInformations[0].obs,
@@ -383,9 +271,6 @@ class LimpezaController {
 
             const logID = await executeLog('Edição formulário de limpeza', usuarioID, unidadeID, req)
 
-            const sqlSelect = `SELECT status FROM limpeza WHERE limpezaID = ? `
-            const [result] = await db.promise().query(sqlSelect, [id])
-
             //? Atualiza header e footer fixos
             const sqlStaticlHeader = `
             UPDATE limpeza SET data = ?, preencheProfissionalID = ?, dataConclusao = ?, aprovaProfissionalID = ?
@@ -409,56 +294,16 @@ class LimpezaController {
                 }
             }
 
-            //? Blocos 
-            for (const bloco of data.blocos) {
-                // Itens 
-                if (bloco && bloco.parLimpezaModeloBlocoID && bloco.parLimpezaModeloBlocoID > 0 && bloco.itens) {
-                    for (const item of bloco.itens) {
-                        if (item && item.itemID && item.itemID > 0) {
-                            // Verifica se já existe registro em recebimentomp_resposta, com o limpezaID, parLimpezaModeloBlocoID e itemID, se houver, faz update, senao faz insert 
-                            const sqlVerificaResposta = `SELECT * FROM limpeza_resposta WHERE limpezaID = ? AND parLimpezaModeloBlocoID = ? AND itemID = ? `
-                            const [resultVerificaResposta] = await db.promise().query(sqlVerificaResposta, [id, bloco.parLimpezaModeloBlocoID, item.itemID])
-
-                            const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
-                            const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
-                            const observacao = item.observacao != undefined ? item.observacao : ''
-
-                            if (resposta && resultVerificaResposta.length === 0) {
-                                const sqlInsert = `INSERT INTO limpeza_resposta(limpezaID, parLimpezaModeloBlocoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
-                                const resultInsert = await executeQuery(sqlInsert, [
-                                    id,
-                                    bloco.parLimpezaModeloBlocoID,
-                                    item.itemID,
-                                    resposta,
-                                    respostaID,
-                                    observacao
-                                ], 'insert', 'limpeza_resposta', 'limpezaRespostaID', null, logID)
-
-                                if (!resultInsert) { return res.json('Error'); }
-                            } else if (resposta && resultVerificaResposta.length > 0) {
-                                const sqlUpdate = `
-                                UPDATE limpeza_resposta 
-                                SET resposta = ?, respostaID = ?, obs = ?, limpezaID = ?
-                                WHERE limpezaID = ? AND parLimpezaModeloBlocoID = ? AND itemID = ? `
-                                const resultUpdate = await executeQuery(sqlUpdate, [
-                                    resposta,
-                                    respostaID,
-                                    observacao,
-                                    id,
-                                    id,
-                                    bloco.parLimpezaModeloBlocoID,
-                                    item.itemID
-                                ], 'update', 'limpeza_resposta', 'limpezaID', id, logID)
-                                if (!resultUpdate) { return res.json('Error'); }
-                            }
-                            else if (!resposta) {
-                                const sqlDelete = `DELETE FROM limpeza_resposta WHERE limpezaID = ? AND parLimpezaModeloBlocoID = ? AND itemID = ? `
-                                const resultDelete = await executeQuery(sqlDelete, [id, bloco.parLimpezaModeloBlocoID, item.itemID], 'delete', 'limpeza_resposta', 'limpezaID', id, logID)
-                            }
-                        }
-                    }
-                }
-            } // laço blocos..
+            //? Atualiza blocos do modelo 
+            await updateDynamicBlocks(
+                id,
+                data.blocos,
+                'limpeza_resposta',
+                'limpezaID',
+                'parLimpezaModeloBlocoID',
+                'limpezaRespostaID',
+                logID
+            )
 
             // Observação
             const sqlUpdateObs = `UPDATE limpeza SET obs = ?, obsConclusao = ? WHERE limpezaID = ? `
@@ -480,7 +325,7 @@ class LimpezaController {
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 
             //? Gera histórico de alteração de status
-            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', newStatus, data?.obsConclusao)
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, newStatus, data?.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             //? Cria agendamento no calendário com a data de vencimento
@@ -504,9 +349,6 @@ class LimpezaController {
 
         const logID = await executeLog('Edição do status do formulário de limpeza', usuarioID, unidadeID, req)
 
-        const sql = `SELECT status FROM limpeza WHERE limpezaID = ? `
-        const [result] = await db.promise().query(sql, [id])
-
         const sqlUpdateStatus = `
         UPDATE limpeza 
         SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?  
@@ -522,7 +364,7 @@ class LimpezaController {
         ], 'update', 'limpeza', 'limpezaID', id, logID)
 
         //? Gera histórico de alteração de status
-        const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, result[0]['status'] ?? '0', status, observacao)
+        const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, status, observacao)
         if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
         //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
@@ -656,147 +498,6 @@ class LimpezaController {
         const pathDestination = req.pathDestination
         const files = req.files;
     }
-}
-
-//* Obtém colunas
-// const getFields = async (parLimpezaModeloID, unidadeID) => {
-//     const sqlFields = `
-//     SELECT * 
-//     FROM par_recebimentomp AS pl
-//         JOIN par_limpeza_modelo_cabecalho AS plmc ON (plmc.parlimpezaID = pl.parlimpezaID)
-//         JOIN par_limpeza_modelo AS plm ON (plm.parLimpezaModeloID = plmc.parLimpezaModeloID)
-//     WHERE plm.parLimpezaModeloID = ?`
-//     const [resultFields] = await db.promise().query(sqlFields, [parLimpezaModeloID])
-//     if (resultFields.length === 0) { return res.json({ message: 'Nenhum campo encontrado' }) }
-
-//     // Varre fields, verificando se há tipo == 'int', se sim, busca opções pra selecionar no select 
-//     for (const alternatives of resultFields) {
-//         if (alternatives.tipo === 'int' && alternatives.tabela) {
-//             // Busca cadastros ativos e da unidade (se houver unidadeID na tabela)
-//             let sqlOptions = ``
-//             if (alternatives.tabela == 'fornecedor') {
-//                 // sqlOptions = `
-//                 // SELECT MAX(fornecedorID) AS id, nome, cnpj
-//                 // FROM fornecedor
-//                 // WHERE status >= 60 AND unidadeID = ${unidadeID}
-//                 // GROUP BY cnpj
-//                 // ORDER BY nome ASC`
-//             } else {
-//                 sqlOptions = `
-//                 SELECT ${alternatives.tabela}ID AS id, nome
-//                 FROM ${alternatives.tabela} 
-//                 WHERE status = 1 ${await hasUnidadeID(alternatives.tabela) ? ` AND unidadeID = ${unidadeID} ` : ``}
-//                 ORDER BY nome ASC`
-//             }
-
-//             // Executar select e inserir no objeto alternatives
-//             const [resultOptions] = await db.promise().query(sqlOptions)
-//             alternatives.options = resultOptions
-//         }
-//     }
-
-//     return resultFields
-// }
-
-//* Obtém estrutura dos blocos e itens
-// const getBlocks = async (id, parLimpezaModeloID) => {
-//     const sqlBlocos = `
-//     SELECT * 
-//     FROM par_limpeza_modelo_bloco
-//     WHERE parLimpezaModeloID = ? AND status = 1
-//     ORDER BY ordem ASC`
-//     const [resultBlocos] = await db.promise().query(sqlBlocos, [parLimpezaModeloID])
-
-//     // Itens
-//     const sqlItem = `
-//     SELECT plmbi.*, i.*, a.nome AS alternativa,
-
-//         (SELECT lr.respostaID
-//         FROM recebimentomp_resposta AS lr 
-//         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID
-//         LIMIT 1) AS respostaID,
-
-//         (SELECT lr.resposta
-//         FROM recebimentomp_resposta AS lr 
-//         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID
-//         LIMIT 1) AS resposta,
-
-//         (SELECT lr.obs
-//         FROM recebimentomp_resposta AS lr 
-//         WHERE lr.limpezaID = 1 AND lr.parLimpezaModeloBlocoID = plmbi.parLimpezaModeloBlocoID AND lr.itemID = plmbi.itemID
-//         LIMIT 1) AS observacao
-
-//     FROM par_limpeza_modelo_bloco_item AS plmbi
-//         LEFT JOIN item AS i ON (plmbi.itemID = i.itemID)
-//         LEFT JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
-//     WHERE plmbi.parLimpezaModeloBlocoID = ? AND plmbi.status = 1
-//     ORDER BY plmbi.ordem ASC`
-//     for (const item of resultBlocos) {
-//         const [resultItem] = await db.promise().query(sqlItem, [id, id, id, item.parLimpezaModeloBlocoID])
-
-//         // Obter alternativas para cada item 
-//         for (const item2 of resultItem) {
-
-//             // Cria objeto da resposta (se for de selecionar)
-//             if (item2?.respostaID > 0) {
-//                 item2.resposta = {
-//                     id: item2.respostaID,
-//                     nome: item2.resposta
-//                 }
-//             }
-
-//             const sqlAlternativa = `
-//             SELECT ai.alternativaItemID AS id, ai.nome
-//             FROM par_limpeza_modelo_bloco_item AS plmbi 
-//                 JOIN item AS i ON (plmbi.itemID = i.itemID)
-//                 JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
-//                 JOIN alternativa_item AS ai ON (a.alternativaID = ai.alternativaID)
-//             WHERE plmbi.parRecebimentoMpModeloBlocoItemID = ?`
-//             const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item2.parRecebimentoMpModeloBlocoItemID])
-//             item2.alternativas = resultAlternativa
-//         }
-
-//         item.itens = resultItem
-//     }
-
-//     return resultBlocos
-// }
-
-const getSqlBloco = () => {
-    const sql = `
-    SELECT prbi.*, i.*, a.nome AS alternativa,
-
-        (SELECT rr.respostaID
-        FROM limpeza_resposta AS rr 
-        WHERE rr.limpezaID = ? AND rr.parLimpezaModeloBlocoID = prbi.parLimpezaModeloBlocoID AND rr.itemID = prbi.itemID) AS respostaID,
-
-        (SELECT rr.resposta
-        FROM limpeza_resposta AS rr 
-        WHERE rr.limpezaID = ? AND rr.parLimpezaModeloBlocoID = prbi.parLimpezaModeloBlocoID AND rr.itemID = prbi.itemID) AS resposta,
-
-        (SELECT rr.obs
-        FROM limpeza_resposta AS rr 
-        WHERE rr.limpezaID = ? AND rr.parLimpezaModeloBlocoID = prbi.parLimpezaModeloBlocoID AND rr.itemID = prbi.itemID) AS observacao
-
-    FROM par_limpeza_modelo_bloco_item AS prbi 
-        LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
-        LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-    WHERE prbi.parLimpezaModeloBlocoID = ? AND prbi.status = 1
-    ORDER BY prbi.ordem ASC`
-    return sql
-}
-
-const getAlternativasSql = () => {
-    const sql = `
-    SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
-    FROM par_limpeza_modelo_bloco_item AS prbi 
-    	JOIN item AS i ON (prbi.itemID = i.itemID)
-        JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-        JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)
-
-        LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
-    WHERE prbi.parLimpezaModeloBlocoItemID = ? AND prbi.status = 1`
-    return sql
 }
 
 const getSqlOtherInfos = () => {
