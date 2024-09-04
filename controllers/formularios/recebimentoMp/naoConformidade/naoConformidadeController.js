@@ -331,19 +331,19 @@ class NaoConformidade {
                 unidadeID
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            const id = await executeQuery(sql, [
-                header.modelo.id,
-                header.recebimento.id,
-                header.data + ' ' + header.hora + ':00',
-                profissionalID,
-                header.prazoSolucao,
-                header.quemPreenche,
-                header.fornecedorAcessaRecebimento ? '1' : '0',
-                header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
-                usuarioID,
-                30,
-                unidadeID
-            ], 'insert', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', header.recebimento.id, logID)
+            // const id = await executeQuery(sql, [
+            //     header.modelo.id,
+            //     header.recebimento.id,
+            //     header.data + ' ' + header.hora + ':00',
+            //     profissionalID,
+            //     header.prazoSolucao,
+            //     header.quemPreenche,
+            //     header.fornecedorAcessaRecebimento ? '1' : '0',
+            //     header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
+            //     usuarioID,
+            //     30,
+            //     unidadeID
+            // ], 'insert', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', header.recebimento.id, logID)
             // if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
 
             //? Atualizar o header dinâmico e setar o status        
