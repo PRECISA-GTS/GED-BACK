@@ -358,20 +358,20 @@ class NaoConformidade {
             }
 
             //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
-            if (header.produtos && header.produtos.length > 0) {
-                const checkedProducts = header.produtos.filter(product => product.checked_ === true);
+            // if (header.produtos && header.produtos.length > 0) {
+            //     const checkedProducts = header.produtos.filter(product => product.checked_ === true);
 
-                if (checkedProducts.length > 0) {
-                    const placeholders = checkedProducts.map((_, index) => `($1, $${index + 2})`).join(',');
-                    const values = [id, ...checkedProducts.map(product => product.id)];
-                    const query = `
-                        INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) 
-                        VALUES ${placeholders}
-                    `;
+            //     if (checkedProducts.length > 0) {
+            //         const placeholders = checkedProducts.map((_, index) => `($1, $${index + 2})`).join(',');
+            //         const values = [id, ...checkedProducts.map(product => product.id)];
+            //         const query = `
+            //             INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) 
+            //             VALUES ${placeholders}
+            //         `;
 
-                    await executeQuery(query, values, 'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID);
-                }
-            }
+            //         await executeQuery(query, values, 'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID);
+            //     }
+            // }
 
             // if (header.produtos && header.produtos.length > 0) {
             //     const checkedProducts = header.produtos.filter(product => product.checked_ === true)
@@ -392,8 +392,8 @@ class NaoConformidade {
             )
 
             //? Gera histórico de alteração de status
-            // const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
-            // if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             return res.status(200).json({ id })
 
