@@ -32,7 +32,7 @@ class RecebimentoMpController {
                 s.nome AS status,
                 s.cor,
                 l.concluido,
-                "0" AS naoConformidade, 
+                l.naoConformidade, 
                 IF(l.nf <> '', l.nf, '--') AS nf
             FROM recebimentomp AS l
                 JOIN par_recebimentomp_modelo AS plm ON (l.parRecebimentoMpModeloID = plm.parRecebimentoMpModeloID)
