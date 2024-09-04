@@ -147,11 +147,12 @@ class RecebimentoMpController {
                 if (produto && produto.checked_) { //? Marcou o produto no checkbox
                     if (produto && produto.produtoID > 0) {
                         const sqlInsertProduto = `
-                        INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                        VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+                        INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                             recebimentoMpID,
                             produto.produtoID,
+                            fractionedToFloat(produto.quantidade) ?? null,
                             fractionedToFloat(produto.quantidade) ?? null,
                             produto.dataFabricacao ?? null,
                             produto.lote ?? null,
@@ -547,11 +548,12 @@ class RecebimentoMpController {
                     if (produto && produto.checked_) { //? Marcou o produto no checkbox
                         if (produto && produto.produtoID > 0) {
                             const sqlInsertProduto = `
-                            INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                            VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+                            INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
                             const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                                 id,
                                 produto.produtoID,
+                                fractionedToFloat(produto.quantidade) ?? null,
                                 fractionedToFloat(produto.quantidade) ?? null,
                                 produto.dataFabricacao ?? null,
                                 produto.lote ?? null,

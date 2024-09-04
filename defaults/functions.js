@@ -350,7 +350,8 @@ const getDateNow = (format = 'yyyy-mm-dd') => {
 
 const getTimeNow = () => {
     const timeNow = new Date().toLocaleTimeString('pt-BR', { timeZone: timeZone })
-    return timeNow
+    const hourMinute = timeNow.split(':')
+    return `${hourMinute[0]}:${hourMinute[1]}`
 }
 
 module.exports = {

@@ -24,6 +24,7 @@ const getDynamicHeaderFields = async (
     table,
     columnKey
 ) => {
+
     if (!modelID) return null
 
     // Fields do header
@@ -56,26 +57,28 @@ const getDynamicHeaderFields = async (
     }
 
     // varrer resultFields 
-    for (const field of resultFields) {
-        if (field.tabela) {
-            // Monta objeto pra preencher select 
-            // Ex.: profissional:{
-            //     id: 1,
-            //     nome: 'Fulano'
-            // }
-            const sqlFieldData = `
-            SELECT t.${field.nomeColuna} AS id, t.nome
-            FROM ${table} AS f 
-                JOIN ${field.tabela} AS t ON(f.${field.nomeColuna} = t.${field.nomeColuna}) 
-            WHERE f.${columnKey} = ${id} `
-            let [temp] = await db.promise().query(sqlFieldData)
-            if (temp) {
-                field[field.tabela] = temp[0]
+    if (id && id > 0) {
+        for (const field of resultFields) {
+            if (field.tabela) {
+                // Monta objeto pra preencher select 
+                // Ex.: profissional:{
+                //     id: 1,
+                //     nome: 'Fulano'
+                // }
+                const sqlFieldData = `
+                SELECT t.${field.nomeColuna} AS id, t.nome
+                FROM ${table} AS f 
+                    JOIN ${field.tabela} AS t ON(f.${field.nomeColuna} = t.${field.nomeColuna}) 
+                WHERE f.${columnKey} = ${id} `
+                let [temp] = await db.promise().query(sqlFieldData)
+                if (temp) {
+                    field[field.tabela] = temp[0]
+                }
+            } else {
+                const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM ${table} WHERE ${columnKey} = ? `;
+                let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
+                field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
             }
-        } else {
-            const sqlFieldData = `SELECT ${field.nomeColuna} AS coluna FROM ${table} WHERE ${columnKey} = ? `;
-            let [resultFieldData] = await db.promise().query(sqlFieldData, [id])
-            field[field.nomeColuna] = resultFieldData[0].coluna ?? ''
         }
     }
 

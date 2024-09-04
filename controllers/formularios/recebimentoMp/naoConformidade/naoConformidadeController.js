@@ -2,13 +2,12 @@ const db = require('../../../../config/db');
 const { gerarSenhaCaracteresIniciais, criptoMd5, hasPending, deleteItem } = require('../../../../config/defaultConfig');
 const sendMailConfig = require('../../../../config/email');
 const { executeQuery, executeLog } = require('../../../../config/executeQuery');
-const { getDynamicBlocks, updateDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
+const { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
 const { getDynamicHeaderFields } = require('../../../../defaults/dynamicFields');
-const { formatFieldsToTable, addFormStatusMovimentation, floatToFractioned, fractionedToFloat } = require('../../../../defaults/functions');
+const { formatFieldsToTable, addFormStatusMovimentation, floatToFractioned, fractionedToFloat, getDateNow, getTimeNow } = require('../../../../defaults/functions');
 const { getHeaderSectors } = require('../../../../defaults/sector/getSectors');
 const instructionsNewFornecedor = require('../../../../email/template/fornecedor/instructionsNewFornecedor');
 const fornecedorPreenche = require('../../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
-
 
 class NaoConformidade {
     async getList(req, res) {
@@ -41,39 +40,65 @@ class NaoConformidade {
     }
 
     async getData(req, res) {
-        const { id, unidadeID, papelID } = req.body
+        const { id, modelID, recebimentoMpID, unidadeID, papelID } = req.body
         try {
             if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
+            if (!id && !recebimentoMpID) return res.status(204).json({ error: 'RecebimentoMP não informado!' })
 
-            const sql = `
+            let result = []
+            let recebimentoID = recebimentoMpID //? Quando vem de um formulário NOVO
+            let modeloID = modelID //? Quando vem de um formulário NOVO
+
+            if (id && id > 0) {
+                const sql = `
+                SELECT 
+                    rn.recebimentoMpID, 
+                    rn.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
+                    DATE_FORMAT(rn.data, "%Y-%m-%d") AS data,
+                    DATE_FORMAT(rn.data, "%H:%i") AS hora,
+                    rn.recebimentoMpNaoConformidadeID AS id, 
+                    rn.quemPreenche,
+                    rn.fornecedorAcessaRecebimento,
+                    rn.tipo, 
+                    rn.descricao, 
+                    rn.prazoSolucao,
+                    rn.status,
+                    prnm.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
+                    prnm.nome AS modelo,
+                    s.statusID,
+                    s.nome AS statusNome,
+                    s.cor AS statusCor
+                FROM recebimentomp_naoconformidade AS rn
+                    JOIN par_recebimentomp_naoconformidade_modelo AS prnm ON (rn.parRecebimentoMpNaoConformidadeModeloID = prnm.parRecebimentoMpNaoConformidadeModeloID)
+                    LEFT JOIN status AS s ON (rn.status = s.statusID)    
+                WHERE rn.recebimentoMpNaoConformidadeID = ? AND rn.unidadeID = ?
+                ORDER BY rn.data DESC, rn.status ASC`
+                const [rows] = await db.promise().query(sql, [id, unidadeID])
+                result = rows
+                modeloID = rows[0].modeloID
+                recebimentoID = rows[0].recebimentoMpID
+            }
+
+            const sqlModelo = `
+            SELECT parRecebimentoMpNaoConformidadeModeloID AS id, nome
+            FROM par_recebimentomp_naoconformidade_modelo
+            WHERE parRecebimentoMpNaoConformidadeModeloID = ?`
+            const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
+
+            const sqlRecebimento = `
             SELECT 
-                rn.recebimentoMpID, 
-                rn.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
-                DATE_FORMAT(rn.data, "%Y-%m-%d") AS data,
-                DATE_FORMAT(rn.data, "%H:%i") AS hora,
-                rn.recebimentoMpNaoConformidadeID AS id, 
-                rn.quemPreenche,
-                rn.fornecedorAcessaRecebimento,
-                rn.tipo, 
-                rn.descricao, 
-                rn.prazoSolucao,
-                rn.status,
-
-                prnm.parRecebimentoMpNaoConformidadeModeloID AS modeloID,
-                prnm.nome AS modelo,
-
-                DATE_FORMAT(r.data, "%d/%m/%Y") AS dataRecebimentoMp,
-                DATE_FORMAT(r.data, "%H:%i") AS horaRecebimentoMp,
-                r.nf AS nfRecebimentoMp,
-                CONCAT(f.nome, ' (', f.cnpj, ')') AS fornecedor
-            FROM recebimentomp_naoconformidade AS rn
-                JOIN par_recebimentomp_naoconformidade_modelo AS prnm ON (rn.parRecebimentoMpNaoConformidadeModeloID = prnm.parRecebimentoMpNaoConformidadeModeloID)
-
-                JOIN recebimentomp AS r ON (r.recebimentoMpID = rn.recebimentoMpID)
+                r.recebimentoMpID,
+                DATE_FORMAT(r.data, "%d/%m/%Y") AS data,
+                DATE_FORMAT(r.data, "%H:%i") AS hora,
+                r.nf,
+                CONCAT(f.nome, ' (', f.cnpj, ')') AS fornecedor,
+                s.nome AS status,
+                s.cor AS statusCor
+            FROM recebimentomp AS r
+                JOIN status AS s ON (r.status = s.statusID)    
                 JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
-            WHERE rn.recebimentoMpNaoConformidadeID = ? AND rn.unidadeID = ?
-            ORDER BY rn.data DESC, rn.status ASC`
-            const [result] = await db.promise().query(sql, [id, unidadeID])
+            WHERE r.recebimentoMpID = ?`
+            const [resultRecebimento] = await db.promise().query(sqlRecebimento, [recebimentoID])
 
             const sqlProdutos = `
             SELECT
@@ -100,7 +125,7 @@ class NaoConformidade {
                 LEFT JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
             WHERE rp.recebimentoMpID = ?
             ORDER BY p.nome ASC`
-            let [resultProdutos] = await db.promise().query(sqlProdutos, [id, result[0].recebimentoMpID])
+            let [resultProdutos] = await db.promise().query(sqlProdutos, [id, recebimentoID])
             resultProdutos = resultProdutos.map(row => ({
                 ...row,
                 checked_: row.checked_ === 1 ? true : false,
@@ -114,7 +139,7 @@ class NaoConformidade {
             //? Função que retorna fields dinâmicos definidos no modelo!
             const fields = await getDynamicHeaderFields(
                 id,
-                result[0].modeloID,
+                modeloID,
                 unidadeID,
                 'par_recebimentomp_naoconformidade',
                 'parRecebimentoMpNaoConformidadeID',
@@ -124,31 +149,45 @@ class NaoConformidade {
             )
 
             const sectors = await getHeaderSectors(
-                result[0].modeloID,
+                modeloID,
                 'par_recebimentomp_naoconformidade_modelo_setor',
                 'parRecebimentoMpNaoConformidadeModeloID'
             )
 
-            const header = {
-                recebimentoMpID: result[0].recebimentoMpID,
-                dataRecebimentoMp: result[0].dataRecebimentoMp,
-                horaRecebimentoMp: result[0].horaRecebimentoMp,
-                nfRecebimentoMp: result[0].nfRecebimentoMp,
-                fornecedor: result[0].fornecedor,
+            const today = getDateNow()
+            const time = getTimeNow()
 
-                data: result[0].data,
-                hora: result[0].hora,
-                quemPreenche: result[0].quemPreenche,
-                fornecedorAcessaRecebimento: result[0].fornecedorAcessaRecebimento == 1 ? true : false,
-                transporte: result[0].tipo !== 2 ? true : false,
-                produto: result[0].tipo !== 1 ? true : false,
+            const header = {
+                recebimento: {
+                    id: recebimentoID,
+                    dataRecebimentoMp: resultRecebimento[0].data,
+                    horaRecebimentoMp: resultRecebimento[0].hora,
+                    nfRecebimentoMp: resultRecebimento[0].nf,
+                    fornecedor: resultRecebimento[0].fornecedor,
+                    status: {
+                        label: resultRecebimento[0].status,
+                        color: resultRecebimento[0].statusCor
+                    }
+                },
+
+                data: result?.[0]?.data ?? today,
+                hora: result?.[0]?.hora ?? time,
+                quemPreenche: result?.[0]?.quemPreenche ?? 1,
+                fornecedorAcessaRecebimento: result?.[0]?.fornecedorAcessaRecebimento == 1 ? true : false,
+                transporte: (result?.[0]?.tipo === 1 || result?.[0]?.tipo === 3) ? true : false,
+                produto: (result?.[0]?.tipo === 2 || result?.[0]?.tipo === 3) ? true : false,
                 produtos: resultProdutos ?? [],
-                descricao: result[0].descricao,
-                prazoSolucao: result[0].prazoSolucao,
-                status: result[0].status,
+                descricao: result?.[0]?.descricao,
+                prazoSolucao: result?.[0]?.prazoSolucao,
+                status: result?.[0]?.status,
                 modelo: {
-                    id: result[0].modeloID,
-                    nome: result[0].modelo
+                    id: resultModelo[0].id,
+                    nome: resultModelo[0].nome
+                },
+                status: {
+                    id: result?.[0]?.statusID ?? 10,
+                    label: result?.[0]?.statusNome ?? 'Novo',
+                    color: result?.[0]?.statusCor ?? 'primary'
                 },
                 fields,
                 setoresPreenchimento: sectors.fill ?? [],
@@ -158,7 +197,7 @@ class NaoConformidade {
             //? Função que retorna blocos dinâmicos definidos no modelo!
             const blocos = await getDynamicBlocks(
                 id,
-                result[0].modeloID,
+                modeloID,
                 'recebimentoMpNaoConformidadeID',
                 'par_recebimentomp_naoconformidade_modelo_bloco',
                 'parRecebimentoMpNaoConformidadeModeloID',
@@ -256,12 +295,92 @@ class NaoConformidade {
                 logID
             )
 
-            //? Gera histórico de alteração de status (se houve alteração)
-            const newStatus = header.status < 30 ? 30 : header.status
+            //? Gera histórico de alteração de status 
+            const newStatus = header.status.id < 30 ? 30 : header.status.id
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, newStatus, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             return res.status(201).json({ message: "Formulário atualizado com sucesso!" })
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async insertData(req, res) {
+        const { form, auth } = req.body
+        const { header, blocos } = form
+        const { usuarioID, unidadeID, papelID, profissionalID } = auth
+
+        try {
+            const logID = await executeLog('Criação formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
+
+            //? Insere itens fixos (header)
+            const sql = `
+            INSERT INTO recebimentomp_naoconformidade (
+                parRecebimentoMpNaoConformidadeModeloID,
+                recebimentoMpID,
+                data,
+                profissionalIDPreenchimento,
+                prazoSolucao,
+                quemPreenche,
+                fornecedorAcessaRecebimento,
+                tipo,
+                usuarioID,
+                status,
+                unidadeID
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            const id = await executeQuery(sql, [
+                header.modelo.id,
+                header.recebimento.id,
+                header.data + ' ' + header.hora + ':00',
+                profissionalID,
+                header.prazoSolucao,
+                header.quemPreenche,
+                header.fornecedorAcessaRecebimento ? '1' : '0',
+                header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
+                usuarioID,
+                '30',
+                unidadeID
+            ], 'insert', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', header.recebimento.id, logID)
+            if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+
+            //? Atualizar o header dinâmico e setar o status        
+            if (header.fields) {
+                //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+                let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
+                if (Object.keys(dataHeader).length > 0) {
+                    const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
+                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                }
+            }
+
+            //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
+            if (header.produtos && header.produtos.length > 0) {
+                const checkedProducts = header.produtos.filter(product => product.checked_ === true)
+                const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
+                await executeQuery(`INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`, null, 'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID
+                );
+            }
+
+            //? Insere blocos do modelo 
+            await insertDynamicBlocks(
+                blocos,
+                'parRecebimentoMpNaoConformidadeModeloBlocoID',
+                'recebimentomp_naoconformidade_resposta',
+                'recebimentoMpNaoConformidadeID',
+                'recebimentoMpNaoConformidadeRespostaID',
+                id,
+                logID
+            )
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+            return res.status(200).json({ id })
 
         } catch (error) {
             console.log("🚀 ~ error:", error)
@@ -345,7 +464,7 @@ class NaoConformidade {
         res.status(200).json({ message: 'Ok' })
     }
 
-    async getModelos(req, res) {
+    async getModels(req, res) {
         const { unidadeID } = req.body
         try {
             if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
@@ -358,6 +477,26 @@ class NaoConformidade {
             const [result] = await db.promise().query(sql, [unidadeID])
             return res.json(result);
 
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async getRecebimentoMPNC(req, res) {
+        const { unidadeID } = req.body
+
+        try {
+            const sql = `
+            SELECT 
+                r.recebimentoMpID AS id, 
+                CONCAT(r.recebimentoMpID, ' - ', DATE_FORMAT(r.data, '%d/%m/%Y %H:%i'), ' - ', f.nome, ' (', f.cnpj, ')', ' - ', COALESCE(r.nf, '(sem NF)')) AS nome
+            FROM recebimentomp AS r
+                JOIN fornecedor AS f ON (f.fornecedorID = r.fornecedorID)                
+            WHERE r.unidadeID = ? AND r.naoConformidade = 1
+            ORDER BY r.data DESC`
+            const [result] = await db.promise().query(sql, [unidadeID])
+
+            return res.json(result)
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }

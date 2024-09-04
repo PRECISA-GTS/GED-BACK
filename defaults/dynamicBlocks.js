@@ -193,4 +193,43 @@ const updateDynamicBlocks = async (id, blocks, tableResponse, columnKey, columnK
     return true
 }
 
-module.exports = { getDynamicBlocks, updateDynamicBlocks }
+/*
+* Params ex:
+    * blocks (array)
+    * 'parRecebimentoMpModeloBlocoID'
+    * 'recebimentomp_resposta'
+    * 'recebimentoMpID'
+    * 'recebimentoMpRespostaID'
+    * recebimentoMpID (value)
+    * logID
+    
+*/
+const insertDynamicBlocks = async (blocks, tableBlockConfigKey, tableResponse, tableKey, tableResponseKey, value, logID) => {
+    for (const bloco of blocks) {
+        if (bloco && bloco[tableBlockConfigKey] && bloco[tableBlockConfigKey] > 0 && bloco.itens) {
+            for (const item of bloco.itens) {
+                if (item && item.itemID && item.itemID > 0) {
+                    const resposta = item.resposta && item.resposta.nome ? item.resposta.nome : item.resposta
+                    const respostaID = item.resposta && item.resposta.id > 0 ? item.resposta.id : null
+                    const observacao = item.observacao != undefined ? item.observacao : ''
+
+                    if (resposta) {
+                        const sqlInsert = `INSERT INTO ${tableResponse}(${tableKey}, ${tableBlockConfigKey}, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
+                        const resultInsert = await executeQuery(sqlInsert, [
+                            value,
+                            bloco[tableBlockConfigKey],
+                            item.itemID,
+                            resposta,
+                            respostaID,
+                            observacao
+                        ], 'insert', tableResponse, tableResponseKey, null, logID)
+
+                        if (!resultInsert) { return res.json('Error'); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+module.exports = { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks }
