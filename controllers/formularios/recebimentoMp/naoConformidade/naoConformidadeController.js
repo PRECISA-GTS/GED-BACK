@@ -360,10 +360,10 @@ class NaoConformidade {
             //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
             let sqll = ``
             if (header.produtos && header.produtos.length > 0) {
-                const checkedProducts = header.produtos.filter(product => product.checked_ === true)
-                const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
+                // const checkedProducts = header.produtos.filter(product => product.checked_ === true)
+                // const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
                 sqll = `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`
-                await db.promise().query(sqll);
+                // await db.promise().query(sqll);
             }
 
             //? Insere blocos do modelo 
