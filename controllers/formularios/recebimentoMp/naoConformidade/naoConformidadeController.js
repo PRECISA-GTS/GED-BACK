@@ -358,6 +358,21 @@ class NaoConformidade {
             }
 
             //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
+            if (header.produtos && header.produtos.length > 0) {
+                const checkedProducts = header.produtos.filter(product => product.checked_ === true);
+
+                if (checkedProducts.length > 0) {
+                    const placeholders = checkedProducts.map((_, index) => `($1, $${index + 2})`).join(',');
+                    const values = [id, ...checkedProducts.map(product => product.id)];
+                    const query = `
+                        INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) 
+                        VALUES ${placeholders}
+                    `;
+
+                    await executeQuery(query, values, 'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID);
+                }
+            }
+
             // if (header.produtos && header.produtos.length > 0) {
             //     const checkedProducts = header.produtos.filter(product => product.checked_ === true)
             //     const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
