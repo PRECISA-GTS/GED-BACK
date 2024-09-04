@@ -377,8 +377,8 @@ class NaoConformidade {
             // )
 
             //? Gera histórico de alteração de status
-            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
-            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+            // const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
+            // if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             return res.status(200).json({ id: 10 })
 
