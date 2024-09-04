@@ -347,15 +347,15 @@ class NaoConformidade {
             if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
 
             //? Atualizar o header dinâmico e setar o status        
-            // if (header.fields) {
-            //     //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
-            //     let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
-            //     if (Object.keys(dataHeader).length > 0) {
-            //         const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
-            //         const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
-            //         if (resultHeader.length === 0) { return res.status(500).json('Error'); }
-            //     }
-            // }
+            if (header.fields) {
+                //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+                let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
+                if (Object.keys(dataHeader).length > 0) {
+                    const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
+                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                }
+            }
 
             // //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
             // if (header.produtos && header.produtos.length > 0) {
