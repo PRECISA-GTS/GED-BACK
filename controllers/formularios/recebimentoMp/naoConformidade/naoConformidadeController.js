@@ -331,20 +331,20 @@ class NaoConformidade {
                 unidadeID
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            // const id = await executeQuery(sql, [
-            //     header.modelo.id,
-            //     header.recebimento.id,
-            //     header.data + ' ' + header.hora + ':00',
-            //     profissionalID,
-            //     header.prazoSolucao,
-            //     header.quemPreenche,
-            //     header.fornecedorAcessaRecebimento ? '1' : '0',
-            //     header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
-            //     usuarioID,
-            //     30,
-            //     unidadeID
-            // ], 'insert', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', header.recebimento.id, logID)
-            // if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+            const id = await executeQuery(sql, [
+                header.modelo.id,
+                header.recebimento.id,
+                header.data + ' ' + header.hora + ':00',
+                profissionalID,
+                header.prazoSolucao,
+                header.quemPreenche,
+                header.fornecedorAcessaRecebimento ? '1' : '0',
+                header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
+                usuarioID,
+                30,
+                unidadeID
+            ], 'insert', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', header.recebimento.id, logID)
+            if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
 
             //? Atualizar o header dinâmico e setar o status        
             // if (header.fields) {
@@ -380,7 +380,7 @@ class NaoConformidade {
             // const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
             // if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
-            return res.status(200).json({ id: 10 })
+            return res.status(200).json({ id })
 
         } catch (error) {
             console.log("🚀 ~ error:", error)
