@@ -7,7 +7,7 @@ const naoConformidadeController = new NaoConformidadeController();
 const route = '/formularios/recebimento-mp/nao-conformidade';
 
 //? Módulo 2.0 (agosto 2024)
-naoConformidadeRoutes.get(`${route}/getList/:unidadeID/:papelID/:usuarioID`, naoConformidadeController.getList);
+naoConformidadeRoutes.post(`${route}/getList/:unidadeID/:papelID/:usuarioID`, naoConformidadeController.getList);
 naoConformidadeRoutes.post(`${route}/getData`, naoConformidadeController.getData);
 naoConformidadeRoutes.post(`${route}/getModels`, naoConformidadeController.getModels);
 naoConformidadeRoutes.post(`${route}/insertData`, naoConformidadeController.insertData);
