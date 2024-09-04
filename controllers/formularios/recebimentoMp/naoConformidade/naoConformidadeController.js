@@ -11,7 +11,7 @@ const fornecedorPreenche = require('../../../../email/template/recebimentoMP/nao
 
 class NaoConformidade {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID } = req.params;
+        const { unidadeID, papelID, usuarioID } = req.body;
 
         if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
 
