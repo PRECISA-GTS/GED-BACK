@@ -358,10 +358,12 @@ class NaoConformidade {
             }
 
             //? Insere produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
+            let sqll = ``
             if (header.produtos && header.produtos.length > 0) {
                 const checkedProducts = header.produtos.filter(product => product.checked_ === true)
                 const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
-                await db.promise().query(`INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`);
+                sqll = `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`
+                await db.promise().query(sqll);
             }
 
             //? Insere blocos do modelo 
@@ -379,7 +381,7 @@ class NaoConformidade {
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
-            return res.status(200).json({ id })
+            return res.status(200).json({ id, sqll })
 
         } catch (error) {
             console.log("🚀 ~ error:", error)
