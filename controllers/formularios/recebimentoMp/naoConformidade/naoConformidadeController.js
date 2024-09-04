@@ -366,15 +366,15 @@ class NaoConformidade {
             }
 
             //? Insere blocos do modelo 
-            await insertDynamicBlocks(
-                blocos,
-                'parRecebimentoMpNaoConformidadeModeloBlocoID',
-                'recebimentomp_naoconformidade_resposta',
-                'recebimentoMpNaoConformidadeID',
-                'recebimentoMpNaoConformidadeRespostaID',
-                id,
-                logID
-            )
+            // await insertDynamicBlocks(
+            //     blocos,
+            //     'parRecebimentoMpNaoConformidadeModeloBlocoID',
+            //     'recebimentomp_naoconformidade_resposta',
+            //     'recebimentoMpNaoConformidadeID',
+            //     'recebimentoMpNaoConformidadeRespostaID',
+            //     id,
+            //     logID
+            // )
 
             //? Gera histórico de alteração de status
             // const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
