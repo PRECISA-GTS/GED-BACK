@@ -130,6 +130,7 @@ class NaoConformidade {
                 ...row,
                 checked_: row.checked_ === 1 ? true : false,
                 quantidade: floatToFractioned(row.quantidade),
+                quantidadeEntrada: floatToFractioned(row.quantidadeEntrada),
                 apresentacao: {
                     id: row.apresentacaoID,
                     nome: row.apresentacao
