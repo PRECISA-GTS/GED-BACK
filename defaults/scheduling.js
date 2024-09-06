@@ -6,7 +6,7 @@ require('dotenv/config')
 //? initialDate: yyyy-mm-dd
 const createScheduling = async (id, type, name, subtitle, initialDate, cycle, unityID) => {
     let calendar = null
-    if (!cycle || cycle == '0') return
+    if (!cycle || cycle <= 0 || cycle == '0') return
 
     switch (type) {
         case 'fornecedor':

@@ -50,11 +50,10 @@ class RecebimentoMpController {
             return res.json(result);
 
         } else if (papelID == 2) { //? Fornecedor
-            //? Obtém o CNPJ do usuário logado 
-            const sqlCnpj = `SELECT cnpj FROM usuario WHERE usuarioID = ?`
+            //? Obtém o CNPJ/CPF do usuário logado 
+            const sqlCnpj = `SELECT cnpj, cpf FROM usuario WHERE usuarioID = ?`
             const [resultCnpj] = await db.promise().query(sqlCnpj, [usuarioID])
-
-            if (!resultCnpj[0]['cnpj']) return res.status(400).json({ error: 'Fornecedor não possui CNPJ!' })
+            if (!resultCnpj[0]['cnpj'] && !resultCnpj[0]['cpf']) return res.status(400).json({ error: 'Fornecedor não possui CNPJ ou CPF!' })
 
             const sql = `
             SELECT 
@@ -79,11 +78,11 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE f.cnpj = ? AND rnc.fornecedorPreenche = 1
+            WHERE f.cnpj = ? AND rnc.quemPreenche = 2 AND rnc.fornecedorAcessaRecebimento = 1
             GROUP BY l.recebimentoMpID
             ORDER BY l.recebimentoMpID DESC, l.status ASC`
 
-            const [result] = await db.promise().query(sql, [resultCnpj[0]['cnpj']])
+            const [result] = await db.promise().query(sql, [resultCnpj[0]['cnpj'] ?? resultCnpj[0]['cpf']])
             return res.json(result);
         }
     }

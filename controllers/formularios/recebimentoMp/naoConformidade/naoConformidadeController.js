@@ -14,37 +14,79 @@ class NaoConformidade {
     async getList(req, res) {
         const { unidadeID, papelID, usuarioID } = req.body;
 
-        if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
+        try {
+            if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
 
-        const sql = `
-        SELECT 
-            rn.recebimentoMpNaoConformidadeID AS id, 
-            IF(MONTH(rn.data) > 0, DATE_FORMAT(rn.data, "%d/%m/%Y"), '--') AS data,       
-            r.recebimentoMpID,      
-            IF(r.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
-            COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos,
-            s.statusID,
-            s.nome AS status,
-            s.cor            
-        FROM recebimentomp_naoconformidade AS rn
-            JOIN recebimentomp AS r ON (r.recebimentoMpID = rn.recebimentoMpID)
-            JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
-            JOIN status AS s ON (rn.status = s.statusID)
+            if (papelID === 1) { //? Fábrica
+                const sql = `
+                SELECT 
+                    rn.recebimentoMpNaoConformidadeID AS id, 
+                    IF(MONTH(rn.data) > 0, DATE_FORMAT(rn.data, "%d/%m/%Y"), '--') AS data,       
+                    r.recebimentoMpID,      
+                    IF(r.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
+                    COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos,
+                    s.statusID,
+                    s.nome AS status,
+                    s.cor            
+                FROM recebimentomp_naoconformidade AS rn
+                    JOIN recebimentomp AS r ON (r.recebimentoMpID = rn.recebimentoMpID)
+                    JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
+                    JOIN status AS s ON (rn.status = s.statusID)
+        
+                    LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
+                    LEFT JOIN produto AS p ON (rnp.produtoID = p.produtoID)
+                WHERE rn.unidadeID = ?
+                GROUP BY rn.recebimentoMpNaoConformidadeID
+                ORDER BY rn.data DESC, rn.status ASC`
+                const [result] = await db.promise().query(sql, [unidadeID])
+                return res.json(result);
+            } else if (papelID === 2) { //? Fornecedor
+                //? Obtém o CNPJ/CPF do usuário logado 
+                const sqlCnpj = `SELECT cnpj, cpf FROM usuario WHERE usuarioID = ?`
+                const [resultCnpj] = await db.promise().query(sqlCnpj, [usuarioID])
+                if (!resultCnpj[0]['cnpj'] && !resultCnpj[0]['cpf']) return res.status(400).json({ error: 'Fornecedor não possui CNPJ ou CPF!' })
 
-            LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
-            LEFT JOIN produto AS p ON (rnp.produtoID = p.produtoID)
-        WHERE rn.unidadeID = ?
-        GROUP BY rn.recebimentoMpNaoConformidadeID
-        ORDER BY rn.data DESC, rn.status ASC`
-        const [result] = await db.promise().query(sql, [unidadeID])
-        return res.json(result);
+                const sql = `
+                SELECT 
+                    rn.recebimentoMpNaoConformidadeID AS id, 
+                    IF(MONTH(rn.data) > 0, DATE_FORMAT(rn.data, "%d/%m/%Y"), '--') AS data,       
+                    r.recebimentoMpID,      
+                    IF(r.fornecedorID > 0, CONCAT(f.nome, ' (', f.cnpj, ')'), '--') AS fornecedor,
+                    COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos,
+                    s.statusID,
+                    s.nome AS status,
+                    s.cor            
+                FROM recebimentomp_naoconformidade AS rn
+                    JOIN recebimentomp AS r ON (r.recebimentoMpID = rn.recebimentoMpID)
+                    JOIN fornecedor AS f ON (r.fornecedorID = f.fornecedorID)
+                    JOIN status AS s ON (rn.status = s.statusID)
+        
+                    LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
+                    LEFT JOIN produto AS p ON (rnp.produtoID = p.produtoID)
+                WHERE f.cnpj = ? AND rn.quemPreenche = 2
+                GROUP BY rn.recebimentoMpNaoConformidadeID
+                ORDER BY rn.data DESC, rn.status ASC`
+                const [result] = await db.promise().query(sql, [resultCnpj[0]['cnpj'] ?? resultCnpj[0]['cpf']])
+                return res.json(result);
+            }
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
     }
 
     async getData(req, res) {
-        const { id, modelID, recebimentoMpID, unidadeID, papelID } = req.body
+        let { id, modelID, recebimentoMpID, unidadeID, papelID } = req.body
+
         try {
             if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
             if (!id && !recebimentoMpID) return res.status(204).json({ error: 'RecebimentoMP não informado!' })
+
+            //? Se for um fornecedor (outra unidade), obter a unidadeID da fábrica pra montar os SQL's corretamente
+            if (papelID === 2) {
+                const sql = `SELECT unidadeID FROM recebimentomp_naoconformidade WHERE recebimentoMpNaoConformidadeID = ?`
+                const [result] = await db.promise().query(sql, [id])
+                unidadeID = result[0].unidadeID
+            }
 
             let result = []
             let recebimentoID = recebimentoMpID //? Quando vem de um formulário NOVO
@@ -227,62 +269,64 @@ class NaoConformidade {
 
             const logID = await executeLog('Edição formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
 
-            //? Atualiza itens fixos (header)
-            const sql = `
-            UPDATE recebimentomp_naoconformidade SET 
-                parRecebimentoMpNaoConformidadeModeloID = ?, 
-                data = ?, 
-                prazoSolucao = ?, 
-                quemPreenche = ?, 
-                fornecedorAcessaRecebimento = ?, 
-                tipo = ?
-            WHERE recebimentoMpNaoConformidadeID = ?`
-            await executeQuery(sql, [
-                header.modelo.id,
-                header.data + ' ' + header.hora + ':00',
-                header.prazoSolucao,
-                header.quemPreenche,
-                header.fornecedorAcessaRecebimento ? '1' : '0',
-                header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
-                id
-            ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+            if (papelID === 1) {
+                //? Atualiza itens fixos (header)
+                const sql = `
+                UPDATE recebimentomp_naoconformidade SET 
+                    parRecebimentoMpNaoConformidadeModeloID = ?, 
+                    data = ?, 
+                    prazoSolucao = ?, 
+                    quemPreenche = ?, 
+                    fornecedorAcessaRecebimento = ?, 
+                    tipo = ?
+                WHERE recebimentoMpNaoConformidadeID = ?`
+                await executeQuery(sql, [
+                    header.modelo.id,
+                    header.data + ' ' + header.hora + ':00',
+                    header.prazoSolucao,
+                    header.quemPreenche,
+                    header.fornecedorAcessaRecebimento ? '1' : '0',
+                    header.transporte && header.produto ? '3' : header.produto && !header.transporte ? '2' : '1',
+                    id
+                ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
 
-            //? Atualizar o header dinâmico e setar o status        
-            if (header.fields) {
-                //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
-                let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
-                if (Object.keys(dataHeader).length > 0) {
-                    const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
-                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
-                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                //? Atualizar o header dinâmico e setar o status        
+                if (header.fields) {
+                    //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+                    let dataHeader = await formatFieldsToTable('par_recebimentomp_naoconformidade', header.fields)
+                    if (Object.keys(dataHeader).length > 0) {
+                        const sqlHeader = `UPDATE recebimentomp_naoconformidade SET ? WHERE recebimentoMpNaoConformidadeID = ${id} `;
+                        const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+                        if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                    }
                 }
-            }
 
-            //? Atualiza produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
-            if (header.produtos && header.produtos.length > 0) {
-                const checkedProducts = header.produtos.filter(product => product.checked_ === true)
-                const checkedProductIds = checkedProducts.map(product => product.id);
-                const existingProducts = await db.promise().query(
-                    'SELECT produtoID AS id FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ?', [id]
-                );
-                const existingProductIds = existingProducts[0].map(row => row.id);
-                const productsToDelete = existingProductIds.filter(id => !checkedProductIds.includes(id));
-                const productsToInsert = checkedProducts.filter(product => !existingProductIds.includes(product.id));
-                // Deletar os produtos desmarcados
-                if (productsToDelete.length > 0) {
-                    await executeQuery(
-                        'DELETE FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ? AND produtoID IN (?)',
-                        [id, productsToDelete, productsToDelete.join(',')],
-                        'delete', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', id, logID
+                //? Atualiza produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
+                if (header.produtos && header.produtos.length > 0) {
+                    const checkedProducts = header.produtos.filter(product => product.checked_ === true)
+                    const checkedProductIds = checkedProducts.map(product => product.id);
+                    const existingProducts = await db.promise().query(
+                        'SELECT produtoID AS id FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ?', [id]
                     );
-                }
-                // Inserir os novos produtos marcados
-                if (productsToInsert.length > 0) {
-                    const insertValues = productsToInsert.map(product => `(${id}, ${product.id})`).join(',');
-                    await executeQuery(
-                        `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`, null,
-                        'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID
-                    );
+                    const existingProductIds = existingProducts[0].map(row => row.id);
+                    const productsToDelete = existingProductIds.filter(id => !checkedProductIds.includes(id));
+                    const productsToInsert = checkedProducts.filter(product => !existingProductIds.includes(product.id));
+                    // Deletar os produtos desmarcados
+                    if (productsToDelete.length > 0) {
+                        await executeQuery(
+                            'DELETE FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ? AND produtoID IN (?)',
+                            [id, productsToDelete, productsToDelete.join(',')],
+                            'delete', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', id, logID
+                        );
+                    }
+                    // Inserir os novos produtos marcados
+                    if (productsToInsert.length > 0) {
+                        const insertValues = productsToInsert.map(product => `(${id}, ${product.id})`).join(',');
+                        await executeQuery(
+                            `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`, null,
+                            'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID
+                        );
+                    }
                 }
             }
 
@@ -392,7 +436,7 @@ class NaoConformidade {
     }
 
     async conclude(req, res) {
-        const { id, recebimentoMpID, usuarioID, papelID, unidadeID, profissionalID } = req.body.params
+        let { id, recebimentoMpID, usuarioID, papelID, unidadeID, profissionalID } = req.body.params
         const form = req.body.form
 
         try {
@@ -400,21 +444,25 @@ class NaoConformidade {
                 return res.status(400).json({ error: 'Formulário não informado!' })
             }
 
+            const status = papelID === 2 ? 40 : form.status
+            profissionalID = papelID === 2 ? null : profissionalID
+            const dataConclusao = papelID === 2 ? null : new Date()
+
             const logID = await executeLog('Conclusão formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
             const sql = `
             UPDATE recebimentomp_naoconformidade 
             SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, conclusao = ?
             WHERE recebimentoMpNaoConformidadeID = ?`
             await executeQuery(sql, [
-                form.status,
+                status,
                 profissionalID,
-                new Date(),
+                dataConclusao,
                 form.obsConclusao ?? '',
                 id
             ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
 
             //? Atualiza a nova quantidade de produtos do recebimento de MP 
-            if (form.products && form.products.length > 0) {
+            if (papelID === 1 && form.products && form.products.length > 0) {
                 for (const product of form.products) {
                     if (product && product.novaQuantidade && product.recebimentoMpProdutoID) {
                         const sql = `
@@ -430,12 +478,14 @@ class NaoConformidade {
             }
 
             //? Cria agendamento no calendário com a data de vencimento
-            const type = form.transporte && form.produto ? 'Transporte e Produto' : form.transporte ? 'Transporte' : form.produto ? 'Produto' : 'N/I'
-            const subtitle = `${form.data_} ${form.hora} (${type})`
-            createScheduling(id, 'recebimentomp-naoconformidade', 'Não Conformidade do Recebimento de MP', subtitle, form.data, form.prazo, unidadeID)
+            if (papelID === 1) {
+                const type = form.transporte && form.produto ? 'Transporte e Produto' : form.transporte ? 'Transporte' : form.produto ? 'Produto' : 'N/I'
+                const subtitle = `${form.data_} ${form.hora} (${type})`
+                createScheduling(id, 'recebimentomp-naoconformidade', 'Não Conformidade do Recebimento de MP', subtitle, form.data, form.prazo, unidadeID)
+            }
 
             //? Gera histórico de alteração de status
-            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
+            const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, status, form.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
             return res.status(201).json({ message: "Formulário concluído com sucesso!" })
@@ -524,7 +574,8 @@ class NaoConformidade {
                 rn.recebimentoMpNaoConformidadeID AS id, 
                 DATE_FORMAT(rn.data, '%d/%m/%Y') AS data,
                 rn.tipo, 
-                s.nome AS status
+                s.nome AS status,
+                rn.quemPreenche
             FROM recebimentomp_naoconformidade AS rn                
                 JOIN status AS s ON (s.statusID = rn.status)
             WHERE rn.recebimentoMpID = ?`
@@ -534,7 +585,8 @@ class NaoConformidade {
                 const tipo = item.tipo === 1 ? 'Transporte' : item.tipo === 2 ? 'Produto' : 'Transporte/Produto'
                 return {
                     id: item.id,
-                    nome: item.data + ' - ' + tipo + ' - ' + item.status + ' - ID: ' + item.id
+                    nome: item.data + ' - ' + tipo + ' - ' + item.status + ' - ID: ' + item.id,
+                    fornecedorPreenche: item.quemPreenche === 2 ? true : false
                 }
             })
 

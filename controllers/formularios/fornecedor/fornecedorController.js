@@ -1659,18 +1659,27 @@ class FornecedorController {
     //? Obtém o histórico de movimentações do formulário
     async getMovementHistory(req, res) {
         const { id } = req.params;
-        const { parFormularioID } = req.body;
+        const { parFormularioID, papelID } = req.body;
 
         if (id && parFormularioID) {
-            const sql = `
-            SELECT u.nome AS usuario, un.nomeFantasia AS unidade, m.papelID, DATE_FORMAT(m.dataHora, "%d/%m/%Y") AS data, DATE_FORMAT(m.dataHora, "%H:%i") AS hora, m.statusAnterior, m.statusAtual, m.observacao
+            let sql = `
+            SELECT 
+                u.nome AS usuario, 
+                un.nomeFantasia AS unidade, 
+                m.papelID, 
+                DATE_FORMAT(m.dataHora, "%d/%m/%Y") AS data, 
+                DATE_FORMAT(m.dataHora, "%H:%i") AS hora, 
+                m.statusAnterior, 
+                m.statusAtual, 
+                m.observacao
             FROM movimentacaoformulario AS m
                 LEFT JOIN usuario AS u ON(m.usuarioID = u.usuarioID)
                 LEFT JOIN unidade AS un ON(m.unidadeID = un.unidadeID)
-            WHERE m.parFormularioID = ? AND m.id = ?
-                ORDER BY m.movimentacaoFormularioID DESC`
+            WHERE m.parFormularioID = ? AND m.id = ? `
+            if (papelID === 2) sql += ` AND m.papelID = 2 ` //? Fornecedor não vê as movimentações da fábrica
+            sql += `
+            ORDER BY m.movimentacaoFormularioID DESC`
             const [result] = await db.promise().query(sql, [parFormularioID, id])
-
             return res.status(200).json(result)
         }
 
