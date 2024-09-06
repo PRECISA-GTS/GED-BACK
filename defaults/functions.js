@@ -246,79 +246,6 @@ const signedReport = async (pathReport) => {
     }
 
 }
-
-//? Cria agendamento no calendário na conclusão do formulário, na data de vencimento do formulário.........................
-const createScheduling = async (id, type, name, subtitle, cycle, unityID) => {
-    let calendar = null
-    if (!cycle || cycle == '0') return
-
-    switch (type) {
-        case 'fornecedor':
-            calendar = {
-                type: 'Fornecedor',
-                route: '/formularios/fornecedor'
-            }
-            break;
-        case 'limpeza':
-            calendar = {
-                type: 'Limpeza',
-                route: '/formularios/limpeza'
-            }
-            break;
-        default:
-            calendar = {
-                type: 'Desconhecido',
-                route: '/'
-            }
-            break;
-    }
-
-    const sqlCalendar = `INSERT INTO calendario(titulo, subtitulo, tipo, dataHora, rota, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    await db.promise().query(sqlCalendar, [
-        name,
-        subtitle,
-        calendar.type,
-        getVencimento(cycle),
-        calendar.route,
-        '0',
-        id,
-        '0',
-        unityID
-    ])
-}
-
-const deleteScheduling = async (type, id, unityID, logID) => {
-    let route = ''
-    switch (type) {
-        case 'fornecedor':
-            route = '/formularios/fornecedor'
-            break;
-        case 'limpeza':
-            route = '/formularios/limpeza'
-            break;
-        default:
-            route = '/'
-            break;
-    }
-
-    const sqlDeleteScheduling = `DELETE FROM calendario WHERE unidadeID = ? AND origemID = ? AND rota = ?`
-    await executeQuery(sqlDeleteScheduling, [unityID, id, route], 'delete', 'calendario', 'origemID', id, logID)
-}
-
-const getVencimento = (ciclo) => {
-    // Soma hoje mais a quantidade de dias do ciclo
-    const today = new Date();
-    const vencimento = new Date(today.getTime() + (ciclo * 24 * 60 * 60 * 1000));
-    // formata para YYYY-mm-dd HH:ii:ss
-    const year = vencimento.getFullYear();
-    const month = vencimento.getMonth() + 1;
-    const day = vencimento.getDate();
-    const hour = vencimento.getHours();
-    const minute = vencimento.getMinutes();
-    const formattedDate = `${year}-${month < 10 ? `0${month}` : month}-${day < 10 ? `0${day}` : day} ${hour < 10 ? `0${hour}` : hour}:${minute < 10 ? `0${minute}` : minute}:00`;
-    return formattedDate
-}
-
 const fractionedToFloat = (value) => {
     if (!value) return 0
 
@@ -336,7 +263,6 @@ const floatToFractioned = (value) => {
         .replace('.', ',')
         .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
-
 
 const getDateNow = (format = 'yyyy-mm-dd') => {
     let today = new Date().toLocaleDateString('pt-BR', { timeZone: timeZone })
@@ -362,8 +288,6 @@ module.exports = {
     createDocument,
     getDocumentSignature,
     signedReport,
-    createScheduling,
-    deleteScheduling,
     fractionedToFloat,
     floatToFractioned,
     getDateNow,

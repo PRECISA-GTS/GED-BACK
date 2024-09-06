@@ -5,6 +5,7 @@ const { executeQuery, executeLog } = require('../../../../config/executeQuery');
 const { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
 const { getDynamicHeaderFields } = require('../../../../defaults/dynamicFields');
 const { formatFieldsToTable, addFormStatusMovimentation, floatToFractioned, fractionedToFloat, getDateNow, getTimeNow } = require('../../../../defaults/functions');
+const { createScheduling, deleteScheduling } = require('../../../../defaults/scheduling');
 const { getHeaderSectors } = require('../../../../defaults/sector/getSectors');
 const instructionsNewFornecedor = require('../../../../email/template/fornecedor/instructionsNewFornecedor');
 const fornecedorPreenche = require('../../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
@@ -428,6 +429,11 @@ class NaoConformidade {
                 }
             }
 
+            //? Cria agendamento no calendário com a data de vencimento
+            const type = form.transporte && form.produto ? 'Transporte e Produto' : form.transporte ? 'Transporte' : form.produto ? 'Produto' : 'N/I'
+            const subtitle = `${form.data_} ${form.hora} (${type})`
+            createScheduling(id, 'recebimentomp-naoconformidade', 'Não Conformidade do Recebimento de MP', subtitle, form.data, form.prazo, unidadeID)
+
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -443,10 +449,9 @@ class NaoConformidade {
         const { status, observacao } = req.body
         const { usuarioID, papelID, unidadeID } = req.body.auth
 
-        const logID = await executeLog('Edição do status do formulário de Não Conformidade do recebimento de MP', usuarioID, unidadeID, req)
-
         //? É uma fábrica, e formulário já foi concluído
         if (status && papelID == 1) {
+            const logID = await executeLog('Edição do status do formulário de Não Conformidade do recebimento de MP', usuarioID, unidadeID, req)
             const sqlUpdateStatus = `
             UPDATE recebimentomp_naoconformidade
             SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, conclusao = ?
@@ -458,6 +463,9 @@ class NaoConformidade {
                 null,
                 id
             ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
+
+            //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
+            deleteScheduling('recebimentomp-naoconformidade', id, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, status, observacao)
@@ -492,7 +500,7 @@ class NaoConformidade {
             const sql = `
             SELECT 
                 r.recebimentoMpID AS id, 
-                CONCAT(r.recebimentoMpID, ' - ', DATE_FORMAT(r.data, '%d/%m/%Y %H:%i'), ' - ', f.nome, ' (', f.cnpj, ')', ' - ', COALESCE(r.nf, '(sem NF)')) AS nome
+                CONCAT(DATE_FORMAT(r.data, '%d/%m/%Y %H:%i'), ' - ', f.nome, ' (', f.cnpj, ')', ' - ', COALESCE(r.nf, '(sem NF)')) AS nome
             FROM recebimentomp AS r
                 JOIN fornecedor AS f ON (f.fornecedorID = r.fornecedorID)                
             WHERE r.unidadeID = ? AND r.naoConformidade = 1
@@ -500,6 +508,37 @@ class NaoConformidade {
             const [result] = await db.promise().query(sql, [unidadeID])
 
             return res.json(result)
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async getNCRecebimentoMp(req, res) {
+        const { id } = req.body
+
+        try {
+            if (!id) return res.status(400).json({ error: 'Recebimento de MP não informado!' })
+
+            const sql = `
+            SELECT 
+                rn.recebimentoMpNaoConformidadeID AS id, 
+                DATE_FORMAT(rn.data, '%d/%m/%Y') AS data,
+                rn.tipo, 
+                s.nome AS status
+            FROM recebimentomp_naoconformidade AS rn                
+                JOIN status AS s ON (s.statusID = rn.status)
+            WHERE rn.recebimentoMpID = ?`
+            const [result] = await db.promise().query(sql, [id])
+
+            const formatedResult = result.map(item => {
+                const tipo = item.tipo === 1 ? 'Transporte' : item.tipo === 2 ? 'Produto' : 'Transporte/Produto'
+                return {
+                    id: item.id,
+                    nome: item.data + ' - ' + tipo + ' - ' + item.status + ' - ID: ' + item.id
+                }
+            })
+
+            return res.json(formatedResult)
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }

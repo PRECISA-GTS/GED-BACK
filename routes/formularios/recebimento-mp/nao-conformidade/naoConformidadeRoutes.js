@@ -17,5 +17,6 @@ naoConformidadeRoutes.post(`${route}/fornecedor-preenche`, naoConformidadeContro
 naoConformidadeRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, naoConformidadeController.deleteData);
 naoConformidadeRoutes.post(`${route}/reOpen/:id`, naoConformidadeController.reOpen);
 naoConformidadeRoutes.post(`${route}/getRecebimentoMPNC`, naoConformidadeController.getRecebimentoMPNC);
+naoConformidadeRoutes.post(`${route}/getNCRecebimentoMp`, naoConformidadeController.getNCRecebimentoMp);
 
 module.exports = naoConformidadeRoutes;

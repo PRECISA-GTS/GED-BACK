@@ -2,12 +2,13 @@ const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, createScheduling, deleteScheduling, getDateNow, getTimeNow } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, getDateNow, getTimeNow } = require('../../../defaults/functions');
 const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
 const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
 const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
+const { deleteScheduling, createScheduling } = require('../../../defaults/scheduling');
 
 class LimpezaController {
     async getList(req, res) {
@@ -330,7 +331,7 @@ class LimpezaController {
 
             //? Cria agendamento no calendário com a data de vencimento
             if (concluido == '1' && newStatus >= 40) {
-                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data.unidade?.modelo?.ciclo, unidadeID)
+                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data?.fieldsHeader?.data, data.unidade?.modelo?.ciclo, unidadeID)
             }
 
             res.status(200).json({ message: 'Dados atualizados!' })

@@ -586,7 +586,7 @@ class RecebimentoMpController {
             //* Status
             const newStatus = data.info.status < 30 ? 30 : data.info.status
             //* Fecha formulário: se concluiu e não gerou NC ou já existia NC e concluiu novamente!
-            const concluido = data.concluiForm && (!data.info.naoConformidade || result[0]['naoConformidade'] == 1) ? '1' : '0'
+            const concluido = data.concluiForm ? '1' : '0'
 
             const sqlUpdateStatus = `UPDATE recebimentomp SET status = ?, naoConformidade = ?, dataFim = ?, finalizaProfissionalID = ?, concluido = ? WHERE recebimentoMpID = ? `
             const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
@@ -600,11 +600,11 @@ class RecebimentoMpController {
 
             //! Atualiza não conformidades, caso haja
             if (data.info.naoConformidade) {
-                if (data.naoConformidade.itens.length > 0) {
-                    for (const nc of data.naoConformidade.itens) {
-                        nc.recebimentoMpNaoConformidadeID > 0 ? await updateNc(nc, id, logID) : await insertNc(nc, id, logID)
-                    }
-                }
+                // if (data.naoConformidade.itens.length > 0) {
+                //     for (const nc of data.naoConformidade.itens) {
+                //         nc.recebimentoMpNaoConformidadeID > 0 ? await updateNc(nc, id, logID) : await insertNc(nc, id, logID)
+                //     }
+                // }
 
                 //? Se ainda não enviou email ao fornecedor preencher NC, verifica se precisa enviar
                 if (result[0]['naoConformidadeEmailFornecedor'] != 1) await checkNotificationFornecedor(id, data.fieldsHeader.fornecedor, data.naoConformidade.itens, unidadeID, usuarioID, papelID, req)

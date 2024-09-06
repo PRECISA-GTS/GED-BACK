@@ -14,8 +14,6 @@ const {
     createDocument,
     getDocumentSignature,
     signedReport,
-    createScheduling,
-    deleteScheduling,
     getDateNow,
     getTimeNow,
     floatToFractioned
@@ -29,6 +27,7 @@ const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
 const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
 const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
+const { createScheduling, deleteScheduling } = require('../../../defaults/scheduling');
 
 class FornecedorController {
     async verifyIfHasModel(req, res) {
@@ -979,7 +978,7 @@ class FornecedorController {
             const products = resultProducts.map(product => `${product.nome} (${product.unidadeMedida})`).join(', ')
 
             //? Cria agendamento no calendário com a data de vencimento
-            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.unidade.ciclo, unidadeID)
+            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.fieldsHeader.data, data.unidade.ciclo, unidadeID)
         }
 
         //? Gera histórico de alteração de status

@@ -23,7 +23,7 @@ class CalendarioController {
                 END AS diaSemana,                
                 c.status
             FROM calendario AS c `
-            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rota = p.rota) `
+            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rotaPermissao = p.rota) `
             sql += ` WHERE c.unidadeID = ${unidadeID} `
             if (admin != 1) sql += ` AND p.unidadeID = ${unidadeID} AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
             sql += ` GROUP BY DATE(c.dataHora) `
@@ -85,7 +85,7 @@ class CalendarioController {
                 END AS diaSemana,                
                 c.status
             FROM calendario AS c `
-            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rota = p.rota) `
+            if (admin != 1) sql += ` JOIN permissao AS p ON (c.rotaPermissao = p.rota) `
             sql += ` WHERE c.unidadeID = ${unidadeID} AND DATE(c.dataHora) = "${eventDate}" `
             if (admin != 1) sql += ` AND p.unidadeID = ${unidadeID} AND p.usuarioID = ${usuarioID} AND p.papelID = ${papelID} AND p.ler = 1 `
             sql += ` 
