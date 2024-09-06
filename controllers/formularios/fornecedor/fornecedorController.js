@@ -858,8 +858,8 @@ class FornecedorController {
                 },
                 fieldsFooter: {
                     concluded: resultFornecedor[0].dataFim ? true : false,
-                    dataFim: resultFornecedor[0].dataFim ?? today,
-                    horaFim: resultFornecedor[0].horaFim ?? time,
+                    dataConclusao: resultFornecedor[0].dataFim ?? today,
+                    horaConclusao: resultFornecedor[0].horaFim ?? time,
                     profissionalAprova: resultFornecedor[0].aprovaProfissionalID > 0 ? {
                         id: resultFornecedor[0].aprovaProfissionalID,
                         nome: resultFornecedor[0].profissionalAprova
