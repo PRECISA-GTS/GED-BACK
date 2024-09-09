@@ -1691,15 +1691,13 @@ class FornecedorController {
         const { parFormularioID } = req.body;
 
         //? Fornecedor
-        if (parFormularioID == 1) {
-            const sql = `SELECT * FROM recebimentomp WHERE fornecedorID = ? `
-            const [result] = await db.promise().query(sql, [id])
 
-            const pending = result.length === 0 ? false : true
-            return res.status(200).json(pending)
-        }
+        const sql = `SELECT * FROM recebimentomp WHERE fornecedorID = ? `
+        const [result] = await db.promise().query(sql, [id])
+        console.log("🚀 ~ result:", result)
 
-        res.status(200).json(true)
+        const pending = result.length === 0 ? false : true
+        return res.status(200).json(pending)
     }
 }
 //* Functions

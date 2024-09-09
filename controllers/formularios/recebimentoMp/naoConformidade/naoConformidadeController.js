@@ -341,6 +341,37 @@ class NaoConformidade {
                 logID
             )
 
+            //? Cria agendamento no calendário com a data de vencimento
+            // if (papelID === 1) {
+            //     const sql = `
+            //     SELECT * 
+            //     FROM calendario
+            //     WHERE rota = ? AND origemID = ? AND unidadeID = ?`
+            //     const [calendario] = await db.promise().query(sql, ['/formularios/recebimento-mp/?aba=nao-conformidade', id, unidadeID])
+
+            //     if (calendario.length > 0) {
+            //         // Atualiza a data, inicio + prazo de solução
+            //         const data = new Date(calendario[0].data)
+            //         data.setDate(data.getDate() + header.prazoSolucao ?? 0)
+            //         const newData = data.toISOString().split('T')[0] + ' ' + header.hora
+
+            //         const sql = `UPDATE calendario SET dataHora = ? WHERE calendarioID = ?`
+            //         await db.promise().query(sql, [newData, calendario[0].calendarioID])
+            //     } else if (header.prazoSolucao && header.prazoSolucao > 0) {
+            //         // Cria um novo agendamento
+            //         const data = new Date()
+            //         data.setDate(data.getDate() + header.prazoSolucao)
+            //         const newData = data.toISOString().split('T')[0] + ' ' + header.hora
+
+            //         const sql = `INSERT INTO calendario (rota, origemID, unidadeID, dataHora) VALUES (?, ?, ?, ?)`
+            //         await db.promise().query(sql, ['/formularios/recebimento-mp/?aba=nao-conformidade', id, unidadeID, newData])
+            //     } else {
+            //         // Existia agendamento e foi removido o prazo de solução
+            //         const sql = `DELETE FROM calendario WHERE rota = ? AND origemID = ? AND unidadeID = ?`
+            //         await db.promise().query(sql, ['/formularios/recebimento-mp/?aba=nao-conformidade', id, unidadeID])
+            //     }
+            // }
+
             //? Gera histórico de alteração de status 
             const newStatus = header.status.id < 30 ? 30 : header.status.id
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, newStatus, null)
@@ -424,6 +455,13 @@ class NaoConformidade {
                 logID
             )
 
+            //? Cria agendamento no calendário com a data de vencimento
+            if (papelID === 1 && header.prazoSolucao && header.prazoSolucao > 0) {
+                const type = header.transporte && header.produto ? 'Transporte e Produto' : header.transporte ? 'Transporte' : header.produto ? 'Produto' : 'N/I'
+                const subtitle = `${header.data} ${header.hora} (${type})`
+                await createScheduling(id, 'recebimentomp-naoconformidade', 'Não Conformidade do Recebimento de MP', subtitle, header.data, header.prazoSolucao, unidadeID)
+            }
+
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, 30, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -477,13 +515,6 @@ class NaoConformidade {
                 }
             }
 
-            //? Cria agendamento no calendário com a data de vencimento
-            if (papelID === 1) {
-                const type = form.transporte && form.produto ? 'Transporte e Produto' : form.transporte ? 'Transporte' : form.produto ? 'Produto' : 'N/I'
-                const subtitle = `${form.data_} ${form.hora} (${type})`
-                createScheduling(id, 'recebimentomp-naoconformidade', 'Não Conformidade do Recebimento de MP', subtitle, form.data, form.prazo, unidadeID)
-            }
-
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, status, form.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -513,9 +544,6 @@ class NaoConformidade {
                 null,
                 id
             ], 'update', 'recebimentomp_naoconformidade', 'recebimentoMpNaoConformidadeID', id, logID)
-
-            //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
-            deleteScheduling('recebimentomp-naoconformidade', id, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(3, id, usuarioID, unidadeID, papelID, status, observacao)
@@ -709,12 +737,17 @@ class NaoConformidade {
             return deleteItem(id, objDelete.table, objDelete.column, logID, res)
         }
 
+
         hasPending(id, arrPending)
             .then(async (hasPending) => {
                 if (hasPending) {
                     res.status(409).json({ message: "Dado possui pendência." });
                 } else {
                     const logID = await executeLog('Exclusão formulário de Não Conformidade do recebimento Mp', usuarioID, unidadeID, req)
+
+                    //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
+                    deleteScheduling('recebimentomp-naoconformidade', id, unidadeID, logID)
+
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)
                 }
             })
