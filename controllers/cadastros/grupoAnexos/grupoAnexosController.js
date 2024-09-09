@@ -219,7 +219,7 @@ class GrupoAnexosController {
         const { id, usuarioID, unidadeID } = req.params
 
         const objDelete = {
-            table: ['grupoanexo', 'grupoanexo_item', 'grupoanexo_parformulario'],
+            table: ['grupoanexo_parformulario', 'grupoanexo_item', 'grupoanexo'],
             column: 'grupoAnexoID'
         };
 
