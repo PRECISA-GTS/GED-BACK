@@ -331,7 +331,7 @@ class LimpezaController {
 
             //? Cria agendamento no calendário com a data de vencimento
             if (concluido == '1' && newStatus >= 40) {
-                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data?.fieldsHeader?.data, data.unidade?.modelo?.ciclo, unidadeID)
+                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data?.fieldsHeader?.data, data.unidade?.modelo?.ciclo, unidadeID, logID)
             }
 
             res.status(200).json({ message: 'Dados atualizados!' })

@@ -978,7 +978,7 @@ class FornecedorController {
             const products = resultProducts.map(product => `${product.nome} (${product.unidadeMedida})`).join(', ')
 
             //? Cria agendamento no calendário com a data de vencimento
-            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.fieldsHeader.data, data.unidade.ciclo, unidadeID)
+            createScheduling(id, 'fornecedor', data.fieldsHeader.nomeFantasia, products, data.fieldsHeader.data, data.unidade.ciclo, unidadeID, logID)
         }
 
         //? Gera histórico de alteração de status
@@ -1694,7 +1694,6 @@ class FornecedorController {
 
         const sql = `SELECT * FROM recebimentomp WHERE fornecedorID = ? `
         const [result] = await db.promise().query(sql, [id])
-        console.log("🚀 ~ result:", result)
 
         const pending = result.length === 0 ? false : true
         return res.status(200).json(pending)

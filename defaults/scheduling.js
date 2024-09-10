@@ -1,43 +1,44 @@
 const db = require('../config/db');
 const { executeQuery } = require('../config/executeQuery');
-require('dotenv/config')
+require('dotenv/config');
 
-//? Cria agendamento no calendário na conclusão do formulário, na data de vencimento do formulário 
-//? initialDate: yyyy-mm-dd
-const createScheduling = async (id, type, name, subtitle, initialDate, cycle, unityID) => {
-    let calendar = null
-    if (!cycle || cycle <= 0 || cycle == '0') return
-
+const getCalendarDetails = (type) => {
     switch (type) {
         case 'fornecedor':
-            calendar = {
+            return {
                 type: 'Fornecedor',
                 route: '/formularios/fornecedor',
-            }
-            break;
+            };
         case 'recebimentomp-naoconformidade':
-            calendar = {
+            return {
                 type: 'Não Conformidade do Recebimento de MP',
                 route: '/formularios/recebimento-mp/?aba=nao-conformidade',
-                routePermission: '/formularios/recebimento-mp' //? NC está na rota do recebimento, então seta essa rota pra validação das permissões de acesso 
-            }
-            break;
+                routePermission: '/formularios/recebimento-mp'
+            };
         case 'limpeza':
-            calendar = {
+            return {
                 type: 'Limpeza',
                 route: '/formularios/limpeza',
-            }
-            break;
+            };
         default:
-            calendar = {
+            return {
                 type: 'Desconhecido',
                 route: '/',
-            }
-            break;
+            };
     }
+};
 
-    const sqlCalendar = `INSERT INTO calendario(titulo, subtitulo, tipo, dataHora, rota, rotaPermissao, rotaID, origemID, status, unidadeID) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    await db.promise().query(sqlCalendar, [
+//? initialDate => YYYY-MM-DD
+const createScheduling = async (id, type, name, subtitle, initialDate, cycle, unityID, logID) => {
+    if (!cycle || cycle <= 0 || cycle == '0') return;
+
+    const calendar = getCalendarDetails(type);
+
+    const sqlCalendar = `
+    INSERT INTO calendario(titulo, subtitulo, tipo, dataHora, rota, rotaPermissao, rotaID, origemID, status, unidadeID) 
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    await executeQuery(sqlCalendar, [
         name,
         subtitle,
         calendar.type,
@@ -48,29 +49,41 @@ const createScheduling = async (id, type, name, subtitle, initialDate, cycle, un
         id,
         '0',
         unityID
-    ])
-}
+    ], 'insert', 'calendario', 'origemID', id, logID);
+};
 
-const deleteScheduling = async (type, id, unityID, logID) => {
-    let route = ''
-    switch (type) {
-        case 'fornecedor':
-            route = '/formularios/fornecedor'
-            break;
-        case 'recebimentomp-naoconformidade':
-            route = '/formularios/recebimento-mp/?aba=nao-conformidade'
-            break;
-        case 'limpeza':
-            route = '/formularios/limpeza'
-            break;
-        default:
-            route = '/'
-            break;
+//? initialDate => YYYY-MM-DD
+const updateScheduling = async (id, type, name, subtitle, initialDate, cycle, unityID, logID) => {
+    if (!cycle || cycle <= 0) {
+        await deleteScheduling(type, id, unityID, logID);
+        return;
     }
 
-    const sqlDeleteScheduling = `DELETE FROM calendario WHERE unidadeID = ? AND origemID = ? AND rota = ?`
-    await executeQuery(sqlDeleteScheduling, [unityID, id, route], 'delete', 'calendario', 'origemID', id, logID)
-}
+    const calendar = getCalendarDetails(type);
+
+    const sqlExists = `SELECT * FROM calendario WHERE rota = ? AND origemID = ? AND unidadeID = ?`;
+    const [result] = await db.promise().query(sqlExists, [calendar.route, id, unityID]);
+
+    if (result.length > 0) {
+        const sqlCalendar = `UPDATE calendario SET dataHora = ? WHERE origemID = ?`;
+        await executeQuery(sqlCalendar, [getVencimento(initialDate, cycle), id], 'update', 'calendario', 'origemID', id, logID);
+    } else {
+        await createScheduling(id, type, name, subtitle, initialDate, cycle, unityID, logID);
+    }
+};
+
+const deleteScheduling = async (type, id, unityID, logID) => {
+    const calendar = getCalendarDetails(type);
+
+    const sqlDeleteScheduling = `DELETE FROM calendario WHERE unidadeID = ? AND origemID = ? AND rota = ?`;
+    await executeQuery(sqlDeleteScheduling, [unityID, id, calendar.route], 'delete', 'calendario', 'origemID', id, logID);
+};
+
+//? 1-> Evento concluído, 0-> Evento não concluído
+const updateStatusScheduling = async (id, route, status, unityID, logID) => {
+    const sqlCalendar = `UPDATE calendario SET status = ? WHERE rota = ? AND origemID = ? AND unidadeID = ?`;
+    await executeQuery(sqlCalendar, [status, route, id, unityID], 'update', 'calendario', 'origemID', id, logID);
+};
 
 const getVencimento = (initialDate, ciclo) => {
     const date = new Date(initialDate);
@@ -78,9 +91,11 @@ const getVencimento = (initialDate, ciclo) => {
     date.setUTCDate(date.getUTCDate() + parseInt(ciclo));
     const vencimentoFormatado = date.toISOString().slice(0, 10) + ' 00:00:00';
     return vencimentoFormatado;
-}
+};
 
 module.exports = {
     createScheduling,
+    updateScheduling,
     deleteScheduling,
+    updateStatusScheduling
 };

@@ -20,9 +20,10 @@ class VersaoController {
             SELECT 
                 versaoID,
                 nome, 
-                DATE_FORMAT(data, '%d/%m/%Y') AS data                
+                DATE_FORMAT(data, '%d/%m/%Y') AS data,
+                data AS data_                
             FROM versao                
-            ORDER BY data DESC
+            ORDER BY data_ DESC
             LIMIT 20`;
             const [result] = await db.promise().query(sqlVersions);
 
