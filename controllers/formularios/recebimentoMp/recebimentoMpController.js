@@ -142,15 +142,15 @@ class RecebimentoMpController {
 
         //? Produtos
         if (data.produtos && data.produtos.length > 0) {
-            for (const produto of data.produtos) {
-                if (produto && produto.checked_) { //? Marcou o produto no checkbox
-                    if (produto && produto.produtoID > 0) {
+            for (const blocoProduto of data.produtos) {
+                if (blocoProduto && blocoProduto.checked_ && blocoProduto.produtoID > 0) { //? Marcou o produto no checkbox
+                    for (const produto of blocoProduto.variacoes) {
                         const sqlInsertProduto = `
                         INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
                         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
                         const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                             recebimentoMpID,
-                            produto.produtoID,
+                            blocoProduto.produtoID,
                             fractionedToFloat(produto.quantidade) ?? null,
                             fractionedToFloat(produto.quantidade) ?? null,
                             produto.dataFabricacao ?? null,
@@ -219,7 +219,6 @@ class RecebimentoMpController {
         try {
             let { id, unidadeID, type, profissionalID, modeloID } = req.body
             let result = []
-            let resultProdutos = []
 
             if (id && id > 0) {
                 const sqlResult = `
@@ -294,51 +293,6 @@ class RecebimentoMpController {
                 'recebimentomp',
                 'recebimentoMpID'
             )
-
-            if (id && id > 0) {
-                //? Produtos
-                const sqlProdutos = `
-                SELECT
-                    rp.recebimentoMpProdutoID,
-                    rp.quantidade,
-                    DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d') AS dataFabricacao,
-                    rp.lote AS lote,
-                    rp.nf,
-                    DATE_FORMAT(rp.dataValidade, '%Y-%m-%d') AS dataValidade,
-                    p.produtoID,
-                    p.nome AS produto,
-                    um.nome AS unidadeMedida,
-                    a.apresentacaoID,
-                    a.nome AS apresentacao                
-                FROM recebimentomp_produto AS rp
-                    JOIN produto AS p ON(rp.produtoID = p.produtoID)
-                    JOIN unidademedida AS um ON(p.unidadeMedidaID = um.unidadeMedidaID)
-                    LEFT JOIN apresentacao AS a ON(rp.apresentacaoID = a.apresentacaoID)
-                WHERE rp.recebimentoMpID = ?
-                ORDER BY p.nome ASC`
-                const [rows] = await db.promise().query(sqlProdutos, [id])
-                resultProdutos = rows
-
-                for (const produto of resultProdutos) {
-                    produto['checked_'] = true
-                    produto['apresentacao'] = produto['apresentacaoID'] > 0 ? {
-                        id: produto['apresentacaoID'],
-                        nome: produto['apresentacao']
-                    } : null
-                    produto['produto'] = {
-                        id: produto['produtoID'],
-                        nome: produto['produto']
-                    }
-                    produto['quantidade'] = floatToFractioned(produto['quantidade'])
-                }
-            }
-
-            const sqlBlocos = `
-            SELECT *
-            FROM par_recebimentomp_modelo_bloco
-            WHERE parRecebimentoMpModeloID = ? AND status = 1
-            ORDER BY ordem ASC`
-            const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
             const blocos = await getDynamicBlocks(
@@ -452,7 +406,7 @@ class RecebimentoMpController {
                         isUser: result[0]?.fornecedorIsUser == 1 ? true : false
                     } : null,
                     //? Setores que preenchem
-                    setores: sectors.fill, // resultSetores.filter(row => row?.tipo === 1),
+                    setores: sectors.fill,
                 },
                 fieldsFooter: {
                     concluded: result[0]?.dataFim ? true : false,
@@ -471,10 +425,9 @@ class RecebimentoMpController {
                         } : null
                     },
                     //? Setores que concluem
-                    setores: sectors.conclude, // resultSetores.filter(row => row?.tipo === 2),
+                    setores: sectors.conclude,
                 },
                 fields: fields,
-                produtos: resultProdutos ?? [],
                 blocos: blocos ?? [],
                 grupoAnexo: [],
                 ultimaMovimentacao: resultLastMovimentation[0] ?? null,
@@ -486,18 +439,103 @@ class RecebimentoMpController {
                     cabecalhoModelo: resultCabecalhoModelo?.[0]?.cabecalho
                 },
                 link: `${process.env.BASE_URL}formularios/recebimento-mp?id=${id} `,
-                naoConformidade: {
-                    itens: [], //await getNaoConformidades(id),
-                    // varrer array resultProdutos e retornar somente o objeto produto
-                    produtos: resultProdutos.map(produto => {
-                        return produto.produto
-                    })
-                }
             }
 
             res.status(200).json(data);
         } catch (error) {
             console.log(error)
+        }
+    }
+
+    //? Obtém os produtos e variações do recebimento de mp
+    async getProdutosRecebimento(req, res) {
+        const { recebimentoMpID, fornecedorCnpj, unidadeID } = req.body;
+
+        try {
+            //? Obtém todos os produtos deste fornecedor
+            const sqlFornecedor = `
+            SELECT
+                fp.fornecedorProdutoID,
+                p.produtoID, 
+                CONCAT(p.nome, " (", um.nome, ")") AS nome
+            FROM fornecedor_produto AS fp
+                JOIN fornecedor AS f ON (fp.fornecedorID = f.fornecedorID)
+                JOIN produto AS p ON (fp.produtoID = p.produtoID)
+                LEFT JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
+            WHERE f.cnpj = "${fornecedorCnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
+            GROUP BY fp.fornecedorProdutoID
+            ORDER BY p.nome ASC`;
+            const [resultProdutosFornecedor] = await db.promise().query(sqlFornecedor);
+
+            //? Obtém os produtos e suas variações do recebimento de mp
+            const sqlRecebimento = `
+            SELECT
+                p.produtoID,
+                p.nome AS produto,
+                um.nome AS unidadeMedida,
+                rp.recebimentoMpProdutoID,
+                rp.quantidade,
+                DATE_FORMAT(rp.dataFabricacao, '%Y-%m-%d') AS dataFabricacao,
+                rp.lote AS lote,
+                rp.nf,
+                DATE_FORMAT(rp.dataValidade, '%Y-%m-%d') AS dataValidade,
+                a.apresentacaoID,
+                a.nome AS apresentacao                    
+            FROM recebimentomp_produto AS rp
+                JOIN produto AS p ON(rp.produtoID = p.produtoID)
+                JOIN unidademedida AS um ON(p.unidadeMedidaID = um.unidadeMedidaID)
+                LEFT JOIN apresentacao AS a ON(rp.apresentacaoID = a.apresentacaoID)
+            WHERE rp.recebimentoMpID = ?
+            ORDER BY p.nome ASC`;
+            const [resultProdutosRecebimento] = await db.promise().query(sqlRecebimento, [recebimentoMpID]);
+
+            //? Organiza o produto e suas variações
+            const groupedProducts = {};
+            for (const produto of resultProdutosRecebimento) {
+                // Cria a estrutura da variação
+                const variacao = {
+                    recebimentoMpProdutoID: produto.recebimentoMpProdutoID,
+                    quantidade: floatToFractioned(produto.quantidade),
+                    dataFabricacao: produto.dataFabricacao,
+                    lote: produto.lote,
+                    nf: produto.nf,
+                    dataValidade: produto.dataValidade,
+                    apresentacao: produto.apresentacaoID > 0 ? {
+                        id: produto.apresentacaoID,
+                        nome: produto.apresentacao
+                    } : null
+                };
+
+                // Se o produto já existe no objeto agrupado, adicione a variação
+                if (groupedProducts[produto.produtoID]) {
+                    groupedProducts[produto.produtoID].variacoes.push(variacao);
+                } else {
+                    // Se o produto não existe, crie uma nova entrada com a primeira variação
+                    groupedProducts[produto.produtoID] = {
+                        produtoID: produto.produtoID,
+                        nome: `${produto.produto} (${produto.unidadeMedida})`,
+                        variacoes: [variacao],
+                        checked_: true // Marca o produto como selecionado
+                    };
+                }
+            }
+
+            //? Combina produtos do fornecedor com produtos de recebimento
+            const produtosCompletos = resultProdutosFornecedor.map(produtoFornecedor => {
+                const produtoRecebido = groupedProducts[produtoFornecedor.produtoID];
+                return {
+                    produtoID: produtoFornecedor.produtoID,
+                    nome: produtoFornecedor.nome,
+                    variacoes: produtoRecebido ? produtoRecebido.variacoes : [],
+                    checked_: !!produtoRecebido // Se existe no recebimento, marca como true
+                };
+            });
+
+            return res.status(200).json(produtosCompletos);
+
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ error: 'Erro ao buscar produtos de recebimento' });
         }
     }
 
@@ -540,18 +578,17 @@ class RecebimentoMpController {
 
             //? Produtos
             if (data.info.status < 40 && data.produtos && data.produtos.length > 0) {
-                // Deleta produtos do recebimento
                 const sqlDeleteProduto = `DELETE FROM recebimentomp_produto WHERE recebimentoMpID = ? `
-                const resultDeleteProduto = await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
-                for (const produto of data.produtos) {
-                    if (produto && produto.checked_) { //? Marcou o produto no checkbox
-                        if (produto && produto.produtoID > 0) {
+                await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
+                for (const blocoProduto of data.produtos) {
+                    if (blocoProduto && blocoProduto.checked_ && blocoProduto.produtoID > 0) { //? Marcou o produto
+                        for (const produto of blocoProduto.variacoes) {
                             const sqlInsertProduto = `
                             INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
                             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
                             const resultInsertProduto = await executeQuery(sqlInsertProduto, [
                                 id,
-                                produto.produtoID,
+                                blocoProduto.produtoID,
                                 fractionedToFloat(produto.quantidade) ?? null,
                                 fractionedToFloat(produto.quantidade) ?? null,
                                 produto.dataFabricacao ?? null,
@@ -597,18 +634,6 @@ class RecebimentoMpController {
                 id
             ], 'update', 'recebimentomp', 'recebimentoMpID', id, logID)
 
-            //! Atualiza não conformidades, caso haja
-            if (data.info.naoConformidade) {
-                // if (data.naoConformidade.itens.length > 0) {
-                //     for (const nc of data.naoConformidade.itens) {
-                //         nc.recebimentoMpNaoConformidadeID > 0 ? await updateNc(nc, id, logID) : await insertNc(nc, id, logID)
-                //     }
-                // }
-
-                //? Se ainda não enviou email ao fornecedor preencher NC, verifica se precisa enviar
-                if (result[0]['naoConformidadeEmailFornecedor'] != 1) await checkNotificationFornecedor(id, data.fieldsHeader.fornecedor, data.naoConformidade.itens, unidadeID, usuarioID, papelID, req)
-            }
-
             //? Gera histórico de alteração de status (se houve alteração)
             const movimentation = await addFormStatusMovimentation(2, id, usuarioID, unidadeID, papelID, newStatus, data?.obsConclusao)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -634,7 +659,7 @@ class RecebimentoMpController {
         if (status && papelID == 1) {
             const sqlUpdateStatus = `
             UPDATE recebimentomp 
-            SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?  
+            SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?, naoConformidade = ? 
             WHERE recebimentoMpID = ?`
             const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
                 status,
@@ -642,6 +667,7 @@ class RecebimentoMpController {
                 null,
                 null,
                 null,
+                '0',
                 '0',
                 id
             ], 'update', 'recebimentomp', 'recebimentoMpID', id, logID)

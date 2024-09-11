@@ -16,6 +16,7 @@ recebimentoMpRoutes.get(`${route}/getModels/:unidadeID`, recebimentoMpController
 recebimentoMpRoutes.post(`${route}/updateData/:id`, recebimentoMpController.updateData);
 recebimentoMpRoutes.get(`${route}/getNaoConformidadeModels/:unidadeID`, recebimentoMpController.getNaoConformidadeModels);
 recebimentoMpRoutes.post(`${route}/changeFormStatus/:id`, recebimentoMpController.changeFormStatus);
+recebimentoMpRoutes.post(`${route}/getProdutosRecebimento`, recebimentoMpController.getProdutosRecebimento);
 
 //? MULTER: Upload de arquivo
 recebimentoMpRoutes.delete(`${route}/deleteAnexo/:id/:anexoID/:unidadeID/:usuarioID/:folder`, recebimentoMpController.deleteAnexo);

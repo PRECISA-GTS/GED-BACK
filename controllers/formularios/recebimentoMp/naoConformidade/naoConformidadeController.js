@@ -34,7 +34,8 @@ class NaoConformidade {
                     JOIN status AS s ON (rn.status = s.statusID)
         
                     LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
-                    LEFT JOIN produto AS p ON (rnp.produtoID = p.produtoID)
+                    LEFT JOIN recebimentomp_produto AS rp ON (rnp.recebimentoMpProdutoID = rp.recebimentoMpProdutoID)
+                    LEFT JOIN produto AS p ON (rp.produtoID = p.produtoID)
                 WHERE rn.unidadeID = ?
                 GROUP BY rn.recebimentoMpNaoConformidadeID
                 ORDER BY rn.data DESC, rn.status ASC`
@@ -62,7 +63,8 @@ class NaoConformidade {
                     JOIN status AS s ON (rn.status = s.statusID)
         
                     LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
-                    LEFT JOIN produto AS p ON (rnp.produtoID = p.produtoID)
+                    LEFT JOIN recebimentomp_produto AS rp ON (rnp.recebimentoMpProdutoID = rp.recebimentoMpProdutoID)
+                    LEFT JOIN produto AS p ON (rp.produtoID = p.produtoID)
                 WHERE f.cnpj = ? AND rn.quemPreenche = 2
                 GROUP BY rn.recebimentoMpNaoConformidadeID
                 ORDER BY rn.data DESC, rn.status ASC`
@@ -152,7 +154,7 @@ class NaoConformidade {
                 (SELECT IF(COUNT(*) > 0, 1, 0)
                 FROM recebimentomp_naoconformidade_produto AS rnp
                     JOIN recebimentomp_naoconformidade AS rn ON (rnp.recebimentoMpNaoConformidadeID = rn.recebimentoMpNaoConformidadeID)
-                WHERE rn.recebimentoMpNaoConformidadeID = ? AND rnp.produtoID = p.produtoID
+                WHERE rn.recebimentoMpNaoConformidadeID = ? AND rnp.recebimentoMpProdutoID = rp.recebimentoMpProdutoID
                 ) AS checked_,
 
                 rp.quantidade,
@@ -167,7 +169,7 @@ class NaoConformidade {
                 JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
                 LEFT JOIN apresentacao AS a ON (rp.apresentacaoID = a.apresentacaoID)
             WHERE rp.recebimentoMpID = ?
-            ORDER BY p.nome ASC`
+            ORDER BY rp.dataValidade DESC, p.nome ASC`
             let [resultProdutos] = await db.promise().query(sqlProdutos, [id, recebimentoID])
             resultProdutos = resultProdutos.map(row => ({
                 ...row,
@@ -304,26 +306,26 @@ class NaoConformidade {
                 //? Atualiza produtos (header.produtos) marcados (setar em recebimentomp_naoconformidade_produto os produtos com checked_ == true)
                 if (header.produtos && header.produtos.length > 0) {
                     const checkedProducts = header.produtos.filter(product => product.checked_ === true)
-                    const checkedProductIds = checkedProducts.map(product => product.id);
+                    const checkedProductIds = checkedProducts.map(product => product.recebimentoMpProdutoID);
                     const existingProducts = await db.promise().query(
-                        'SELECT produtoID AS id FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ?', [id]
+                        'SELECT recebimentoMpProdutoID FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ?', [id]
                     );
-                    const existingProductIds = existingProducts[0].map(row => row.id);
+                    const existingProductIds = existingProducts[0].map(row => row.recebimentoMpProdutoID);
                     const productsToDelete = existingProductIds.filter(id => !checkedProductIds.includes(id));
-                    const productsToInsert = checkedProducts.filter(product => !existingProductIds.includes(product.id));
+                    const productsToInsert = checkedProducts.filter(product => !existingProductIds.includes(product.recebimentoMpProdutoID));
                     // Deletar os produtos desmarcados
                     if (productsToDelete.length > 0) {
                         await executeQuery(
-                            'DELETE FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ? AND produtoID IN (?)',
+                            'DELETE FROM recebimentomp_naoconformidade_produto WHERE recebimentoMpNaoConformidadeID = ? AND recebimentoMpProdutoID IN (?)',
                             [id, productsToDelete, productsToDelete.join(',')],
                             'delete', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', id, logID
                         );
                     }
                     // Inserir os novos produtos marcados
                     if (productsToInsert.length > 0) {
-                        const insertValues = productsToInsert.map(product => `(${id}, ${product.id})`).join(',');
+                        const insertValues = productsToInsert.map(product => `(${id}, ${product.recebimentoMpProdutoID})`).join(',');
                         await executeQuery(
-                            `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`, null,
+                            `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, recebimentoMpProdutoID) VALUES ${insertValues}`, null,
                             'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', null, logID
                         );
                     }
@@ -414,8 +416,8 @@ class NaoConformidade {
             if (header.produto && header.produtos && header.produtos.length > 0) {
                 const checkedProducts = header.produtos.filter(product => product.checked_ === true)
                 if (checkedProducts.length > 0) {
-                    const insertValues = checkedProducts.map(product => `(${id}, ${product.id})`).join(',');
-                    const sql = `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, produtoID) VALUES ${insertValues}`
+                    const insertValues = checkedProducts.map(product => `(${id}, ${product.recebimentoMpProdutoID})`).join(',');
+                    const sql = `INSERT INTO recebimentomp_naoconformidade_produto (recebimentoMpNaoConformidadeID, recebimentoMpProdutoID) VALUES ${insertValues}`
                     await executeQuery(sql, null, 'insert', 'recebimentomp_naoconformidade_produto', 'recebimentoMpNaoConformidadeID', id, logID)
                 }
             }

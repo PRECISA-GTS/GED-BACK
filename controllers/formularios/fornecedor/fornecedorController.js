@@ -57,7 +57,6 @@ class FornecedorController {
         return res.status(200).json(result[0]);
     }
 
-
     async createDocumentAutentique(req, res) {
         const { id, usuarioID } = req.params
 
@@ -160,7 +159,7 @@ class FornecedorController {
             console.error(error);
             res.status(500).json({ error: 'Erro interno do servidor.' });
         }
-    };
+    }
 
     async getFornecedoresAprovados(req, res) {
         let { unidadeID, recebimentoMpID, modelo } = req.body
@@ -267,20 +266,62 @@ class FornecedorController {
                     JOIN produto AS p ON (fp.produtoID = p.produtoID)
                     LEFT JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
                 WHERE f.cnpj = "${fornecedor.cnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
-                GROUP BY p.produtoID
+                GROUP BY fp.fornecedorProdutoID
                 ORDER BY p.nome ASC`
                 const [resultProdutos] = await db.promise().query(sqlProdutos)
 
+                let produtosVariacao = []
                 if (resultProdutos.length > 0) {
+                    const groupedProducts = {};
+
+                    // Itera sobre os produtos para agrupá-los por produtoID
+                    // console.log("🚀 ~ resultProdutos:", resultProdutos)
                     for (const produto of resultProdutos) {
-                        produto.quantidade = floatToFractioned(produto.quantidade)
-                        produto.apresentacao = produto.apresentacaoID > 0 ? {
-                            id: produto.apresentacaoID,
-                            nome: produto.apresentacaoNome
-                        } : null
+                        // Cria a estrutura do produto
+                        const produtoInfo = {
+                            produtoID: produto.produtoID,
+                            nome: produto.nome,
+                            unidadeMedida: produto.unidadeMedida,
+                            variacoes: []
+                        };
+
+                        // Cria a estrutura da variação
+                        const variacao = {
+                            // recebimentoMpProdutoID: produto.recebimentoMpProdutoID,
+                            quantidade: floatToFractioned(produto.quantidade),
+                            dataFabricacao: produto.dataFabricacao,
+                            lote: produto.lote,
+                            nf: produto.nf,
+                            dataValidade: produto.dataValidade,
+                            apresentacao: produto.apresentacaoID > 0 ? {
+                                id: produto.apresentacaoID,
+                                nome: produto.apresentacao
+                            } : null,
+
+                        };
+
+                        // Se o produto já existe no objeto agrupado, adicione a variação
+                        if (groupedProducts[produto.produtoID]) {
+                            groupedProducts[produto.produtoID].variacoes.push(variacao);
+                        } else {
+                            // Se o produto não existe, crie uma nova entrada com a primeira variação
+                            produtoInfo.variacoes.push(variacao);
+                            groupedProducts[produto.produtoID] = produtoInfo;
+                        }
                     }
+
+                    // Converte o objeto agrupado em uma lista
+                    produtosVariacao = Object.values(groupedProducts);
+
+                    // for (const produto of resultProdutos) {
+                    //     produto.quantidade = floatToFractioned(produto.quantidade)
+                    //     produto.apresentacao = produto.apresentacaoID > 0 ? {
+                    //         id: produto.apresentacaoID,
+                    //         nome: produto.apresentacaoNome
+                    //     } : null
+                    // }
                 }
-                fornecedor['produtos'] = resultProdutos ?? []
+                fornecedor['produtos'] = produtosVariacao ?? []
             }
 
             return res.status(200).json(result)
