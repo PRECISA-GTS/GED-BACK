@@ -457,13 +457,15 @@ class RecebimentoMpController {
             SELECT
                 fp.fornecedorProdutoID,
                 p.produtoID, 
-                CONCAT(p.nome, " (", um.nome, ")") AS nome
+                CONCAT(p.nome, " (", um.nome, ")") AS nome,                
+                (DATE_ADD(f.dataFim, INTERVAL pfm.ciclo DAY)) AS dataVencimento
             FROM fornecedor_produto AS fp
                 JOIN fornecedor AS f ON (fp.fornecedorID = f.fornecedorID)
+                JOIN par_fornecedor_modelo AS pfm ON (f.parFornecedorModeloID = pfm.parFornecedorModeloID)
                 JOIN produto AS p ON (fp.produtoID = p.produtoID)
                 LEFT JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
             WHERE f.cnpj = "${fornecedorCnpj}" AND f.status IN (60, 70) AND f.unidadeID = ${unidadeID} AND p.status = 1
-            GROUP BY fp.fornecedorProdutoID
+            GROUP BY fp.produtoID
             ORDER BY p.nome ASC`;
             const [resultProdutosFornecedor] = await db.promise().query(sqlFornecedor);
 
