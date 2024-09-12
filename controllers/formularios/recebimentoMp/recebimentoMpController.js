@@ -580,29 +580,50 @@ class RecebimentoMpController {
 
             //? Produtos
             if (data.info.status < 40 && data.produtos && data.produtos.length > 0) {
-                const sqlDeleteProduto = `DELETE FROM recebimentomp_produto WHERE recebimentoMpID = ? `
-                await executeQuery(sqlDeleteProduto, [id], 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
+                let arrActiveProducts = [0] // Array pra armazenar produtos a nao serem deletados
                 for (const blocoProduto of data.produtos) {
                     if (blocoProduto && blocoProduto.checked_ && blocoProduto.produtoID > 0) { //? Marcou o produto
                         for (const produto of blocoProduto.variacoes) {
-                            const sqlInsertProduto = `
-                            INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                            const resultInsertProduto = await executeQuery(sqlInsertProduto, [
-                                id,
-                                blocoProduto.produtoID,
-                                fractionedToFloat(produto.quantidade) ?? null,
-                                fractionedToFloat(produto.quantidade) ?? null,
-                                produto.dataFabricacao ?? null,
-                                produto.lote ?? null,
-                                produto.nf ?? null,
-                                produto.dataValidade ?? null,
-                                produto.apresentacao?.id ?? null
-                            ], 'insert', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
-                            if (!resultInsertProduto) { return res.json('Error'); }
+                            if (produto && produto.recebimentoMpProdutoID && produto.recebimentoMpProdutoID > 0) { //? Atualiza 
+                                const sqlUpdateProduto = `
+                                UPDATE recebimentomp_produto SET quantidade = ?, quantidadeEntrada = ?, dataFabricacao = ?, lote = ?, nf = ?, dataValidade = ?, apresentacaoID = ?
+                                WHERE recebimentoMpID = ? AND recebimentoMpProdutoID = ?`
+                                const resultUpdateProduto = await executeQuery(sqlUpdateProduto, [
+                                    fractionedToFloat(produto.quantidade) ?? null,
+                                    fractionedToFloat(produto.quantidade) ?? null,
+                                    produto.dataFabricacao ?? null,
+                                    produto.lote ?? null,
+                                    produto.nf ?? null,
+                                    produto.dataValidade ?? null,
+                                    produto.apresentacao?.id ?? null,
+                                    id,
+                                    produto.recebimentoMpProdutoID
+                                ], 'update', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
+                                arrActiveProducts.push(produto.recebimentoMpProdutoID)
+                            } else { //? Insere
+                                const sqlInsertProduto = `
+                                INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                                const resultInsertProduto = await executeQuery(sqlInsertProduto, [
+                                    id,
+                                    blocoProduto.produtoID,
+                                    fractionedToFloat(produto.quantidade) ?? null,
+                                    fractionedToFloat(produto.quantidade) ?? null,
+                                    produto.dataFabricacao ?? null,
+                                    produto.lote ?? null,
+                                    produto.nf ?? null,
+                                    produto.dataValidade ?? null,
+                                    produto.apresentacao?.id ?? null
+                                ], 'insert', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
+                                arrActiveProducts.push(resultInsertProduto)
+                            }
                         }
                     }
                 }
+
+                //? Deleta os produtos que não foram mantidos
+                const sqlDeleteProdutos = `DELETE FROM recebimentomp_produto WHERE recebimentoMpID = ${id} AND recebimentoMpProdutoID NOT IN (${arrActiveProducts.join(',')})`
+                await executeQuery(sqlDeleteProdutos, null, 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
             }
 
             //? Atualiza blocos do modelo 
