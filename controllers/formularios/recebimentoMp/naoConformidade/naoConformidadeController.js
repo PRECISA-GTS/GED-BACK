@@ -370,7 +370,7 @@ class NaoConformidade {
         try {
             const logID = await executeLog('Criação formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
 
-            //? Insere itens fixos (header)
+            //? Insere itens fixos (header...)
             const sql = `
             INSERT INTO recebimentomp_naoconformidade (
                 parRecebimentoMpNaoConformidadeModeloID,
