@@ -112,7 +112,7 @@ class ItemController {
                 resultOpcoes[i].anexos = resultAnexos.length > 0 ? resultAnexos : [{ nome: '' }]
             }
 
-            const arrPending = [
+            let arrPending = [
                 {
                     table: 'fornecedor_resposta',
                     column: ['itemID'],
@@ -126,15 +126,29 @@ class ItemController {
                     column: ['itemID'],
                 },
             ]
-
+            const sqlTableWithItem = `
+            SELECT TABLE_NAME, COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE COLUMN_NAME = 'itemID'
+                AND TABLE_NAME LIKE 'par_%'
+            AND TABLE_NAME != 'item'
+            AND TABLE_SCHEMA = "${process.env.DB_DATABASE}"`
+            const [resultHasPending] = await db.promise().query(sqlTableWithItem);
+            const convertedResultHasPending = resultHasPending.map((item) => {
+                return {
+                    table: item.TABLE_NAME,
+                    column: [item.COLUMN_NAME],
+                };
+            })
+            arrPending = [...arrPending, ...convertedResultHasPending]
             const pending = await hasPending(id, arrPending)
+            const models = await getModelsWithItem(id)
 
             const result = {
                 fields: {
                     formulario: {
                         id: resultData[0].parFormularioID,
                         nome: resultData[0].formulario,
-                        // opcoes: resultOptionsFormulario ?? []
                     },
                     nome: resultData[0].nome,
                     status: resultData[0].status,
@@ -146,6 +160,7 @@ class ItemController {
                     ajuda: resultData[0].ajuda ?? '',
                     opcoesForm: resultOptionsFormulario ?? [],
                     opcoes: resultOpcoes ?? [],
+                    models: models,
                     pending: pending
                 }
             }
@@ -345,6 +360,36 @@ class ItemController {
         }
     }
 
+    async inactivate(req, res) {
+        try {
+            const { id } = req.params
+            const { usuarioID, unidadeID } = req.body
+            const logID = await executeLog('Inativação de item', usuarioID, unidadeID, req)
+
+            const sqlUpdate = `UPDATE item SET status = ? WHERE itemID = ? `;
+            await executeQuery(sqlUpdate, ['0', id], 'update', 'item', 'itemID', id, logID)
+
+            return res.status(200).json({ message: 'Dado inativado com sucesso!' })
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async activate(req, res) {
+        try {
+            const { id } = req.params
+            const { usuarioID, unidadeID } = req.body
+            const logID = await executeLog('Ativação de item', usuarioID, unidadeID, req)
+
+            const sqlUpdate = `UPDATE item SET status = ? WHERE itemID = ? `;
+            await executeQuery(sqlUpdate, ['1', id], 'update', 'item', 'itemID', id, logID)
+
+            return res.status(200).json({ message: 'Dado ativado com sucesso!' })
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
     deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
 
@@ -379,6 +424,76 @@ class ItemController {
                 res.status(500).json(err);
             });
     }
+}
+
+const getModelsWithItem = async (id) => {
+    //? Formulários com o item vinculado 
+    let models = []
+    const sqlTableWithItem = `
+    SELECT TABLE_NAME, COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE COLUMN_NAME = 'itemID'
+        AND TABLE_NAME LIKE 'par_%'
+    AND TABLE_NAME != 'item'
+    AND TABLE_SCHEMA = "${process.env.DB_DATABASE}"`
+    const [tablesWithItem] = await db.promise().query(sqlTableWithItem);
+
+    // obter rota em par_formulario    
+    const sqlRoute = `
+    SELECT tabela, rota
+    FROM par_formulario`
+    const [resultRoutes] = await db.promise().query(sqlRoute, [sqlRoute]);
+
+    for (const table of tablesWithItem) {
+        //? par_fornecedor_modelo_bloco_item => par_fornecedor_modelo_bloco
+        const modelBlockTableName = table.TABLE_NAME.split('_').slice(0, -1).join('_')
+
+        //? par_fornecedor_modelo_bloco_item => par_fornecedor_modelo
+        const modelTableName = table.TABLE_NAME.split('_').slice(0, -2).join('_')
+
+        //? parFornecedorModeloBlocoID
+        const sqlBlockTableKey = `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = "${modelBlockTableName}"
+        AND TABLE_SCHEMA = "${process.env.DB_DATABASE}"
+        ORDER BY ORDINAL_POSITION
+        LIMIT 1`
+        const [resultBlockTableKey] = await db.promise().query(sqlBlockTableKey);
+        const blockTableKey = resultBlockTableKey[0]['COLUMN_NAME']
+
+        //? parFornecedorModeloID
+        const sqlModelTableKey = `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = "${modelTableName}"
+        AND TABLE_SCHEMA = "${process.env.DB_DATABASE}"
+        ORDER BY ORDINAL_POSITION
+        LIMIT 1`
+        const [resultmodelTableKey] = await db.promise().query(sqlModelTableKey);
+        const modelTableKey = resultmodelTableKey[0]['COLUMN_NAME']
+
+        const sqlModel = `
+        SELECT a.${modelTableKey} AS id, a.nome, a.ciclo
+        FROM ${modelTableName} AS a
+            JOIN ${modelBlockTableName} AS b ON (a.${modelTableKey} = b.${modelTableKey})
+            JOIN ${table.TABLE_NAME} AS c ON (b.${blockTableKey} = c.${blockTableKey})
+        WHERE c.itemID = ${id} 
+            -- AND c.status = 1
+        GROUP BY 1`
+        const [resultModel] = await db.promise().query(sqlModel, [id]);
+
+        const tableModule = modelTableName.split('_').slice(0, -1).join('_')
+        const route = resultRoutes.find(route => route.tabela === tableModule).rota
+
+        resultModel.forEach(model => {
+            model.rota = route
+        })
+
+        models = [...models, ...resultModel]
+    }
+
+    return models ?? []
 }
 
 module.exports = ItemController;

@@ -17,6 +17,7 @@ itemRoutes.post(`${route}/getItemConfigs`, itemController.getItemConfigs);
 
 itemRoutes.post(`${route}/new/getData`, itemController.getNewData);
 itemRoutes.post(`${route}/new/insertData`, itemController.insertData);
-
+itemRoutes.post(`${route}/inactivate/:id`, itemController.inactivate);
+itemRoutes.post(`${route}/activate/:id`, itemController.activate);
 
 module.exports = itemRoutes;
