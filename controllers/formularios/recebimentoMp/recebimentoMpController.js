@@ -145,21 +145,23 @@ class RecebimentoMpController {
             for (const blocoProduto of data.produtos) {
                 if (blocoProduto && blocoProduto.checked_ && blocoProduto.produtoID > 0) { //? Marcou o produto no checkbox
                     for (const produto of blocoProduto.variacoes) {
-                        const sqlInsertProduto = `
-                        INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                        const resultInsertProduto = await executeQuery(sqlInsertProduto, [
-                            recebimentoMpID,
-                            blocoProduto.produtoID,
-                            fractionedToFloat(produto.quantidade) ?? null,
-                            fractionedToFloat(produto.quantidade) ?? null,
-                            produto.dataFabricacao ?? null,
-                            produto.lote ?? null,
-                            produto.nf ?? null,
-                            produto.dataValidade ?? null,
-                            produto.apresentacao?.id ?? null
-                        ], 'insert', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
-                        if (!resultInsertProduto) { return res.json('Error'); }
+                        if (fractionedToFloat(produto.quantidade) > 0) {
+                            const sqlInsertProduto = `
+                            INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
+                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            const resultInsertProduto = await executeQuery(sqlInsertProduto, [
+                                recebimentoMpID,
+                                blocoProduto.produtoID,
+                                fractionedToFloat(produto.quantidade) ?? null,
+                                fractionedToFloat(produto.quantidade) ?? null,
+                                produto.dataFabricacao ?? null,
+                                produto.lote ?? null,
+                                produto.nf ?? null,
+                                produto.dataValidade ?? null,
+                                produto.apresentacao?.id ?? null
+                            ], 'insert', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
+                            if (!resultInsertProduto) { return res.json('Error'); }
+                        }
                     }
                 }
             }
@@ -584,7 +586,7 @@ class RecebimentoMpController {
                 for (const blocoProduto of data.produtos) {
                     if (blocoProduto && blocoProduto.checked_ && blocoProduto.produtoID > 0) { //? Marcou o produto
                         for (const produto of blocoProduto.variacoes) {
-                            if (produto && produto.recebimentoMpProdutoID && produto.recebimentoMpProdutoID > 0) { //? Atualiza 
+                            if (produto && produto.recebimentoMpProdutoID && produto.recebimentoMpProdutoID > 0 && fractionedToFloat(produto.quantidade) > 0) { //? Atualiza 
                                 const sqlUpdateProduto = `
                                 UPDATE recebimentomp_produto SET quantidade = ?, quantidadeEntrada = ?, dataFabricacao = ?, lote = ?, nf = ?, dataValidade = ?, apresentacaoID = ?
                                 WHERE recebimentoMpID = ? AND recebimentoMpProdutoID = ?`
@@ -600,7 +602,7 @@ class RecebimentoMpController {
                                     produto.recebimentoMpProdutoID
                                 ], 'update', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
                                 arrActiveProducts.push(produto.recebimentoMpProdutoID)
-                            } else { //? Insere
+                            } else if (fractionedToFloat(produto.quantidade) > 0) { //? Insere
                                 const sqlInsertProduto = `
                                 INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
                                 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
