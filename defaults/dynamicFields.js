@@ -31,11 +31,8 @@ const getDynamicHeaderFields = async (
         // Busca todas as colunas dinamicas do header do cabeçalho
         const sql = `
         SELECT *
-        FROM ${tableConfig} AS a
-            LEFT JOIN ${tableConfig}_modelo_cabecalho AS b ON (a.${commonColumnConfig} = b.${commonColumnConfig})
-        WHERE b.${columnKeyConfig} = ? 
-        ORDER BY b.ordem ASC`;
-        const [rows] = await db.promise().query(sql, [modelID]);
+        FROM ${tableConfig}`;
+        const [rows] = await db.promise().query(sql);
         resultFields = rows;
     } else {                    //? Formulário em aberto, monta itens baseado no modelo
         const sql = `

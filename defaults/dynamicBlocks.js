@@ -19,7 +19,6 @@ const { getBlockSectors } = require('./sector/getSectors');
     
 */
 const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, columnKeyConfig, tableResponse, columnKeyResponse, tableConfigItem, columnKeyConfigItem, columnKeyConfigBlock, tableConfigSetor) => {
-    console.log("🚀 ~ status:", status)
 
     const sql = `
     SELECT *
@@ -76,7 +75,10 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
     for (const bloco of resultBlocos) {
         const [resultBloco] = await db.promise().query(sqlBloco, [bloco[columnKeyConfigBlock]])
 
-        let ordem = 0; for (const item of resultBloco) item.ordem = ++ordem;
+        if (status && status > 40) {
+            let ordem = 0;
+            for (const item of resultBloco) item.ordem = ++ordem;
+        }
 
         //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
         const sectors = await getBlockSectors(bloco[columnKeyConfigBlock], tableConfigSetor, columnKeyConfigBlock)
@@ -94,7 +96,7 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
                     JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
                     JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)        
                     LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
-                WHERE prbi.${rootKey} = ? AND prbi.${columnKeyResponse} = ? AND prbi.itemID = ? AND i.status = 1`
+                WHERE prbi.${rootKey} = ? AND prbi.${columnKeyResponse} = ? AND prbi.itemID = ?`
                 const [rows] = await db.promise().query(sqlAlternativa, [id, item[columnKeyResponse], item['itemID']])
                 resultAlternativa = rows
             } else {

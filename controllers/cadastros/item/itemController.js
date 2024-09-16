@@ -369,6 +369,26 @@ class ItemController {
             const sqlUpdate = `UPDATE item SET status = ? WHERE itemID = ? `;
             await executeQuery(sqlUpdate, ['0', id], 'update', 'item', 'itemID', id, logID)
 
+            //? Formulários com o item vinculado 
+            let models = []
+            const sqlTableWithItem = `
+            SELECT TABLE_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE COLUMN_NAME = 'itemID'
+                AND TABLE_NAME LIKE 'par_%item'
+            AND TABLE_NAME != 'item'
+            AND TABLE_SCHEMA = "${process.env.DB_DATABASE}"`
+            const [result] = await db.promise().query(sqlTableWithItem)
+
+            if (result && result.length > 0) {
+                for (const table of result) {
+                    if (table.TABLE_NAME) {
+                        const sqlUpdate = `UPDATE ${table.TABLE_NAME} SET status = ? WHERE itemID = ?`;
+                        await executeQuery(sqlUpdate, ['0', id], 'update', table.TABLE_NAME, 'itemID', id, logID)
+                    }
+                }
+            }
+
             return res.status(200).json({ message: 'Dado inativado com sucesso!' })
         } catch (error) {
             console.log(error)
