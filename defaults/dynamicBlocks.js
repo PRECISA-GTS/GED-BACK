@@ -48,7 +48,7 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
         FROM ${tableResponse} AS prbi 
             LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
             LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-        WHERE prbi.${rootKey} = ${id} AND prbi.${columnKeyConfigBlock} = ? AND i.status = 1`
+        WHERE prbi.${rootKey} = ${id} AND prbi.${columnKeyConfigBlock} = ?`
     } else {                    //? Formulário em aberto, monta itens baseado no modelo
         sqlBloco = `
         SELECT prbi.*, i.*, a.nome AS alternativa,
