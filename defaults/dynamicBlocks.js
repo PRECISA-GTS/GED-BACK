@@ -43,7 +43,7 @@ const getDynamicBlocks = async (id, modeloID, rootKey, tableConfig, columnKeyCon
     FROM ${tableConfigItem} AS prbi 
         LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
         LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-    WHERE prbi.${columnKeyConfigBlock} = ? AND prbi.status = 1
+    WHERE prbi.${columnKeyConfigBlock} = ? AND prbi.status = 1 AND i.status = 1
     ORDER BY prbi.ordem ASC`
 
     for (const bloco of resultBlocos) {
@@ -62,7 +62,7 @@ const getDynamicBlocks = async (id, modeloID, rootKey, tableConfig, columnKeyCon
                 JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
                 JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)        
                 LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
-            WHERE prbi.${columnKeyConfigItem} = ? AND prbi.status = 1`
+            WHERE prbi.${columnKeyConfigItem} = ? AND prbi.status = 1 AND i.status = 1`
             const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item[columnKeyConfigItem]])
 
             // Obter os anexos vinculados as alternativas
