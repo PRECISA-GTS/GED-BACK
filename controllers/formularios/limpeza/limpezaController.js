@@ -103,6 +103,7 @@ class LimpezaController {
                 DATE_FORMAT(r.dataFim, '%H:%i') AS horaFim,
                 r.finalizaProfissionalID,
                 pf.nome AS finalizaProfissionalNome,
+                r.status,
 
                 u.nomeFantasia,
                 u.cnpj
@@ -133,6 +134,7 @@ class LimpezaController {
                 id,
                 modeloID,
                 unidadeID,
+                result?.[0]?.['status'] ?? 0,
                 'par_limpeza',
                 'parLimpezaID',
                 'parLimpezaModeloID',
@@ -151,10 +153,12 @@ class LimpezaController {
             const blocos = await getDynamicBlocks(
                 id,
                 modeloID,
+                result?.[0]?.['status'] ?? 0,
                 'limpezaID',
                 'par_limpeza_modelo_bloco',
                 'parLimpezaModeloID',
                 'limpeza_resposta',
+                'limpezaRespostaID',
                 'par_limpeza_modelo_bloco_item',
                 'parLimpezaModeloBlocoItemID',
                 'parLimpezaModeloBlocoID',

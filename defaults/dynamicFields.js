@@ -6,33 +6,47 @@ const { hasUnidadeID } = require('./functions');
     * id
     * modeloID
     * unidadeID
+    * status
     * 'par_recebimentomp'
     * 'parRecebimentoMpID'
     * 'parRecebimentoMpModeloID'
     * 'recebimentomp'
-    * 'recebimentoMpID'
+    * 'recebimentoMpID'    
 */
 const getDynamicHeaderFields = async (
     id,
     modelID,
     unityID,
+    status,
     tableConfig,
     commonColumnConfig,
     columnKeyConfig,
     table,
     columnKey
 ) => {
-
     if (!modelID) return null;
+    let resultFields = []
 
-    // Fields do header
-    const sql = `
-    SELECT *
-    FROM ${tableConfig} AS a
-        LEFT JOIN ${tableConfig}_modelo_cabecalho AS b ON (a.${commonColumnConfig} = b.${commonColumnConfig})
-    WHERE b.${columnKeyConfig} = ? 
-    ORDER BY b.ordem ASC`;
-    const [resultFields] = await db.promise().query(sql, [modelID]);
+    if (status && status > 40) { //? Já concluído, monta itens que possuem resposta
+        // Busca todas as colunas dinamicas do header do cabeçalho
+        const sql = `
+        SELECT *
+        FROM ${tableConfig} AS a
+            LEFT JOIN ${tableConfig}_modelo_cabecalho AS b ON (a.${commonColumnConfig} = b.${commonColumnConfig})
+        WHERE b.${columnKeyConfig} = ? 
+        ORDER BY b.ordem ASC`;
+        const [rows] = await db.promise().query(sql, [modelID]);
+        resultFields = rows;
+    } else {                    //? Formulário em aberto, monta itens baseado no modelo
+        const sql = `
+        SELECT *
+        FROM ${tableConfig} AS a
+            LEFT JOIN ${tableConfig}_modelo_cabecalho AS b ON (a.${commonColumnConfig} = b.${commonColumnConfig})
+        WHERE b.${columnKeyConfig} = ? 
+        ORDER BY b.ordem ASC`;
+        const [rows] = await db.promise().query(sql, [modelID]);
+        resultFields = rows;
+    }
 
     // Collect alternatives that require options (tipo == 'int' && alternatives.tabela)
     const intFieldsWithTable = resultFields.filter(field => field.tipo === 'int' && field.tabela);
@@ -77,6 +91,13 @@ const getDynamicHeaderFields = async (
         });
 
         await Promise.all(dataPromises); // Execute all queries in parallel
+
+        // Filtra apenas os fields que contem valor na tabela table
+        if (status && status > 40) {
+            resultFields = resultFields.filter(field =>
+                field.tabela && field[field.tabela] !== null ? field[field.tabela] : field[field.nomeColuna] && field[field.nomeColuna] !== null ? field[field.nomeColuna] : null
+            )
+        }
     }
 
     return resultFields ?? null;

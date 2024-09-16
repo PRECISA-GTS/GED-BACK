@@ -234,6 +234,7 @@ class RecebimentoMpController {
                     IF(r.dataInicio, DATE_FORMAT(r.dataInicio, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaInicio,
                     r.abreProfissionalID,
                     pa.nome AS abreProfissionalNome,
+                    r.status,
                     r.naoConformidade,
                     r.concluido,
     
@@ -289,6 +290,7 @@ class RecebimentoMpController {
                 id,
                 modeloID,
                 unidadeID,
+                result?.[0]?.['status'] ?? 0,
                 'par_recebimentomp',
                 'parRecebimentoMpID',
                 'parRecebimentoMpModeloID',
@@ -300,10 +302,12 @@ class RecebimentoMpController {
             const blocos = await getDynamicBlocks(
                 id,
                 modeloID,
+                result?.[0]?.['status'] ?? 0,
                 'recebimentoMpID',
                 'par_recebimentomp_modelo_bloco',
                 'parRecebimentoMpModeloID',
                 'recebimentomp_resposta',
+                'recebimentoMpRespostaID',
                 'par_recebimentomp_modelo_bloco_item',
                 'parRecebimentoMpModeloBlocoItemID',
                 'parRecebimentoMpModeloBlocoID',

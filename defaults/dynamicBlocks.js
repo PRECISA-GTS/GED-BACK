@@ -6,64 +6,109 @@ const { getBlockSectors } = require('./sector/getSectors');
 * Params ex:
     * id
     * modeloID
+    * status
     * 'recebimentoMpID'
     * 'par_recebimentomp_modelo_bloco'
     * 'parRecebimentoMpModeloID'
     * 'recebimentomp_resposta'
+    * 'recebimentoMpRespostaID'
     * 'par_recebimentomp_modelo_bloco_item'
     * 'parRecebimentoMpNaoConformidadeModeloBlocoItemID'
     * 'parRecebimentoMpModeloBlocoID'
     * 'par_recebimentomp_modelo_bloco_setor'
     
 */
-const getDynamicBlocks = async (id, modeloID, rootKey, tableConfig, columnKeyConfig, tableResponse, tableConfigItem, columnKeyConfigItem, columnKeyConfigBlock, tableConfigSetor) => {
+const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, columnKeyConfig, tableResponse, columnKeyResponse, tableConfigItem, columnKeyConfigItem, columnKeyConfigBlock, tableConfigSetor) => {
+    console.log("🚀 ~ status:", status)
+
     const sql = `
     SELECT *
     FROM ${tableConfig}
     WHERE ${columnKeyConfig} = ? AND status = 1
     ORDER BY ordem ASC`
     const [resultBlocos] = await db.promise().query(sql, [modeloID])
+    let sqlBloco = ''
 
     //? Blocos
-    const sqlBloco = `
-    SELECT prbi.*, i.*, a.nome AS alternativa,
-
-        (SELECT rr.respostaID
-        FROM ${tableResponse} AS rr 
-        WHERE rr.${rootKey} = ? AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS respostaID,
-
-        (SELECT rr.resposta
-        FROM ${tableResponse} AS rr 
-        WHERE rr.${rootKey} = ? AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS resposta,
-
-        (SELECT rr.obs
-        FROM ${tableResponse} AS rr 
-        WHERE rr.${rootKey} = ? AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS observacao
-
-    FROM ${tableConfigItem} AS prbi 
-        LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
-        LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-    WHERE prbi.${columnKeyConfigBlock} = ? AND prbi.status = 1 AND i.status = 1
-    ORDER BY prbi.ordem ASC`
+    if (status && status > 40) { //? Já concluído, monta itens que possuem resposta
+        sqlBloco = `
+        SELECT prbi.*, i.*, a.nome AS alternativa,
+    
+            (SELECT rr.respostaID
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyResponse} = prbi.${columnKeyResponse}) AS respostaID,
+    
+            (SELECT rr.resposta
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyResponse} = prbi.${columnKeyResponse}) AS resposta,
+    
+            (SELECT rr.obs
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyResponse} = prbi.${columnKeyResponse}) AS observacao
+    
+        FROM ${tableResponse} AS prbi 
+            LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
+            LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
+        WHERE prbi.${rootKey} = ${id} AND prbi.${columnKeyConfigBlock} = ? AND i.status = 1`
+    } else {                    //? Formulário em aberto, monta itens baseado no modelo
+        sqlBloco = `
+        SELECT prbi.*, i.*, a.nome AS alternativa,
+    
+            (SELECT rr.respostaID
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS respostaID,
+    
+            (SELECT rr.resposta
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS resposta,
+    
+            (SELECT rr.obs
+            FROM ${tableResponse} AS rr 
+            WHERE rr.${rootKey} = ${id} AND rr.${columnKeyConfigBlock} = prbi.${columnKeyConfigBlock} AND rr.itemID = prbi.itemID) AS observacao
+    
+        FROM ${tableConfigItem} AS prbi 
+            LEFT JOIN item AS i ON(prbi.itemID = i.itemID)
+            LEFT JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
+        WHERE prbi.${columnKeyConfigBlock} = ? AND prbi.status = 1 AND i.status = 1
+        ORDER BY prbi.ordem ASC`
+    }
 
     for (const bloco of resultBlocos) {
-        const [resultBloco] = await db.promise().query(sqlBloco, [id, id, id, bloco[columnKeyConfigBlock]])
+        const [resultBloco] = await db.promise().query(sqlBloco, [bloco[columnKeyConfigBlock]])
+
+        let ordem = 0; for (const item of resultBloco) item.ordem = ++ordem;
 
         //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
         const sectors = await getBlockSectors(bloco[columnKeyConfigBlock], tableConfigSetor, columnKeyConfigBlock)
         bloco['setores'] = sectors
 
         //? Itens
+        let resultAlternativa = []
         for (const item of resultBloco) {
-            const sqlAlternativa = `
-            SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
-            FROM ${tableConfigItem} AS prbi 
-                JOIN item AS i ON (prbi.itemID = i.itemID)
-                JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
-                JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)        
-                LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
-            WHERE prbi.${columnKeyConfigItem} = ? AND prbi.status = 1 AND i.status = 1`
-            const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item[columnKeyConfigItem]])
+            if (status && status > 40) {
+                if (columnKeyResponse === 'recebimentoMpRespostaID') columnKeyResponse = 'recebimentompRespostaID' // correção coluna errada no BD
+                const sqlAlternativa = `
+                SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
+                FROM ${tableResponse} AS prbi
+                    JOIN item AS i ON (prbi.itemID = i.itemID)
+                    JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
+                    JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)        
+                    LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
+                WHERE prbi.${rootKey} = ? AND prbi.${columnKeyResponse} = ? AND prbi.itemID = ? AND i.status = 1`
+                const [rows] = await db.promise().query(sqlAlternativa, [id, item[columnKeyResponse], item['itemID']])
+                resultAlternativa = rows
+            } else {
+                const sqlAlternativa = `
+                SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
+                FROM ${tableConfigItem} AS prbi 
+                    JOIN item AS i ON (prbi.itemID = i.itemID)
+                    JOIN alternativa AS a ON(i.alternativaID = a.alternativaID)
+                    JOIN alternativa_item AS ai ON(a.alternativaID = ai.alternativaID)        
+                    LEFT JOIN item_opcao AS io ON (io.itemID = i.itemID AND io.alternativaItemID = ai.alternativaItemID)
+                WHERE prbi.${columnKeyConfigItem} = ? AND prbi.status = 1 AND i.status = 1`
+                const [rows] = await db.promise().query(sqlAlternativa, [item[columnKeyConfigItem]])
+                resultAlternativa = rows
+            }
 
             // Obter os anexos vinculados as alternativas
             const sqlRespostaAnexos = `

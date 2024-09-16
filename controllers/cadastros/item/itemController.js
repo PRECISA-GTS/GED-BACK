@@ -389,7 +389,6 @@ class ItemController {
             console.log(error)
         }
     }
-
     deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params
 
@@ -425,7 +424,6 @@ class ItemController {
             });
     }
 }
-
 const getModelsWithItem = async (id) => {
     //? Formulários com o item vinculado 
     let models = []
@@ -474,13 +472,18 @@ const getModelsWithItem = async (id) => {
         const modelTableKey = resultmodelTableKey[0]['COLUMN_NAME']
 
         const sqlModel = `
-        SELECT a.${modelTableKey} AS id, a.nome, a.ciclo
+        SELECT 
+            a.${modelTableKey} AS id, 
+            a.nome, 
+            a.ciclo, 
+            d.nome AS status
         FROM ${modelTableName} AS a
             JOIN ${modelBlockTableName} AS b ON (a.${modelTableKey} = b.${modelTableKey})
             JOIN ${table.TABLE_NAME} AS c ON (b.${blockTableKey} = c.${blockTableKey})
-        WHERE c.itemID = ${id} 
-            -- AND c.status = 1
-        GROUP BY 1`
+            JOIN status AS d ON (c.status = d.statusID)
+        WHERE c.itemID = ${id}             
+        GROUP BY 1
+        ORDER BY c.status DESC, a.nome ASC`
         const [resultModel] = await db.promise().query(sqlModel, [id]);
 
         const tableModule = modelTableName.split('_').slice(0, -1).join('_')
