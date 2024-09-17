@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const naoConformidadeRoutes = Router();
+const { configureMulterMiddleware } = require('../../../../config/uploads');
 
 const NaoConformidadeController = require('../../../../controllers/formularios/recebimentoMp/naoConformidade/naoConformidadeController');
 const naoConformidadeController = new NaoConformidadeController();
@@ -18,5 +19,14 @@ naoConformidadeRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, naoCon
 naoConformidadeRoutes.post(`${route}/reOpen/:id`, naoConformidadeController.reOpen);
 naoConformidadeRoutes.post(`${route}/getRecebimentoMPNC`, naoConformidadeController.getRecebimentoMPNC);
 naoConformidadeRoutes.post(`${route}/getNCRecebimentoMp`, naoConformidadeController.getNCRecebimentoMp);
+naoConformidadeRoutes.delete(`${route}/deleteAnexo/:id/:anexoID/:unidadeID/:usuarioID/:folder`, naoConformidadeController.deleteAnexo);
+
+naoConformidadeRoutes.post(`${route}/saveAnexo/:id/:folder/:usuarioID/:unidadeID`, (req, res, next) => {
+    const folder = req.params.folder ?? '/' //? Pasta destino do arquivo (grupo-anexo/produto/item/...)
+    const pathDestination = `uploads/${req.params.unidadeID}/recebimento-mp-nao-conformidade/${folder}/`
+    req.pathDestination = pathDestination
+    console.log("🚀 ~ pathDestination:", pathDestination)
+    configureMulterMiddleware(req, res, next, req.params.usuarioID, req.params.unidadeID, pathDestination)
+}, naoConformidadeController.saveAnexo);
 
 module.exports = naoConformidadeRoutes;

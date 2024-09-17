@@ -127,7 +127,7 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
                     SELECT *
                     FROM anexo AS a 
                         JOIN anexo_busca AS ab ON(a.anexoID = ab.anexoID)
-                    WHERE ab.recebimentoMpID = ? AND ab.${columnKeyConfigBlock} = ? AND ab.itemOpcaoAnexoID = ? `
+                    WHERE ab.${rootKey} = ? AND ab.${columnKeyConfigBlock} = ? AND ab.itemOpcaoAnexoID = ? `
                     const [resultArquivosAnexadosResposta] = await db.promise().query(sqlArquivosAnexadosResposta, [
                         id,
                         bloco[columnKeyConfigBlock],

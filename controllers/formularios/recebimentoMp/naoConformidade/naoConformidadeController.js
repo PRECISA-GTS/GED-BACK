@@ -1,5 +1,7 @@
 const db = require('../../../../config/db');
-const { gerarSenhaCaracteresIniciais, criptoMd5, hasPending, deleteItem } = require('../../../../config/defaultConfig');
+const fs = require('fs');
+const path = require('path');
+const { gerarSenhaCaracteresIniciais, criptoMd5, hasPending, deleteItem, removeSpecialCharts } = require('../../../../config/defaultConfig');
 const sendMailConfig = require('../../../../config/email');
 const { executeQuery, executeLog } = require('../../../../config/executeQuery');
 const { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks } = require('../../../../defaults/dynamicBlocks');
@@ -742,6 +744,99 @@ class NaoConformidade {
                 console.log(err);
                 res.status(500).json(err);
             });
+    }
+
+    async saveAnexo(req, res) {
+        try {
+            const { id } = req.params;
+            const pathDestination = req.pathDestination
+            const files = req.files; //? Array de arquivos
+
+            const { usuarioID, unidadeID, grupoAnexoItemID, parRecebimentoMpNaoConformidadeModeloBlocoID, itemOpcaoAnexoID } = req.body;
+
+            //? Verificar se há arquivos enviados
+            if (!files || files.length === 0) {
+                return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+            }
+            const logID = await executeLog('Salvo anexo do formulário de não conformidade do recebimento Mp', usuarioID, unidadeID, req)
+
+            let result = []
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+
+                //? Insere em anexo
+                const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
+                const anexoID = await executeQuery(sqlInsert, [
+                    removeSpecialCharts(file.originalname),
+                    pathDestination,
+                    file.filename,
+                    file.size,
+                    file.mimetype,
+                    usuarioID,
+                    unidadeID,
+                    new Date()
+                ], 'insert', 'anexo', 'anexoID', null, logID)
+
+                //? Insere em anexo_busca
+                const sqlInsertBusca = `
+                INSERT INTO anexo_busca(anexoID, recebimentoMpNaoConformidadeID, grupoAnexoItemID, parRecebimentoMpNaoConformidadeModeloBlocoID, itemOpcaoAnexoID) VALUES(?,?,?,?,?)`;
+                await executeQuery(sqlInsertBusca, [
+                    anexoID,
+                    id,
+                    grupoAnexoItemID ?? null,
+                    parRecebimentoMpNaoConformidadeModeloBlocoID ?? null,
+                    itemOpcaoAnexoID ?? null
+                ], 'insert', 'anexo_busca', 'anexoBuscaID', null, logID)
+
+                const objAnexo = {
+                    exist: true,
+                    anexoID: anexoID,
+                    path: `${process.env.BASE_URL_API}${pathDestination}${file.filename} `,
+                    nome: file.originalname,
+                    tipo: file.mimetype,
+                    size: file.size,
+                    time: new Date(),
+                }
+                result.push(objAnexo)
+            }
+
+            return res.status(200).json(result)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async deleteAnexo(req, res) {
+        const { id, anexoID, unidadeID, usuarioID, folder } = req.params;
+
+        //? Obtém o caminho do anexo atual
+        const sqlCurrentFile = `SELECT arquivo FROM anexo WHERE anexoID = ? `;
+        const [tempResultCurrentFile] = await db.promise().query(sqlCurrentFile, [anexoID])
+        const resultCurrentFile = tempResultCurrentFile[0]?.arquivo;
+
+        //? Remover arquivo do diretório
+        if (resultCurrentFile) {
+            const pathFile = `uploads/${unidadeID}/recebimento-mp-nao-conformidade/${folder}/`
+            const previousFile = path.resolve(pathFile, resultCurrentFile);
+            fs.unlink(previousFile, (error) => {
+                if (error) {
+                    return console.error('Erro ao remover o anexo:', error);
+                } else {
+                    return console.log('Anexo removido com sucesso!');
+                }
+            });
+        }
+
+        const logID = await executeLog('Remoção de anexo da não conformidade do formulário do recebimento Mp', usuarioID, unidadeID, req)
+
+        //? Remove anexo do BD
+        const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`;
+        await executeQuery(sqlDeleteBusca, [anexoID], 'delete', 'anexo_busca', 'anexoID', anexoID, logID)
+
+        const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`;
+        await executeQuery(sqlDelete, [anexoID], 'delete', 'anexo', 'anexoID', anexoID, logID)
+
+        res.status(200).json(anexoID);
     }
 }
 
