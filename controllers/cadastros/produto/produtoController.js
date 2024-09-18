@@ -11,7 +11,8 @@ class ProdutoController {
             const sql = `
             SELECT
                 p.produtoID AS id,
-                CONCAT(p.nome, ' (', u.nome, ')') AS nome
+                CONCAT(p.nome, ' (', u.nome, ')') AS nome,
+                IF(p.limpeza = 1, 'Limpeza', '--') AS limpeza
             FROM produto AS p
                 JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
             WHERE p.unidadeID = ? AND p.status = 1
@@ -44,7 +45,8 @@ class ProdutoController {
                 b.nome AS unidadeMedida,
                 COALESCE(d.nome, '--') as classificacao,
                 c.nome as status,
-                c.cor
+                c.cor,
+                IF(a.limpeza = 1, 'Limpeza', '--') AS limpeza
             FROM produto AS a 
                 JOIN unidademedida AS b ON (a.unidadeMedidaID = b.unidadeMedidaID)
                 JOIN status AS c ON (a.status = c.statusID)
@@ -170,8 +172,14 @@ class ProdutoController {
 
             //? Insere novo item
             const classificacaoID = values.classificacao.fields ? values.classificacao.fields.id : null
-            const sqlInsert = `INSERT INTO produto (nome, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?)`
-            const id = await executeQuery(sqlInsert, [values.fields.nome, (values.fields.status ? '1' : '0'), values.unidadeMedida.fields.id, classificacaoID, values.unidadeID], 'insert', 'produto', 'produtoID', null, logID)
+            const sqlInsert = `INSERT INTO produto (nome, limpeza, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?, ?)`
+            const id = await executeQuery(sqlInsert, [
+                values.fields.nome,
+                (values.fields.limpeza ? '1' : '0'),
+                (values.fields.status ? '1' : '0'),
+                values.unidadeMedida.fields.id, classificacaoID,
+                values.unidadeID
+            ], 'insert', 'produto', 'produtoID', null, logID)
 
             //? Dados do grupo inserido,
             const sqlGetProduto = `
@@ -226,8 +234,15 @@ class ProdutoController {
 
             //? Atualiza produto
             const classificacaoID = values.classificacao.fields?.id ?? null
-            const sqlUpdate = `UPDATE produto SET nome = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, status = ? WHERE produtoID = ?`;
-            await executeQuery(sqlUpdate, [values.fields.nome, values.unidadeMedida.fields.id, classificacaoID, (values.fields.status ? '1' : '0'), id], 'update', 'produto', 'produtoID', id, logID)
+            const sqlUpdate = `UPDATE produto SET nome = ?, limpeza = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, status = ? WHERE produtoID = ?`;
+            await executeQuery(sqlUpdate, [
+                values.fields.nome,
+                (values.fields.limpeza ? '1' : '0'),
+                values.unidadeMedida.fields.id,
+                classificacaoID,
+                (values.fields.status ? '1' : '0'),
+                id
+            ], 'update', 'produto', 'produtoID', id, logID)
 
             //? Insere ou atualiza anexos
             if (values.anexos.length > 0) {

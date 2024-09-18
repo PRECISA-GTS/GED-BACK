@@ -15,14 +15,38 @@ class EquipamentoController {
             SELECT 
                 a.equipamentoID AS id, 
                 a.nome, 
+                a.tipo,
                 e.nome AS status,
                 e.cor
             FROM equipamento AS a 
                 LEFT JOIN status AS e ON (a.status = e.statusID)
-            WHERE unidadeID = ?
+            WHERE a.unidadeID = ?
             ORDER BY a.nome ASC`
             const [resultGetList] = await db.promise().query(getList, [unidadeID]);
             res.status(200).json(resultGetList);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async getEquipamentos(req, res) {
+        try {
+            const { unidadeID } = req.body
+
+            if (!unidadeID) {
+                return res.status(400).json({ message: "Unidade não informada!" });
+            }
+
+            const sql = `
+            SELECT 
+                equipamentoID AS id, 
+                nome                
+            FROM equipamento
+            WHERE unidadeID = ? AND status = 1
+            ORDER BY nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID]);
+
+            res.status(200).json(result);
         } catch (error) {
             console.log(error)
         }
@@ -59,8 +83,8 @@ class EquipamentoController {
 
             const logID = await executeLog('Criação de equipamento', data.usuarioID, data.unidadeID, req)
 
-            const sqlInsert = 'INSERT INTO equipamento (nome, status, unidadeID) VALUES (?, ?, ?)'
-            const id = await executeQuery(sqlInsert, [data.fields.nome, data.fields.status, data.unidadeID], 'insert', 'equipamento', 'equipamentoID', null, logID)
+            const sqlInsert = 'INSERT INTO equipamento (nome, tipo, status, unidadeID) VALUES (?, ?, ?, ?)'
+            const id = await executeQuery(sqlInsert, [data.fields.nome, data.fields.tipo, data.fields.status, data.unidadeID], 'insert', 'equipamento', 'equipamentoID', null, logID)
 
 
             const values = {
@@ -93,11 +117,8 @@ class EquipamentoController {
 
             const logID = await executeLog('Atualização de equipamento', data.usuarioID, data.unidadeID, req)
 
-            const sqlUpdate = `UPDATE equipamento SET nome = ?, status = ?, unidadeID = ? WHERE equipamentoID = ?`
-
-            await executeQuery(sqlUpdate, [data.fields.nome, data.fields.status, data.unidadeID, id], 'update', 'equipamento', 'equipamentoID', id, logID)
-
-
+            const sqlUpdate = `UPDATE equipamento SET nome = ?, tipo = ?, status = ?, unidadeID = ? WHERE equipamentoID = ?`
+            await executeQuery(sqlUpdate, [data.fields.nome, data.fields.tipo, data.fields.status, data.unidadeID, id], 'update', 'equipamento', 'equipamentoID', id, logID)
 
             return res.status(200).json({ message: 'Dados atualizados com sucesso' });
         } catch (error) {
@@ -105,7 +126,6 @@ class EquipamentoController {
             return res.status(500).json({ message: "Erro interno no servidor" });
         }
     }
-
 
     async deleteData(req, res) {
         const { id, usuarioID, unidadeID } = req.params

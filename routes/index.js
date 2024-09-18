@@ -48,6 +48,7 @@ const ClassificacaoProdutoRoutes = require("./cadastros/classificacaoProduto/cla
 const ProfissionalRouter = require("./cadastros/profissional/profissionalRoutes")
 const DepartamentoRouter = require("./cadastros/departamento/departamentoRoutes")
 const EquipamentoRouter = require("./cadastros/equipamento/equipamentoRoutes")
+const SetorRouter = require("./cadastros/setor/setorRoutes")
 
 // Calendario
 const calendarioRouter = require("./calendario/calendarioRoutes");
@@ -73,6 +74,7 @@ routes.use(urlBase + '/cadastros', ClassificacaoProdutoRoutes);
 routes.use(urlBase + '/cadastros', ProfissionalRouter);
 routes.use(urlBase + '/cadastros', DepartamentoRouter);
 routes.use(urlBase + '/cadastros', EquipamentoRouter);
+routes.use(urlBase + '/cadastros', SetorRouter);
 
 //? Configuracoes
 const formularios = require("./configuracoes/formularios/formulariosRoutes");
