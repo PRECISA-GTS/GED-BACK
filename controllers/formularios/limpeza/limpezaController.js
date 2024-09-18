@@ -461,11 +461,11 @@ class LimpezaController {
         const logID = await executeLog('Remoção de anexo do formulário de limpeza', usuarioID, unidadeID, req)
 
         //? Remove anexo do BD
-        const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`;
-        await executeQuery(sqlDelete, [anexoID], 'delete', 'anexo', 'anexoID', anexoID, logID)
-
         const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`;
         await executeQuery(sqlDeleteBusca, [anexoID], 'delete', 'anexo_busca', 'anexoID', anexoID, logID)
+
+        const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`;
+        await executeQuery(sqlDelete, [anexoID], 'delete', 'anexo', 'anexoID', anexoID, logID)
 
         res.status(200).json(anexoID);
     }
