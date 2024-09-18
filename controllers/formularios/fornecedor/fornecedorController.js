@@ -819,7 +819,7 @@ class FornecedorController {
                 'par_fornecedor_modelo_bloco_item',
                 'parFornecedorModeloBlocoItemID',
                 'parFornecedorModeloBlocoID',
-                'par_fornecedor_modelo_bloco_setor'
+                'par_fornecedor_modelo_bloco_departamento'
             )
 
             // Observação e status
@@ -855,21 +855,21 @@ class FornecedorController {
             const today = getDateNow()
             const time = getTimeNow()
 
-            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
-            const sqlSetores = `
+            //? Departamentos vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            const sqlDepartamentos = `
             SELECT 
-                b.setorID AS id, 
+                b.departamentoID AS id, 
                 b.nome, 
                 a.tipo
-            FROM par_fornecedor_modelo_setor AS a 
-                JOIN setor AS b ON (a.setorID = b.setorID)
+            FROM par_fornecedor_modelo_departamento AS a 
+                JOIN departamento AS b ON (a.departamentoID = b.departamentoID)
             WHERE a.parFornecedorModeloID = ? AND b.status = 1
             ORDER BY b.nome ASC`
-            const [resultSetores] = await db.promise().query(sqlSetores, [modeloID])
+            const [resultDepartamentos] = await db.promise().query(sqlDepartamentos, [modeloID])
 
             const sectors = await getHeaderSectors(
                 modeloID,
-                'par_fornecedor_modelo_setor',
+                'par_fornecedor_modelo_departamento',
                 'parFornecedorModeloID'
             )
 
@@ -896,8 +896,8 @@ class FornecedorController {
                     cnpj: resultFornecedor[0].cnpjFornecedor,
                     razaoSocial: resultFornecedor[0].razaoSocial,
                     nomeFantasia: resultFornecedor[0].nome,
-                    //? Setores que preenchem
-                    setores: sectors.fill,
+                    //? Departamentos que preenchem
+                    departamentos: sectors.fill,
                     cpf: resultFornecedor[0].cpf === 1 ? true : false,
                 },
                 fieldsFooter: {
@@ -908,8 +908,8 @@ class FornecedorController {
                         id: resultFornecedor[0].aprovaProfissionalID,
                         nome: resultFornecedor[0].profissionalAprova
                     } : null,
-                    //? Setores que concluem
-                    setores: sectors.conclude,
+                    //? Departamentos que concluem
+                    departamentos: sectors.conclude,
                 },
                 fields: fields,
                 produtos: resultProdutos ?? [],

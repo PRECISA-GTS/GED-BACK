@@ -311,7 +311,7 @@ class RecebimentoMpController {
                 'par_recebimentomp_modelo_bloco_item',
                 'parRecebimentoMpModeloBlocoItemID',
                 'parRecebimentoMpModeloBlocoID',
-                'par_recebimentomp_modelo_bloco_setor'
+                'par_recebimentomp_modelo_bloco_departamento'
             )
 
             // Observação e status
@@ -383,7 +383,7 @@ class RecebimentoMpController {
 
             const sectors = await getHeaderSectors(
                 modeloID,
-                'par_recebimentomp_modelo_setor',
+                'par_recebimentomp_modelo_departamento',
                 'parRecebimentoMpModeloID'
             )
 
@@ -411,8 +411,8 @@ class RecebimentoMpController {
                         email: result[0]?.emailFornecedor,
                         isUser: result[0]?.fornecedorIsUser == 1 ? true : false
                     } : null,
-                    //? Setores que preenchem
-                    setores: sectors.fill,
+                    //? Departamentos que preenchem
+                    departamentos: sectors.fill,
                 },
                 fieldsFooter: {
                     concluded: result[0]?.dataFim ? true : false,
@@ -430,8 +430,8 @@ class RecebimentoMpController {
                             nome: result[0]?.finalizaProfissionalNome
                         } : null
                     },
-                    //? Setores que concluem
-                    setores: sectors.conclude,
+                    //? Departamentos que concluem
+                    departamentos: sectors.conclude,
                 },
                 fields: fields,
                 blocos: blocos ?? [],

@@ -24,16 +24,16 @@ class ProfissionalController {
 
             switch (formularioID) {
                 case 1: //* Fornecedor
-                    result = await getProfissionalPreenchimento('par_fornecedor_modelo_setor', 'parFornecedorModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_fornecedor_modelo_departamento', 'parFornecedorModeloID', modeloID)
                     break;
                 case 2: //* Recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_recebimentomp_modelo_departamento', 'parRecebimentoMpModeloID', modeloID)
                     break;
                 case 3: //* Não conformidade do recebimento de MP
-                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_setor', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_recebimentomp_naoconformidade_modelo_departamento', 'parRecebimentoMpNaoConformidadeModeloID', modeloID)
                     break;
                 case 4: //* Limpeza
-                    result = await getProfissionalPreenchimento('par_limpeza_modelo_setor', 'parLimpezaModeloID', modeloID)
+                    result = await getProfissionalPreenchimento('par_limpeza_modelo_departamento', 'parLimpezaModeloID', modeloID)
                     break;
             }
 
@@ -81,26 +81,26 @@ class ProfissionalController {
             WHERE a.profissionalID = ? AND a.unidadeID = ?`
             const [resultDataUser] = await db.promise().query(dataUser, [id, unidadeID])
 
-            // Setores do profissional
-            const sqlSetor = `
+            // Departamentos do profissional
+            const sqlDepartamento = `
             SELECT 
-                ps.profissionalSetorID AS id,
-                s.setorID,
+                ps.profissionaldepartamentoID AS id,
+                s.departamentoID,
                 s.nome, 
                 DATE_FORMAT(ps.dataInicio, '%Y-%m-%d') AS dataInicio,
                 DATE_FORMAT(ps.dataFim, '%Y-%m-%d') AS dataFim,
                 ps.status
-            FROM profissional_setor AS ps 
-                JOIN setor AS s ON (ps.setorID = s.setorID)
+            FROM profissional_departamento AS ps 
+                JOIN departamento AS s ON (ps.departamentoID = s.departamentoID)
             WHERE ps.profissionalID = ? AND s.unidadeID = ?
             ORDER BY ps.status DESC, s.nome ASC`
-            const [resultSetor] = await db.promise().query(sqlSetor, [id, unidadeID])
+            const [resultDepartamento] = await db.promise().query(sqlDepartamento, [id, unidadeID])
 
-            const formatedSetor = resultSetor.map(row => {
+            const formatedDepartamento = resultDepartamento.map(row => {
                 return {
                     id: row.id,
-                    setor: {
-                        id: row.setorID,
+                    departamento: {
+                        id: row.departamentoID,
                         nome: row.nome
                     },
                     dataInicio: row.dataInicio,
@@ -136,7 +136,7 @@ class ProfissionalController {
                 imagem: resultDataUser[0]?.imagem ? `${process.env.BASE_URL_API}${resultDataUser[0].imagem}` : null,
                 fields: {
                     ...resultDataUser[0],
-                    setores: formatedSetor,
+                    departamentos: formatedDepartamento,
                 },
                 cargosFuncoes: resultFormacaoCargo,
                 menu: await getMenuPermissions(1, resultDataUser[0].usuarioID, unidadeID),
@@ -173,8 +173,8 @@ class ProfissionalController {
     async insertData(req, res) {
         try {
             const data = req.body;
-            let setores = data.fields.setores
-            delete data.fields.setores
+            let departamentos = data.fields.departamentos
+            delete data.fields.departamentos
 
             //* Valida conflito
             const validateConflicts = {
@@ -195,11 +195,11 @@ class ProfissionalController {
 
             if (!profissionalID) return
 
-            // Setores do profissional
-            if (setores && setores.length > 0) {
-                const sqlSetor = `INSERT INTO profissional_setor (profissionalID, setorID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
-                setores.map(async (row) => {
-                    await executeQuery(sqlSetor, [profissionalID, row.setor.id, row.dataInicio, (row.dataFim ?? null), 1], 'insert', 'profissional_setor', 'profissionalSetorID', null, logID)
+            // Departamentos do profissional
+            if (departamentos && departamentos.length > 0) {
+                const sqlDepartamento = `INSERT INTO profissional_departamento (profissionalID, departamentoID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
+                departamentos.map(async (row) => {
+                    await executeQuery(sqlDepartamento, [profissionalID, row.departamento.id, row.dataInicio, (row.dataFim ?? null), 1], 'insert', 'profissional_departamento', 'profissionaldepartamentoID', null, logID)
                 })
             }
 
@@ -409,8 +409,8 @@ class ProfissionalController {
             const { id } = req.params
             let data = req.body
 
-            let setores = data.fields.setores
-            delete data.fields.setores
+            let departamentos = data.fields.departamentos
+            delete data.fields.departamentos
 
             const logID = await executeLog('Edição do profissional', data.usualioLogado, data.fields.unidadeID, req)
 
@@ -420,39 +420,39 @@ class ProfissionalController {
             const UpdateUser = `UPDATE profissional SET ? WHERE profissionalID = ?`
             await executeQuery(UpdateUser, [data.fields, id], 'update', 'profissional', 'profissionalID', id, logID)
 
-            // Setor 
-            const existingItems = await db.promise().query(`SELECT profissionalSetorID FROM profissional_setor WHERE profissionalID = ?`, [id]);
-            const incomingItemIDs = new Set(setores.map(item => item.id));
+            // Departamento 
+            const existingItems = await db.promise().query(`SELECT profissionaldepartamentoID FROM profissional_departamento WHERE profissionalID = ?`, [id]);
+            const incomingItemIDs = new Set(departamentos.map(item => item.id));
 
             // Remove os itens que não estão mais na nova lista
             for (const existingItem of existingItems[0]) {
-                if (!incomingItemIDs.has(existingItem.profissionalSetorID)) {
-                    const sqlItemDelete = `DELETE FROM profissional_setor WHERE profissionalSetorID = ? AND profissionalID = ?`;
-                    await executeQuery(sqlItemDelete, [existingItem.profissionalSetorID, id], 'delete', 'profissional_setor', 'profissionalSetorID', existingItem.profissionalSetorID, logID);
+                if (!incomingItemIDs.has(existingItem.profissionaldepartamentoID)) {
+                    const sqlItemDelete = `DELETE FROM profissional_departamento WHERE profissionaldepartamentoID = ? AND profissionalID = ?`;
+                    await executeQuery(sqlItemDelete, [existingItem.profissionaldepartamentoID, id], 'delete', 'profissional_departamento', 'profissionaldepartamentoID', existingItem.profissionaldepartamentoID, logID);
                 }
             }
 
             // Atualiza ou insere os itens recebidos
-            for (const item of setores) {
+            for (const item of departamentos) {
                 if (item.id) {
-                    const sqlItemUpdate = `UPDATE profissional_setor SET setorID = ?, dataInicio = ?, dataFim = ?, status = ? WHERE profissionalSetorID = ? AND profissionalID = ?`;
+                    const sqlItemUpdate = `UPDATE profissional_departamento SET departamentoID = ?, dataInicio = ?, dataFim = ?, status = ? WHERE profissionaldepartamentoID = ? AND profissionalID = ?`;
                     await executeQuery(sqlItemUpdate, [
-                        item.setor.id,
+                        item.departamento.id,
                         item.dataInicio,
                         item.dataFim ?? null,
                         item.dataFim && item.dataFim !== '0000-00-00' ? 0 : 1, // Status
                         item.id,
                         id
-                    ], 'update', 'profissional_setor', 'profissionalSetorID', item.id, logID);
+                    ], 'update', 'profissional_departamento', 'profissionaldepartamentoID', item.id, logID);
                 } else {
-                    const sqlItemInsert = `INSERT INTO profissional_setor (profissionalID, setorID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
+                    const sqlItemInsert = `INSERT INTO profissional_departamento (profissionalID, departamentoID, dataInicio, dataFim, status) VALUES (?, ?, ?, ?, ?)`
                     await executeQuery(sqlItemInsert, [
                         id,
-                        item.setor.id,
+                        item.departamento.id,
                         item.dataInicio,
                         item.dataFim ?? null,
                         item.dataFim && item.dataFim !== '0000-00-00' ? 0 : 1 // Status
-                    ], 'insert', 'profissional_setor', 'setorID', id, logID);
+                    ], 'insert', 'profissional_departamento', 'departamentoID', id, logID);
                 }
             }
 
@@ -701,7 +701,7 @@ class ProfissionalController {
         const usuarioIDelete = resultUser[0].usuarioID
 
         const objDelete = {
-            table: ['profissional_setor', 'profissional_cargo', 'profissional'],
+            table: ['profissional_departamento', 'profissional_cargo', 'profissional'],
             column: 'profissionalID'
         }
         const arrPending = [
@@ -714,7 +714,7 @@ class ProfissionalController {
                 column: ['profissionalID', 'aprovaProfissionalID'],
             },
             {
-                table: 'profissional_setor',
+                table: 'profissional_departamento',
                 column: ['profissionalID'],
             }
         ]

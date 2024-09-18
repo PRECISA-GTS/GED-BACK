@@ -199,7 +199,7 @@ class NaoConformidade {
 
             const sectors = await getHeaderSectors(
                 modeloID,
-                'par_recebimentomp_naoconformidade_modelo_setor',
+                'par_recebimentomp_naoconformidade_modelo_departamento',
                 'parRecebimentoMpNaoConformidadeModeloID'
             )
 
@@ -239,8 +239,8 @@ class NaoConformidade {
                     color: result?.[0]?.statusCor ?? 'primary'
                 },
                 fields,
-                setoresPreenchimento: sectors.fill ?? [],
-                setoresConclusao: sectors.conclude ?? []
+                departamentosPreenchimento: sectors.fill ?? [],
+                departamentosConclusao: sectors.conclude ?? []
             }
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
@@ -256,7 +256,7 @@ class NaoConformidade {
                 'par_recebimentomp_naoconformidade_modelo_bloco_item',
                 'parRecebimentoMpNaoConformidadeModeloBlocoItemID',
                 'parRecebimentoMpNaoConformidadeModeloBlocoID',
-                'par_recebimentomp_naoconformidade_modelo_bloco_setor'
+                'par_recebimentomp_naoconformidade_modelo_bloco_departamento'
             )
 
             return res.json({ header, blocos });

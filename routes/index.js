@@ -46,7 +46,7 @@ const GrupoAnexosRouter = require("./cadastros/grupoAnexos/grupoAnexosRoutes");
 const ProdutoRoutes = require("./cadastros/produto/produtoRoutes");
 const ClassificacaoProdutoRoutes = require("./cadastros/classificacaoProduto/classificacaoProdutoRoutes");
 const ProfissionalRouter = require("./cadastros/profissional/profissionalRoutes")
-const SetorRouter = require("./cadastros/setor/setorRoutes")
+const DepartamentoRouter = require("./cadastros/departamento/departamentoRoutes")
 
 // Calendario
 const calendarioRouter = require("./calendario/calendarioRoutes");
@@ -70,7 +70,7 @@ routes.use(urlBase + '/cadastros', GrupoAnexosRouter);
 routes.use(urlBase + '/cadastros', ProdutoRoutes);
 routes.use(urlBase + '/cadastros', ClassificacaoProdutoRoutes);
 routes.use(urlBase + '/cadastros', ProfissionalRouter);
-routes.use(urlBase + '/cadastros', SetorRouter);
+routes.use(urlBase + '/cadastros', DepartamentoRouter);
 
 //? Configuracoes
 const formularios = require("./configuracoes/formularios/formulariosRoutes");

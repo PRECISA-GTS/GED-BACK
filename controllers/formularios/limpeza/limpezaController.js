@@ -162,7 +162,7 @@ class LimpezaController {
                 'par_limpeza_modelo_bloco_item',
                 'parLimpezaModeloBlocoItemID',
                 'parLimpezaModeloBlocoID',
-                'par_limpeza_modelo_bloco_setor'
+                'par_limpeza_modelo_bloco_departamento'
             )
 
             // Observação e status
@@ -198,10 +198,10 @@ class LimpezaController {
             const today = getDateNow()
             const time = getTimeNow()
 
-            //? Setores vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            //? Departamentos vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
             const sectors = await getHeaderSectors(
                 modeloID,
-                'par_limpeza_modelo_setor',
+                'par_limpeza_modelo_departamento',
                 'parLimpezaModeloID'
             )
 
@@ -224,8 +224,8 @@ class LimpezaController {
                         id: result[0].preencheProfissionalID,
                         nome: result[0].preencheProfissionalNome
                     } : null,
-                    //? Setores que preenchem
-                    setores: sectors.fill,
+                    //? Departamentos que preenchem
+                    departamentos: sectors.fill,
                 },
                 fieldsFooter: {
                     concluded: result[0].dataFim ? true : false,
@@ -245,8 +245,8 @@ class LimpezaController {
                             nome: result[0].finalizaProfissionalNome
                         } : null
                     },
-                    //? Setores que concluem
-                    setores: sectors.conclude
+                    //? Departamentos que concluem
+                    departamentos: sectors.conclude
                 },
                 fields: fields,
                 blocos: blocos ?? [],

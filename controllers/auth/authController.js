@@ -59,11 +59,11 @@ class AuthController {
 
             const accessToken = jwt.sign({ id: result[0]['usuarioID'] }, jwtConfig.secret, { expiresIn: jwtConfig.expirationTime })
 
-            //? Obtém os setores ativos do profissional 
-            const sqlSetores = `
-            SELECT s.setorID AS id, s.nome
-            FROM profissional_setor AS ps 
-                LEFT JOIN setor AS s ON (ps.setorID = s.setorID)                        
+            //? Obtém os departamentos ativos do profissional 
+            const sqlDepartamentos = `
+            SELECT s.departamentoID AS id, s.nome
+            FROM profissional_departamento AS ps 
+                LEFT JOIN departamento AS s ON (ps.departamentoID = s.departamentoID)                        
             WHERE ps.profissionalID = ? AND ps.status = 1`
 
             // +1 UNIDADE, SELECIONA UNIDADE ANTES DE LOGAR
@@ -73,8 +73,8 @@ class AuthController {
                     if (!profissionalID) {
                         return res.status(401).json({ message: 'CPF ou senha incorretos!' });
                     }
-                    const [setores] = await db.promise().query(sqlSetores, [profissionalID]);
-                    result[0].setores = setores
+                    const [departamentos] = await db.promise().query(sqlDepartamentos, [profissionalID]);
+                    result[0].departamentos = departamentos
                 }
 
                 const response = {
@@ -92,8 +92,8 @@ class AuthController {
 
             // 1 UNIDADE, LOGA DIRETO
             else if (result.length === 1) {
-                const [setores] = await db.promise().query(sqlSetores, [result[0].profissionalID]);
-                result[0].setores = setores ?? []
+                const [departamentos] = await db.promise().query(sqlDepartamentos, [result[0].profissionalID]);
+                result[0].departamentos = departamentos ?? []
 
                 const response = {
                     accessToken,

@@ -92,18 +92,18 @@ class RecebimentoMpController {
             };
 
             for (const item of resultBlock) {
-                //? Setores que preenchem 
-                const sqlSetores = `
+                //? Departamentos que preenchem 
+                const sqlDepartamentos = `
                 SELECT 
-                    prmbs.parRecebimentoMpModeloBlocoSetorID,
-                    s.setorID AS id, 
+                    prmbs.parRecebimentoMpModeloBlocodepartamentoID,
+                    s.departamentoID AS id, 
                     s.nome
-                FROM par_recebimentomp_modelo_bloco_setor AS prmbs 
-                    JOIN setor AS s ON (prmbs.setorID = s.setorID)
+                FROM par_recebimentomp_modelo_bloco_departamento AS prmbs 
+                    JOIN departamento AS s ON (prmbs.departamentoID = s.departamentoID)
                 WHERE prmbs.parRecebimentoMpModeloBlocoID = ?
-                GROUP BY s.setorID
+                GROUP BY s.departamentoID
                 ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [item.parRecebimentoMpModeloBlocoID])
+                const [resultDepartamentos] = await db.promise().query(sqlDepartamentos, [item.parRecebimentoMpModeloBlocoID])
 
                 const [resultItem] = await db.promise().query(sqlItem, [item.parRecebimentoMpModeloBlocoID])
 
@@ -124,7 +124,7 @@ class RecebimentoMpController {
                 const objData = {
                     dados: {
                         ...item,
-                        setores: resultSetores ?? [],
+                        departamentos: resultDepartamentos ?? [],
                     },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
@@ -181,25 +181,25 @@ class RecebimentoMpController {
             const sqlModel = `INSERT INTO par_recebimentomp_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parRecebimentoMpModeloID = await executeQuery(sqlModel, [model.nome, '0', model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', null, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_recebimentomp_modelo_departamento(parRecebimentoMpModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parRecebimentoMpModeloID, model.departamentosPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_departamento', 'parRecebimentoMpModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_recebimentomp_modelo_departamento(parRecebimentoMpModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parRecebimentoMpModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parRecebimentoMpModeloID, model.departamentosConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_departamento', 'parRecebimentoMpModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -226,29 +226,29 @@ class RecebimentoMpController {
             WHERE parRecebimentoMpModeloID = ?`
             await executeQuery(sqlModel, [model?.nome, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_recebimentomp_modelo', 'parRecebimentoMpModeloID', id, logID)
 
-            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_recebimentomp_modelo_setor
-            const sqlDeleteSetoresModelo = `DELETE FROM par_recebimentomp_modelo_setor WHERE parRecebimentoMpModeloID = ?`
-            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloID', id, logID)
+            //? Atualiza departamentos que preenchem e concluem o modelo. tabela: par_recebimentomp_modelo_departamento
+            const sqlDeleteDepartamentosModelo = `DELETE FROM par_recebimentomp_modelo_departamento WHERE parRecebimentoMpModeloID = ?`
+            await executeQuery(sqlDeleteDepartamentosModelo, [id], 'delete', 'par_recebimentomp_modelo_departamento', 'parRecebimentoMpModeloID', id, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_recebimentomp_modelo_departamento(parRecebimentoMpModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosPreenchem[i].id, 1], 'insert', 'par_recebimentomp_modelo_departamento', 'parRecebimentoMpModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_recebimentomp_modelo_setor(parRecebimentoMpModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_recebimentomp_modelo_departamento(parRecebimentoMpModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_setor', 'parRecebimentoMpModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosConcluem[i].id, 2], 'insert', 'par_recebimentomp_modelo_departamento', 'parRecebimentoMpModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -293,9 +293,9 @@ class RecebimentoMpController {
                     const sqlDeleteBlockItems = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID = ?`
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_recebimentomp_modelo_bloco_item', 'parRecebimentoMpModeloBlocoID', block, logID)
 
-                    // Setores do bloco
-                    const sqlDeleteBlockSetores = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', block, logID)
+                    // Departamentos do bloco
+                    const sqlDeleteBlockDepartamentos = `DELETE FROM par_recebimentomp_modelo_bloco_departamento WHERE parRecebimentoMpModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockDepartamentos, [block], 'delete', 'par_recebimentomp_modelo_bloco_departamento', 'parRecebimentoMpModeloBlocoID', block, logID)
 
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID = ?`
@@ -329,15 +329,15 @@ class RecebimentoMpController {
                         block.dados.parRecebimentoMpModeloBlocoID], 'update', 'par_recebimentomp_modelo_bloco', 'parRecebimentoMpModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
 
-                        //? Setores do bloco 
+                        //? Departamentos do bloco 
                         // deleta
-                        const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID = ?`
-                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpModeloBlocoID], 'delete', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', block.dados.parRecebimentoMpModeloBlocoID, logID)
+                        const sqlDelete = `DELETE FROM par_recebimentomp_modelo_bloco_departamento WHERE parRecebimentoMpModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parRecebimentoMpModeloBlocoID], 'delete', 'par_recebimentomp_modelo_bloco_departamento', 'parRecebimentoMpModeloBlocoID', block.dados.parRecebimentoMpModeloBlocoID, logID)
                         // insere novamente 
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_setor(parRecebimentoMpModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [block.dados.parRecebimentoMpModeloBlocoID, setor.id], 'insert', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_departamento(parRecebimentoMpModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parRecebimentoMpModeloBlocoID, departamento.id], 'insert', 'par_recebimentomp_modelo_bloco_departamento', 'parRecebimentoMpModeloBlocoID', id, logID)
                             }
                         })
                     } else {
@@ -358,11 +358,11 @@ class RecebimentoMpController {
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parRecebimentoMpModeloBlocoID = resultNewBlock //? parRecebimentoMpModeloBlocoID que acabou de ser gerado
 
-                        //? Setores do bloco
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_setor(parRecebimentoMpModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_recebimentomp_modelo_bloco_setor', 'parRecebimentoMpModeloBlocoID', id, logID)
+                        //? Departamentos do bloco
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_recebimentomp_modelo_bloco_departamento(parRecebimentoMpModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, departamento.id], 'insert', 'par_recebimentomp_modelo_bloco_departamento', 'parRecebimentoMpModeloBlocoID', id, logID)
                             }
                         })
                     }
@@ -457,9 +457,9 @@ class RecebimentoMpController {
                             const sqlModeloBlocoItem = `DELETE FROM par_recebimentomp_modelo_bloco_item WHERE parRecebimentoMpModeloBlocoID = ?`;
                             await db.promise().query(sqlModeloBlocoItem, [bloco.parRecebimentoMpModeloBlocoID]);
 
-                            // Deleta de par_recebimentomp_modelo_bloco_setor 
-                            const sqlModeloBlocoSetor = `DELETE FROM par_recebimentomp_modelo_bloco_setor WHERE parRecebimentoMpModeloBlocoID = ?`;
-                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parRecebimentoMpModeloBlocoID]);
+                            // Deleta de par_recebimentomp_modelo_bloco_departamento 
+                            const sqlModeloBlocoDepartamento = `DELETE FROM par_recebimentomp_modelo_bloco_departamento WHERE parRecebimentoMpModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoDepartamento, [bloco.parRecebimentoMpModeloBlocoID]);
 
                             // Deleta de par_recebimentomp_modelo_bloco
                             const sqlModeloBloco = `DELETE FROM par_recebimentomp_modelo_bloco WHERE parRecebimentoMpModeloBlocoID = ?`;
@@ -467,9 +467,9 @@ class RecebimentoMpController {
                         }
                     }
 
-                    // Deleta de par_recebimentomp_modelo_setor
-                    const sqlModeloSetor = `DELETE FROM par_recebimentomp_modelo_setor WHERE parRecebimentoMpModeloID = ?`;
-                    await db.promise().query(sqlModeloSetor, [id]);
+                    // Deleta de par_recebimentomp_modelo_departamento
+                    const sqlModeloDepartamento = `DELETE FROM par_recebimentomp_modelo_departamento WHERE parRecebimentoMpModeloID = ?`;
+                    await db.promise().query(sqlModeloDepartamento, [id]);
 
                     const logID = await executeLog('Exclusão de modelo de recebimento de MP', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)

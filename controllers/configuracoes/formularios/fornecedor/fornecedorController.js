@@ -240,18 +240,18 @@ class FornecedorController {
             };
 
             for (const item of resultBlock) {
-                //? Setores que preenchem 
-                const sqlSetores = `
+                //? Departamentos que preenchem 
+                const sqlDepartamentos = `
                 SELECT 
-                    pfmbs.parFornecedorModeloBlocoSetorID,
-                    s.setorID AS id, 
+                    pfmbs.parFornecedorModeloBlocodepartamentoID,
+                    s.departamentoID AS id, 
                     s.nome
-                FROM par_fornecedor_modelo_bloco_setor AS pfmbs 
-                    JOIN setor AS s ON (pfmbs.setorID = s.setorID)
+                FROM par_fornecedor_modelo_bloco_departamento AS pfmbs 
+                    JOIN departamento AS s ON (pfmbs.departamentoID = s.departamentoID)
                 WHERE pfmbs.parFornecedorModeloBlocoID = ?
-                GROUP BY s.setorID
+                GROUP BY s.departamentoID
                 ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [item.parFornecedorModeloBlocoID])
+                const [resultDepartamentos] = await db.promise().query(sqlDepartamentos, [item.parFornecedorModeloBlocoID])
 
                 const [resultItem] = await db.promise().query(sqlItem, [item.parFornecedorModeloBlocoID])
 
@@ -272,7 +272,7 @@ class FornecedorController {
                 const objData = {
                     dados: {
                         ...item,
-                        setores: resultSetores ?? [],
+                        departamentos: resultDepartamentos ?? [],
                     },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
@@ -337,25 +337,25 @@ class FornecedorController {
             const sqlModel = `INSERT INTO par_fornecedor_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parFornecedorModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_fornecedor_modelo', 'parFornecedorModeloID', null, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_fornecedor_modelo_departamento(parFornecedorModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parFornecedorModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parFornecedorModeloID, model.departamentosPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_departamento', 'parFornecedorModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_fornecedor_modelo_departamento(parFornecedorModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parFornecedorModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parFornecedorModeloID, model.departamentosConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_departamento', 'parFornecedorModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -381,29 +381,29 @@ class FornecedorController {
             WHERE parFornecedorModeloID = ?`
             await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_fornecedor_modelo', 'parFornecedorModeloID', id, logID)
 
-            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_fornecedor_modelo_setor
-            const sqlDeleteSetoresModelo = `DELETE FROM par_fornecedor_modelo_setor WHERE parFornecedorModeloID = ?`
-            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_fornecedor_modelo_setor', 'parFornecedorModeloID', id, logID)
+            //? Atualiza departamentos que preenchem e concluem o modelo. tabela: par_fornecedor_modelo_departamento
+            const sqlDeleteDepartamentosModelo = `DELETE FROM par_fornecedor_modelo_departamento WHERE parFornecedorModeloID = ?`
+            await executeQuery(sqlDeleteDepartamentosModelo, [id], 'delete', 'par_fornecedor_modelo_departamento', 'parFornecedorModeloID', id, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_fornecedor_modelo_departamento(parFornecedorModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosPreenchem[i].id, 1], 'insert', 'par_fornecedor_modelo_departamento', 'parFornecedorModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_fornecedor_modelo_setor(parFornecedorModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_fornecedor_modelo_departamento(parFornecedorModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_setor', 'parFornecedorModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosConcluem[i].id, 2], 'insert', 'par_fornecedor_modelo_departamento', 'parFornecedorModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -453,9 +453,9 @@ class FornecedorController {
                     const sqlDeleteBlockItems = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoID = ?`
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_fornecedor_modelo_bloco_item', 'parFornecedorModeloBlocoID', block, logID)
 
-                    // Setores do bloco
-                    const sqlDeleteBlockSetores = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', block, logID)
+                    // Departamentos do bloco
+                    const sqlDeleteBlockDepartamentos = `DELETE FROM par_fornecedor_modelo_bloco_departamento WHERE parFornecedorModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockDepartamentos, [block], 'delete', 'par_fornecedor_modelo_bloco_departamento', 'parFornecedorModeloBlocoID', block, logID)
 
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`
@@ -489,15 +489,15 @@ class FornecedorController {
                         block.dados.parFornecedorModeloBlocoID], 'update', 'par_fornecedor_modelo_bloco', 'parFornecedorModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
 
-                        //? Setores do bloco 
+                        //? Departamentos do bloco 
                         // deleta
-                        const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID = ?`
-                        await executeQuery(sqlDelete, [block.dados.parFornecedorModeloBlocoID], 'delete', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', block.dados.parFornecedorModeloBlocoID, logID)
+                        const sqlDelete = `DELETE FROM par_fornecedor_modelo_bloco_departamento WHERE parFornecedorModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parFornecedorModeloBlocoID], 'delete', 'par_fornecedor_modelo_bloco_departamento', 'parFornecedorModeloBlocoID', block.dados.parFornecedorModeloBlocoID, logID)
                         // insere novamente 
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_setor(parFornecedorModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [block.dados.parFornecedorModeloBlocoID, setor.id], 'insert', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_departamento(parFornecedorModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parFornecedorModeloBlocoID, departamento.id], 'insert', 'par_fornecedor_modelo_bloco_departamento', 'parFornecedorModeloBlocoID', id, logID)
                             }
                         })
                     } else {
@@ -518,11 +518,11 @@ class FornecedorController {
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parFornecedorModeloBlocoID = resultNewBlock //? parFornecedorModeloBlocoID que acabou de ser gerado
 
-                        //? Setores do bloco
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_setor(parFornecedorModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_fornecedor_modelo_bloco_setor', 'parFornecedorModeloBlocoID', id, logID)
+                        //? Departamentos do bloco
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_fornecedor_modelo_bloco_departamento(parFornecedorModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, departamento.id], 'insert', 'par_fornecedor_modelo_bloco_departamento', 'parFornecedorModeloBlocoID', id, logID)
                             }
                         })
                     }
@@ -618,9 +618,9 @@ class FornecedorController {
                             const sqlModeloBlocoItem = `DELETE FROM par_fornecedor_modelo_bloco_item WHERE parFornecedorModeloBlocoID = ?`;
                             await db.promise().query(sqlModeloBlocoItem, [bloco.parFornecedorModeloBlocoID]);
 
-                            // Deleta de par_fornecedor_modelo_bloco_setor 
-                            const sqlModeloBlocoSetor = `DELETE FROM par_fornecedor_modelo_bloco_setor WHERE parFornecedorModeloBlocoID = ?`;
-                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parFornecedorModeloBlocoID]);
+                            // Deleta de par_fornecedor_modelo_bloco_departamento 
+                            const sqlModeloBlocoDepartamento = `DELETE FROM par_fornecedor_modelo_bloco_departamento WHERE parFornecedorModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoDepartamento, [bloco.parFornecedorModeloBlocoID]);
 
                             // Deleta de par_fornecedor_modelo_bloco
                             const sqlModeloBloco = `DELETE FROM par_fornecedor_modelo_bloco WHERE parFornecedorModeloBlocoID = ?`;
@@ -628,9 +628,9 @@ class FornecedorController {
                         }
                     }
 
-                    // Deleta de par_fornecedor_modelo_setor
-                    const sqlModeloSetor = `DELETE FROM par_fornecedor_modelo_setor WHERE parFornecedorModeloID = ?`;
-                    await db.promise().query(sqlModeloSetor, [id]);
+                    // Deleta de par_fornecedor_modelo_departamento
+                    const sqlModeloDepartamento = `DELETE FROM par_fornecedor_modelo_departamento WHERE parFornecedorModeloID = ?`;
+                    await db.promise().query(sqlModeloDepartamento, [id]);
 
                     const logID = await executeLog('Exclusão de modelo de fornecedor', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)

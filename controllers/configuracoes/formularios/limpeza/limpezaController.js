@@ -92,18 +92,18 @@ class LimpezaController {
             };
 
             for (const item of resultBlock) {
-                //? Setores que preenchem 
-                const sqlSetores = `
+                //? Departamentos que preenchem 
+                const sqlDepartamentos = `
                 SELECT 
-                    plmbs.parLimpezaModeloBlocoSetorID,
-                    s.setorID AS id, 
+                    plmbs.parLimpezaModeloBlocodepartamentoID,
+                    s.departamentoID AS id, 
                     s.nome
-                FROM par_limpeza_modelo_bloco_setor AS plmbs 
-                    JOIN setor AS s ON (plmbs.setorID = s.setorID)
+                FROM par_limpeza_modelo_bloco_departamento AS plmbs 
+                    JOIN departamento AS s ON (plmbs.departamentoID = s.departamentoID)
                 WHERE plmbs.parLimpezaModeloBlocoID = ?
-                GROUP BY s.setorID
+                GROUP BY s.departamentoID
                 ORDER BY s.nome ASC`
-                const [resultSetores] = await db.promise().query(sqlSetores, [item.parLimpezaModeloBlocoID])
+                const [resultDepartamentos] = await db.promise().query(sqlDepartamentos, [item.parLimpezaModeloBlocoID])
 
                 const [resultItem] = await db.promise().query(sqlItem, [item.parLimpezaModeloBlocoID])
 
@@ -124,7 +124,7 @@ class LimpezaController {
                 const objData = {
                     dados: {
                         ...item,
-                        setores: resultSetores ?? [],
+                        departamentos: resultDepartamentos ?? [],
                     },
                     itens: resultItem ?? [],
                     optionsBlock: objOptionsBlock
@@ -189,25 +189,25 @@ class LimpezaController {
             const sqlModel = `INSERT INTO par_limpeza_modelo(nome, ciclo, cabecalho, unidadeID, status) VALUES (?, ?, ?, ?, ?)`
             const parLimpezaModeloID = await executeQuery(sqlModel, [model.nome, model.ciclo, model.cabecalho ?? '', unidadeID, (model.status ? 1 : 0)], 'insert', 'par_limpeza_modelo', 'parLimpezaModeloID', null, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_limpeza_modelo_departamento(parLimpezaModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parLimpezaModeloID, model.setoresPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parLimpezaModeloID, model.departamentosPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_departamento', 'parLimpezaModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_limpeza_modelo_departamento(parLimpezaModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [parLimpezaModeloID, model.setoresConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [parLimpezaModeloID, model.departamentosConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_departamento', 'parLimpezaModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -234,29 +234,29 @@ class LimpezaController {
             WHERE parLimpezaModeloID = ?`
             await executeQuery(sqlModel, [model?.nome, model?.ciclo, model?.cabecalho ?? '', (model?.status ? '1' : '0'), id], 'update', 'par_limpeza_modelo', 'parLimpezaModeloID', id, logID)
 
-            //? Atualiza setores que preenchem e concluem o modelo. tabela: par_limpeza_modelo_setor
-            const sqlDeleteSetoresModelo = `DELETE FROM par_limpeza_modelo_setor WHERE parLimpezaModeloID = ?`
-            await executeQuery(sqlDeleteSetoresModelo, [id], 'delete', 'par_limpeza_modelo_setor', 'parLimpezaModeloID', id, logID)
+            //? Atualiza departamentos que preenchem e concluem o modelo. tabela: par_limpeza_modelo_departamento
+            const sqlDeleteDepartamentosModelo = `DELETE FROM par_limpeza_modelo_departamento WHERE parLimpezaModeloID = ?`
+            await executeQuery(sqlDeleteDepartamentosModelo, [id], 'delete', 'par_limpeza_modelo_departamento', 'parLimpezaModeloID', id, logID)
 
-            //? Insere setores que preenchem
-            if (model && model.setoresPreenchem && model.setoresPreenchem.length > 0) {
-                for (let i = 0; i < model.setoresPreenchem.length; i++) {
-                    if (model.setoresPreenchem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+            //? Insere departamentos que preenchem
+            if (model && model.departamentosPreenchem && model.departamentosPreenchem.length > 0) {
+                for (let i = 0; i < model.departamentosPreenchem.length; i++) {
+                    if (model.departamentosPreenchem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_limpeza_modelo_departamento(parLimpezaModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosPreenchem[i].id, 1], 'insert', 'par_limpeza_modelo_departamento', 'parLimpezaModelodepartamentoID', null, logID)
                     }
                 }
             }
-            //? Insere setores que concluem
-            if (model && model.setoresConcluem && model.setoresConcluem.length > 0) {
-                for (let i = 0; i < model.setoresConcluem.length; i++) {
-                    if (model.setoresConcluem[i].id > 0) {
-                        const sqlInsertSetorModelo = `
-                        INSERT INTO par_limpeza_modelo_setor(parLimpezaModeloID, setorID, tipo) 
+            //? Insere departamentos que concluem
+            if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
+                for (let i = 0; i < model.departamentosConcluem.length; i++) {
+                    if (model.departamentosConcluem[i].id > 0) {
+                        const sqlInsertDepartamentoModelo = `
+                        INSERT INTO par_limpeza_modelo_departamento(parLimpezaModeloID, departamentoID, tipo) 
                         VALUES (?, ?, ?)`
-                        await executeQuery(sqlInsertSetorModelo, [id, model.setoresConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_setor', 'parLimpezaModeloSetorID', null, logID)
+                        await executeQuery(sqlInsertDepartamentoModelo, [id, model.departamentosConcluem[i].id, 2], 'insert', 'par_limpeza_modelo_departamento', 'parLimpezaModelodepartamentoID', null, logID)
                     }
                 }
             }
@@ -301,9 +301,9 @@ class LimpezaController {
                     const sqlDeleteBlockItems = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`
                     await executeQuery(sqlDeleteBlockItems, [block], 'delete', 'par_limpeza_modelo_bloco_item', 'parLimpezaModeloBlocoID', block, logID)
 
-                    // Setores do bloco
-                    const sqlDeleteBlockSetores = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID IN (${ids})`
-                    await executeQuery(sqlDeleteBlockSetores, [block], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', block, logID)
+                    // Departamentos do bloco
+                    const sqlDeleteBlockDepartamentos = `DELETE FROM par_limpeza_modelo_bloco_departamento WHERE parLimpezaModeloBlocoID IN (${ids})`
+                    await executeQuery(sqlDeleteBlockDepartamentos, [block], 'delete', 'par_limpeza_modelo_bloco_departamento', 'parLimpezaModeloBlocoID', block, logID)
 
                     // Blocos
                     const sqlDeleteBlock = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`
@@ -337,15 +337,15 @@ class LimpezaController {
                         block.dados.parLimpezaModeloBlocoID], 'update', 'par_limpeza_modelo_bloco', 'parLimpezaModeloID', id, logID)
                         if (!resultUpdateBlock) { return res.json(err); }
 
-                        //? Setores do bloco 
+                        //? Departamentos do bloco 
                         // deleta
-                        const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID = ?`
-                        await executeQuery(sqlDelete, [block.dados.parLimpezaModeloBlocoID], 'delete', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', block.dados.parLimpezaModeloBlocoID, logID)
+                        const sqlDelete = `DELETE FROM par_limpeza_modelo_bloco_departamento WHERE parLimpezaModeloBlocoID = ?`
+                        await executeQuery(sqlDelete, [block.dados.parLimpezaModeloBlocoID], 'delete', 'par_limpeza_modelo_bloco_departamento', 'parLimpezaModeloBlocoID', block.dados.parLimpezaModeloBlocoID, logID)
                         // insere novamente 
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_setor(parLimpezaModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [block.dados.parLimpezaModeloBlocoID, setor.id], 'insert', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_departamento(parLimpezaModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [block.dados.parLimpezaModeloBlocoID, departamento.id], 'insert', 'par_limpeza_modelo_bloco_departamento', 'parLimpezaModeloBlocoID', id, logID)
                             }
                         })
                     } else {
@@ -366,11 +366,11 @@ class LimpezaController {
                         if (!resultNewBlock) { return res.json(err); }
                         block.dados.parLimpezaModeloBlocoID = resultNewBlock //? parLimpezaModeloBlocoID que acabou de ser gerado
 
-                        //? Setores do bloco
-                        block.dados.setores && block.dados.setores.forEach(async (setor, indexSetor) => {
-                            if (setor && setor.id && setor.id > 0) {
-                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_setor(parLimpezaModeloBlocoID, setorID) VALUES (?, ?)`
-                                await executeQuery(sqlInsert, [resultNewBlock, setor.id], 'insert', 'par_limpeza_modelo_bloco_setor', 'parLimpezaModeloBlocoID', id, logID)
+                        //? Departamentos do bloco
+                        block.dados.departamentos && block.dados.departamentos.forEach(async (departamento, indexDepartamento) => {
+                            if (departamento && departamento.id && departamento.id > 0) {
+                                const sqlInsert = `INSERT INTO par_limpeza_modelo_bloco_departamento(parLimpezaModeloBlocoID, departamentoID) VALUES (?, ?)`
+                                await executeQuery(sqlInsert, [resultNewBlock, departamento.id], 'insert', 'par_limpeza_modelo_bloco_departamento', 'parLimpezaModeloBlocoID', id, logID)
                             }
                         })
                     }
@@ -467,9 +467,9 @@ class LimpezaController {
                             const sqlModeloBlocoItem = `DELETE FROM par_limpeza_modelo_bloco_item WHERE parLimpezaModeloBlocoID = ?`;
                             await db.promise().query(sqlModeloBlocoItem, [bloco.parLimpezaModeloBlocoID]);
 
-                            // Deleta de par_limpeza_modelo_bloco_setor 
-                            const sqlModeloBlocoSetor = `DELETE FROM par_limpeza_modelo_bloco_setor WHERE parLimpezaModeloBlocoID = ?`;
-                            await db.promise().query(sqlModeloBlocoSetor, [bloco.parLimpezaModeloBlocoID]);
+                            // Deleta de par_limpeza_modelo_bloco_departamento 
+                            const sqlModeloBlocoDepartamento = `DELETE FROM par_limpeza_modelo_bloco_departamento WHERE parLimpezaModeloBlocoID = ?`;
+                            await db.promise().query(sqlModeloBlocoDepartamento, [bloco.parLimpezaModeloBlocoID]);
 
                             // Deleta de par_limpeza_modelo_bloco
                             const sqlModeloBloco = `DELETE FROM par_limpeza_modelo_bloco WHERE parLimpezaModeloBlocoID = ?`;
@@ -477,9 +477,9 @@ class LimpezaController {
                         }
                     }
 
-                    // Deleta de par_limpeza_modelo_setor
-                    const sqlModeloSetor = `DELETE FROM par_limpeza_modelo_setor WHERE parLimpezaModeloID = ?`;
-                    await db.promise().query(sqlModeloSetor, [id]);
+                    // Deleta de par_limpeza_modelo_departamento
+                    const sqlModeloDepartamento = `DELETE FROM par_limpeza_modelo_departamento WHERE parLimpezaModeloID = ?`;
+                    await db.promise().query(sqlModeloDepartamento, [id]);
 
                     const logID = await executeLog('Exclusão de modelo de limpeza', usuarioID, unidadeID, req)
                     return deleteItem(id, objDelete.table, objDelete.column, logID, res)

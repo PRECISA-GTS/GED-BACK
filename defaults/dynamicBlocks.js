@@ -15,10 +15,10 @@ const { getBlockSectors } = require('./sector/getSectors');
     * 'par_recebimentomp_modelo_bloco_item'
     * 'parRecebimentoMpNaoConformidadeModeloBlocoItemID'
     * 'parRecebimentoMpModeloBlocoID'
-    * 'par_recebimentomp_modelo_bloco_setor'
+    * 'par_recebimentomp_modelo_bloco_departamento'
     
 */
-const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, columnKeyConfig, tableResponse, columnKeyResponse, tableConfigItem, columnKeyConfigItem, columnKeyConfigBlock, tableConfigSetor) => {
+const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, columnKeyConfig, tableResponse, columnKeyResponse, tableConfigItem, columnKeyConfigItem, columnKeyConfigBlock, tableConfigDepartamento) => {
 
     const sql = `
     SELECT *
@@ -80,9 +80,9 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
             for (const item of resultBloco) item.ordem = ++ordem;
         }
 
-        //? Obtem os setores que acessam o bloco e profissionais que acessam os setores
-        const sectors = await getBlockSectors(bloco[columnKeyConfigBlock], tableConfigSetor, columnKeyConfigBlock)
-        bloco['setores'] = sectors
+        //? Obtem os departamentos que acessam o bloco e profissionais que acessam os departamentos
+        const sectors = await getBlockSectors(bloco[columnKeyConfigBlock], tableConfigDepartamento, columnKeyConfigBlock)
+        bloco['departamentos'] = sectors
 
         //? Itens
         let resultAlternativa = []
