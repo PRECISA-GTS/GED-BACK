@@ -8,7 +8,7 @@ const { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks } = require('
 const { getDynamicHeaderFields } = require('../../../../defaults/dynamicFields');
 const { formatFieldsToTable, addFormStatusMovimentation, floatToFractioned, fractionedToFloat, getDateNow, getTimeNow } = require('../../../../defaults/functions');
 const { createScheduling, deleteScheduling, updateScheduling, updateStatusScheduling } = require('../../../../defaults/scheduling');
-const { getHeaderSectors } = require('../../../../defaults/sector/getSectors');
+const { getHeaderDepartments } = require('../../../../defaults/sector/getSectors');
 const instructionsNewFornecedor = require('../../../../email/template/fornecedor/instructionsNewFornecedor');
 const fornecedorPreenche = require('../../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 
@@ -197,7 +197,7 @@ class NaoConformidade {
                 'recebimentoMpNaoConformidadeID'
             )
 
-            const sectors = await getHeaderSectors(
+            const departments = await getHeaderDepartments(
                 modeloID,
                 'par_recebimentomp_naoconformidade_modelo_departamento',
                 'parRecebimentoMpNaoConformidadeModeloID'
@@ -239,8 +239,8 @@ class NaoConformidade {
                     color: result?.[0]?.statusCor ?? 'primary'
                 },
                 fields,
-                departamentosPreenchimento: sectors.fill ?? [],
-                departamentosConclusao: sectors.conclude ?? []
+                departamentosPreenchimento: departments.fill ?? [],
+                departamentosConclusao: departments.conclude ?? []
             }
 
             //? Função que retorna blocos dinâmicos definidos no modelo!

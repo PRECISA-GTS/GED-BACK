@@ -43,6 +43,22 @@ class ProfissionalController {
         }
     }
 
+    async getProfissionais(req, res) {
+        const { unidadeID } = req.body
+
+        if (!unidadeID) return res.status(400).json({ message: "Dados inválidos!" });
+
+        //? Busca usuários da unidade e papel atual 
+        const sql = `
+        SELECT profissionalID AS id, nome            
+        FROM profissional            
+        WHERE unidadeID = ? AND status = 1
+        ORDER BY nome ASC`
+        const [result] = await db.promise().query(sql, [unidadeID])
+
+        res.status(200).json(result)
+    }
+
     async getList(req, res) {
         const { unidadeID, papelID } = req.query
 

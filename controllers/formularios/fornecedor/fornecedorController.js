@@ -25,11 +25,31 @@ const instructionsNewFornecedor = require('../../../email/template/fornecedor/in
 const instructionsExistFornecedor = require('../../../email/template/fornecedor/instructionsExistFornecedor');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
-const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
+const { getHeaderDepartments } = require('../../../defaults/sector/getSectors');
 const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 const { createScheduling, deleteScheduling } = require('../../../defaults/scheduling');
 
 class FornecedorController {
+    async getFornecedores(req, res) {
+        const { unidadeID } = req.body
+        if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
+
+        try {
+            const sql = `
+            SELECT 
+                fornecedorID AS id, 
+                NULLIF(CONCAT_WS(" - ", cnpj, nome, NULLIF(CONCAT_WS("/", cidade, estado), '')), '') AS nome
+            FROM fornecedor 
+            WHERE unidadeID = ? AND atual = 1 AND status IN (60, 70)
+            ORDER BY nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID]);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
     async verifyIfHasModel(req, res) {
         const { id } = req.params
         const sql = `SELECT * FROM fornecedor WHERE fornecedorID = ?`
@@ -867,7 +887,7 @@ class FornecedorController {
             ORDER BY b.nome ASC`
             const [resultDepartamentos] = await db.promise().query(sqlDepartamentos, [modeloID])
 
-            const sectors = await getHeaderSectors(
+            const sectors = await getHeaderDepartments(
                 modeloID,
                 'par_fornecedor_modelo_departamento',
                 'parFornecedorModeloID'

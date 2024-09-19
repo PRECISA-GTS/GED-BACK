@@ -11,11 +11,30 @@ class ProdutoController {
             const sql = `
             SELECT
                 p.produtoID AS id,
-                CONCAT(p.nome, ' (', u.nome, ')') AS nome,
-                IF(p.limpeza = 1, 'Limpeza', '--') AS limpeza
+                CONCAT(p.nome, ' (', u.nome, ')') AS nome                
             FROM produto AS p
                 JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
             WHERE p.unidadeID = ? AND p.status = 1
+            ORDER BY p.nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID])
+
+            return res.status(200).json(result)
+        } catch (error) {
+            return res.status(500).json(error)
+        }
+    }
+
+    async getProdutosLimpeza(req, res) {
+        const { unidadeID } = req.body
+
+        try {
+            const sql = `
+            SELECT
+                p.produtoID AS id,
+                CONCAT(p.nome, ' (', u.nome, ')') AS nome
+            FROM produto AS p
+                JOIN unidademedida AS u ON (p.unidadeMedidaID = u.unidadeMedidaID)
+            WHERE p.unidadeID = ? AND p.status = 1 AND p.limpeza = 1
             ORDER BY p.nome ASC`
             const [result] = await db.promise().query(sql, [unidadeID])
 

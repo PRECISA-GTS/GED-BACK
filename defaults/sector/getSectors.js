@@ -7,7 +7,7 @@ const db = require('../../config/db');
     * 'parRecebimentoMpModeloID'    
 */
 
-const getHeaderSectors = async (modelID, table, tableKey) => {
+const getHeaderDepartments = async (modelID, table, tableKey) => {
     //? Departamentos vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
     const sql = `
     SELECT 
@@ -45,4 +45,4 @@ const getBlockSectors = async (blockID, table, tableKey) => {
     return result ?? []
 }
 
-module.exports = { getHeaderSectors, getBlockSectors }
+module.exports = { getHeaderDepartments, getBlockSectors }

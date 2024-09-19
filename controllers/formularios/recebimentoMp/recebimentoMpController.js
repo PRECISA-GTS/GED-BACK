@@ -10,7 +10,7 @@ const { send } = require('process');
 const fornecedorPreenche = require('../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 const sendMailConfig = require('../../../config/email');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
-const { getHeaderSectors } = require('../../../defaults/sector/getSectors');
+const { getHeaderDepartments } = require('../../../defaults/sector/getSectors');
 const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 
 class RecebimentoMpController {
@@ -381,7 +381,7 @@ class RecebimentoMpController {
                 nome: result[0]?.preencheProfissionalNome
             } : null
 
-            const sectors = await getHeaderSectors(
+            const departments = await getHeaderDepartments(
                 modeloID,
                 'par_recebimentomp_modelo_departamento',
                 'parRecebimentoMpModeloID'
@@ -412,7 +412,7 @@ class RecebimentoMpController {
                         isUser: result[0]?.fornecedorIsUser == 1 ? true : false
                     } : null,
                     //? Departamentos que preenchem
-                    departamentos: sectors.fill,
+                    departamentos: departments.fill,
                 },
                 fieldsFooter: {
                     concluded: result[0]?.dataFim ? true : false,
@@ -431,7 +431,7 @@ class RecebimentoMpController {
                         } : null
                     },
                     //? Departamentos que concluem
-                    departamentos: sectors.conclude,
+                    departamentos: departments.conclude,
                 },
                 fields: fields,
                 blocos: blocos ?? [],

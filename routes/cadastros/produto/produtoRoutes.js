@@ -13,6 +13,7 @@ produtoRoutes.delete(`${route}/:id/:usuarioID/:unidadeID`, produtoController.del
 produtoRoutes.post(`${route}/new/getData/:unidadeID`, produtoController.getNewData);
 produtoRoutes.post(`${route}/new/insertData`, produtoController.insertData);
 produtoRoutes.post(`${route}/getFormularios`, produtoController.getFormularios);
-produtoRoutes.post(`${route}/getProdutos`, produtoController.getProdutos); //? Acessado de outros módulos pra obter produtos ativos
+produtoRoutes.post(`${route}/getProdutos`, produtoController.getProdutos);
+produtoRoutes.post(`${route}/getProdutosLimpeza`, produtoController.getProdutosLimpeza);
 
 module.exports = produtoRoutes;

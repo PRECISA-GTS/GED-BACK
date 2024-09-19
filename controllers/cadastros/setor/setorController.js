@@ -114,6 +114,24 @@ class SetorController {
         }
     }
 
+    async getSetores(req, res) {
+        const { unidadeID } = req.body
+        if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
+
+        try {
+            const sql = `
+            SELECT setorID AS id, nome                
+            FROM setor 
+            WHERE unidadeID = ? 
+            ORDER BY nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID]);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
     async getData(req, res) {
         try {
             const { id } = req.params

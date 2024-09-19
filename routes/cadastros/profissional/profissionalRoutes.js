@@ -12,6 +12,7 @@ const route = '/profissional';
 profissionalRoutes.get(`${route}`, profissionalController.getList);
 profissionalRoutes.post(`${route}/getData/:id`, profissionalController.getData);
 profissionalRoutes.post(`${route}/new/getData`, profissionalController.getNewData);
+profissionalRoutes.post(`${route}/getProfissionais`, profissionalController.getProfissionais);
 
 // troca de senha
 profissionalRoutes.put(`${route}/updatePassword/:id`, profissionalController.updatePassword);

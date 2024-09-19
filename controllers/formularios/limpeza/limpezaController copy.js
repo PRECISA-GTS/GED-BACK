@@ -19,9 +19,9 @@ class LimpezaController {
         const sql = `
         SELECT 
             l.limpezaID AS id, 
-            IF(MONTH(l.dataInicio) > 0, DATE_FORMAT(l.dataInicio, "%d/%m/%Y"), '--') AS data, 
+            IF(MONTH(l.data) > 0, DATE_FORMAT(l.data, "%d/%m/%Y"), '--') AS data, 
             plm.nome AS modelo,
-            s2.nome AS setor,
+            IF(p.nome <> '', p.nome, '--') AS profissional, 
             s.statusID,
             s.nome AS status,
             s.cor,
@@ -29,9 +29,9 @@ class LimpezaController {
         FROM limpeza AS l
             JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
             JOIN status AS s ON (l.status = s.statusID)
-            LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)
+            LEFT JOIN profissional AS p ON (l.preencheProfissionalID = p.profissionalID)
         WHERE l.unidadeID = ?
-        ORDER BY l.dataInicio DESC, l.status ASC`
+        ORDER BY l.data DESC, l.status ASC`
 
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.json(result);
@@ -70,59 +70,66 @@ class LimpezaController {
     }
 
     async getData(req, res) {
-        const { id } = req.params
-        let { modelID, unidadeID } = req.body
-
         try {
-            if (!id || !unidadeID) return res.status(204).json({ error: 'Parâmetros não informados!' })
+            const { id } = req.params;
+            const { unidadeID, modelID } = req.body;
 
-            let result = []
-            let modeloID = modelID //? Quando vem de um formulário NOVO
+            console.log("🚀 ~ id, unidadeID, modelID:", id, unidadeID, modelID)
 
-            if (id && id > 0) {
-                const sql = `
-                SELECT 
-                    l.limpezaID AS id, 
-                    l.parLimpezaModeloID AS modeloID,
-                    DATE_FORMAT(l.dataInicio, "%Y-%m-%d") AS dataInicio,
-                    DATE_FORMAT(l.dataInicio, "%H:%i") AS horaInicio,
-                    DATE_FORMAT(l.dataFim, "%Y-%m-%d") AS dataFim,
-                    DATE_FORMAT(l.dataFim, "%H:%i") AS horaFim,
-                    l.limpezaHigienizacao,
-                    l.prestadorServico,
-                    l.fornecedorID, 
-                    f.nome AS fornecedor,
-                    l.departamentoID,
-                    d.nome AS departamento,
-                    l.profissionalID,
-                    p.nome AS profissional,
-                    l.setorID,
-                    s2.nome AS setor,
-                    l.temperaturaAgua,
-                    l.obs,
-                    s.statusID,
-                    s.nome AS statusNome,
-                    s.cor AS statusCor
-                FROM limpeza AS l
-                    JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
-                    LEFT JOIN status AS s ON (l.status = s.statusID)    
+            if (!id || id == 'undefined') { return res.json({ message: 'Erro ao listar formulário!' }) }
 
-                    LEFT JOIN fornecedor AS f ON (l.fornecedorID = f.fornecedorID)
-                    LEFT JOIN departamento AS d ON (l.departamentoID = d.departamentoID)
-                    LEFT JOIN profissional AS p ON (l.profissionalID = p.profissionalID)
-                    LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)                    
-                WHERE l.limpezaID = ? AND l.unidadeID = ?
-                ORDER BY l.dataInicio DESC, l.status ASC`
-                const [rows] = await db.promise().query(sql, [id, unidadeID])
-                result = rows
-                modeloID = rows[0].modeloID
+            const sqlResult = `
+            SELECT
+                r.parLimpezaModeloID,
+                prm.nome AS modeloNome,
+                prm.ciclo AS modeloCiclo,
+
+                r.unidadeID,
+                IF(r.dataInicio, DATE_FORMAT(r.dataInicio, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS dataInicio,
+                IF(r.dataInicio, DATE_FORMAT(r.dataInicio, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaInicio,
+                r.abreProfissionalID,
+                pa.nome AS abreProfissionalNome,
+                r.concluido,
+
+                IF(r.data, DATE_FORMAT(r.data, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS data,
+                IF(r.data, DATE_FORMAT(r.data, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS hora,
+                r.preencheProfissionalID,
+                pp.nome AS preencheProfissionalNome,
+
+                IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%Y-%m-%d'), DATE_FORMAT(NOW(), '%Y-%m-%d')) AS dataConclusao,
+                IF(r.dataConclusao, DATE_FORMAT(r.dataConclusao, '%H:%i'), DATE_FORMAT(NOW(), '%H:%i')) AS horaConclusao,
+                r.aprovaProfissionalID,
+                pap.nome AS aprovaProfissionalNome,
+
+                DATE_FORMAT(r.dataFim, '%Y-%m-%d') AS dataFim,
+                DATE_FORMAT(r.dataFim, '%H:%i') AS horaFim,
+                r.finalizaProfissionalID,
+                pf.nome AS finalizaProfissionalNome,
+                r.status,
+
+                u.nomeFantasia,
+                u.cnpj
+            FROM limpeza AS r
+                LEFT JOIN unidade AS u ON(r.unidadeID = u.unidadeID)
+                LEFT JOIN profissional AS pa ON(r.abreProfissionalID = pa.profissionalID)
+                LEFT JOIN profissional AS pp ON(r.preencheProfissionalID = pp.profissionalID)
+                LEFT JOIN profissional AS pap ON(r.aprovaProfissionalID = pap.profissionalID)
+                LEFT JOIN profissional AS pf ON(r.finalizaProfissionalID = pf.profissionalID)
+                LEFT JOIN par_limpeza_modelo AS prm ON (prm.parLimpezaModeloID = r.parLimpezaModeloID)
+            WHERE r.limpezaID = ? `
+            const [result] = await db.promise().query(sqlResult, [id])
+
+            const unidade = {
+                modelo: {
+                    id: result[0].parLimpezaModeloID ?? 0,
+                    nome: result[0]['modeloNome'],
+                    ciclo: result[0]['modeloCiclo']
+                },
+                unidadeID: result[0]['unidadeID'],
+                nomeFantasia: result[0]['nomeFantasia'],
+                cnpj: result[0]['cnpj']
             }
-
-            const sqlModelo = `
-            SELECT parLimpezaModeloID AS id, nome
-            FROM par_limpeza_modelo
-            WHERE parLimpezaModeloID = ?`
-            const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
+            const modeloID = result[0]['parLimpezaModeloID']
 
             //? Função que retorna fields dinâmicos definidos no modelo!
             const fields = await getDynamicHeaderFields(
@@ -137,79 +144,18 @@ class LimpezaController {
                 'limpezaID'
             )
 
-            //? Equipamentos 
-            const sqlEquipment = `
-            SELECT e.equipamentoID AS id, e.nome
-            FROM limpeza_equipamento AS le 
-                JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
-            WHERE le.limpezaID = ?
-            ORDER BY e.nome ASC`
-            const [rowsEquipment] = await db.promise().query(sqlEquipment, [id])
-
-            //? Produtos
-            const sqlProduct = `
-            SELECT p.produtoID AS id, p.nome
-            FROM limpeza_produto AS lp 
-                JOIN produto AS p ON (lp.produtoID = p.produtoID)
-            WHERE lp.limpezaID = ?
-            ORDER BY p.nome ASC`
-            const [rowsProduct] = await db.promise().query(sqlProduct, [id])
-
-            const departments = await getHeaderDepartments(
-                modeloID,
-                'par_limpeza_modelo_departamento',
-                'parLimpezaModeloID'
-            )
-
-            const today = getDateNow()
-            const time = getTimeNow()
-
-            const header = {
-                dataInicio: result?.[0]?.dataInicio ?? today,
-                horaInicio: result?.[0]?.horaInicio ?? time,
-                dataFim: result?.[0]?.dataFim ?? today,
-                horaFim: result?.[0]?.horaFim ?? time,
-                limpeza: (result?.[0]?.limpezaHigienizacao === 1 || result?.[0]?.limpezaHigienizacao === 2) ? true : false,
-                higienizacao: result?.[0]?.limpezaHigienizacao === 2 ? true : false,
-                prestadorServico: result?.[0]?.prestadorServico === 1 ? true : false,
-                fornecedor: {
-                    id: result?.[0]?.fornecedorID,
-                    nome: result?.[0]?.fornecedor
-                },
-                setor: {
-                    id: result?.[0]?.setorID,
-                    nome: result?.[0]?.setor
-                },
-                departamento: {
-                    id: result?.[0]?.departamentoID,
-                    nome: result?.[0]?.departamento
-                },
-                profissional: {
-                    id: result?.[0]?.profissionalID,
-                    nome: result?.[0]?.profissional
-                },
-                temperaturaAgua: result?.[0]?.temperaturaAgua,
-                equipamentos: rowsEquipment ?? [],
-                produtos: rowsProduct ?? [],
-                modelo: {
-                    id: resultModelo[0].id,
-                    nome: resultModelo[0].nome
-                },
-                status: {
-                    id: result?.[0]?.statusID ?? 10,
-                    label: result?.[0]?.statusNome ?? 'Novo',
-                    color: result?.[0]?.statusCor ?? 'primary'
-                },
-                fields,
-                departamentosPreenchimento: departments.fill ?? [],
-                departamentosConclusao: departments.conclude ?? []
-            }
+            const sqlBlocos = `
+            SELECT *
+            FROM par_limpeza_modelo_bloco
+            WHERE parLimpezaModeloID = ? AND status = 1
+            ORDER BY ordem ASC`
+            const [resultBlocos] = await db.promise().query(sqlBlocos, [modeloID])
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
             const blocos = await getDynamicBlocks(
                 id,
                 modeloID,
-                result?.[0]?.['statusID'] ?? 0,
+                result?.[0]?.['status'] ?? 0,
                 'limpezaID',
                 'par_limpeza_modelo_bloco',
                 'parLimpezaModeloID',
@@ -221,9 +167,104 @@ class LimpezaController {
                 'par_limpeza_modelo_bloco_departamento'
             )
 
-            return res.json({ header, blocos });
+            // Observação e status
+            const sqlOtherInformations = getSqlOtherInfos()
+            const [resultOtherInformations] = await db.promise().query(sqlOtherInformations, [id])
+
+            //* Última movimentação do formulário
+            const sqlLastMovimentation = `
+            SELECT
+                u.nome,
+                un.nomeFantasia,
+                s1.nome AS statusAnterior,
+                s2.nome AS statusAtual,
+                DATE_FORMAT(m.dataHora, '%d/%m/%Y %H:%i') AS dataHora,
+                m.observacao
+            FROM movimentacaoformulario AS m
+                JOIN usuario AS u ON(m.usuarioID = u.usuarioID)
+                JOIN unidade AS un ON(m.unidadeID = un.unidadeID)
+                LEFT JOIN status AS s1 ON(s1.statusID = m.statusAnterior)
+                LEFT JOIN status AS s2 ON(s2.statusID = m.statusAtual)
+            WHERE m.parFormularioID = 4 AND m.id = ?
+            ORDER BY m.movimentacaoFormularioID DESC 
+            LIMIT 1`
+            const [resultLastMovimentation] = await db.promise().query(sqlLastMovimentation, [id])
+
+            //? Cabeçalho do modelo do formulário 
+            const sqlCabecalhoModelo = `
+            SELECT cabecalho
+            FROM par_limpeza_modelo
+            WHERE parLimpezaModeloID = ? `
+            const [resultCabecalhoModelo] = await db.promise().query(sqlCabecalhoModelo, [modeloID])
+
+            const today = getDateNow()
+            const time = getTimeNow()
+
+            //? Departamentos vinculados ao cabeçalho e rodapé (preenchimento e conclusão)
+            const sectors = await getHeaderDepartments(
+                modeloID,
+                'par_limpeza_modelo_departamento',
+                'parLimpezaModeloID'
+            )
+
+            const data = {
+                unidade: unidade,
+                fieldsHeader: {
+                    //? Fixos
+                    abertoPor: {
+                        dataInicio: result[0]?.dataInicio ?? today,
+                        horaInicio: result[0]?.horaInicio ?? time,
+                        profissional: result[0].abreProfissionalID > 0 ? {
+                            id: result[0].abreProfissionalID,
+                            nome: result[0].abreProfissionalNome
+                        } : null
+                    },
+                    //? Fields                    
+                    data: result[0].data,
+                    hora: result[0].hora,
+                    profissional: result[0].preencheProfissionalID > 0 ? {
+                        id: result[0].preencheProfissionalID,
+                        nome: result[0].preencheProfissionalNome
+                    } : null,
+                    //? Departamentos que preenchem
+                    departamentos: sectors.fill,
+                },
+                fieldsFooter: {
+                    concluded: result[0].dataFim ? true : false,
+
+                    dataConclusao: result[0]?.dataConclusao ?? today,
+                    horaConclusao: result[0]?.horaConclusao ?? time,
+                    profissional: result[0].aprovaProfissionalID > 0 ? {
+                        id: result[0].aprovaProfissionalID,
+                        nome: result[0].aprovaProfissionalNome
+                    } : null,
+
+                    conclusion: {
+                        dataFim: result[0].dataFim,
+                        horaFim: result[0].horaFim,
+                        profissional: result[0].finalizaProfissionalID > 0 ? {
+                            id: result[0].finalizaProfissionalID,
+                            nome: result[0].finalizaProfissionalNome
+                        } : null
+                    },
+                    //? Departamentos que concluem
+                    departamentos: sectors.conclude
+                },
+                fields: fields,
+                blocos: blocos ?? [],
+                ultimaMovimentacao: resultLastMovimentation[0] ?? null,
+                info: {
+                    obs: resultOtherInformations[0].obs,
+                    status: resultOtherInformations[0].status,
+                    concluido: result[0].concluido == 1 ? true : false,
+                    cabecalhoModelo: resultCabecalhoModelo[0].cabecalho
+                },
+                link: `${process.env.BASE_URL}formularios/limpeza?id=${id}`
+            }
+
+            res.status(200).json(data);
         } catch (error) {
-            console.log("🚀 ~ error:", error)
+            console.log(error)
         }
     }
 

@@ -14,5 +14,6 @@ setorRoutes.delete(`${route}/:id/:unidadeID/:usuarioID`, setorController.deleteD
 setorRoutes.post(`${route}/getDepartamentosAssinatura`, setorController.getDepartamentosAssinatura);
 setorRoutes.post(`${route}/getProfissionaisDepartamentosAssinatura`, setorController.getProfissionaisDepartamentosAssinatura);
 setorRoutes.post(`${route}/getProfessionals`, setorController.getProfessionals);
+setorRoutes.post(`${route}/getSetores`, setorController.getSetores);
 
 module.exports = setorRoutes;
