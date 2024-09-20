@@ -78,6 +78,24 @@ class NaoConformidade {
         }
     }
 
+    async getModels(req, res) {
+        const { unidadeID } = req.body
+        try {
+            if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
+
+            const sql = `
+            SELECT parRecebimentoMpNaoConformidadeModeloID AS id, nome
+            FROM par_recebimentomp_naoconformidade_modelo
+            WHERE unidadeID = ? AND status = 1
+            ORDER BY nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID])
+            return res.json(result);
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
     async getData(req, res) {
         let { id, modelID, recebimentoMpID, unidadeID, papelID } = req.body
 
@@ -540,24 +558,6 @@ class NaoConformidade {
         }
 
         res.status(200).json({ message: 'Ok' })
-    }
-
-    async getModels(req, res) {
-        const { unidadeID } = req.body
-        try {
-            if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
-
-            const sql = `
-            SELECT parRecebimentoMpNaoConformidadeModeloID AS id, nome
-            FROM par_recebimentomp_naoconformidade_modelo
-            WHERE unidadeID = ? AND status = 1
-            ORDER BY nome ASC`
-            const [result] = await db.promise().query(sql, [unidadeID])
-            return res.json(result);
-
-        } catch (error) {
-            console.log("🚀 ~ error:", error)
-        }
     }
 
     async getRecebimentoMPNC(req, res) {

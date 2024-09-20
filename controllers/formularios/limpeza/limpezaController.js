@@ -2,13 +2,13 @@ const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
 require('dotenv/config')
-const { addFormStatusMovimentation, formatFieldsToTable, getDateNow, getTimeNow } = require('../../../defaults/functions');
+const { addFormStatusMovimentation, formatFieldsToTable, getDateNow, getTimeNow, updateMultipleSelect, insertMultipleSelect } = require('../../../defaults/functions');
 const { hasPending, deleteItem, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
 const { getHeaderDepartments } = require('../../../defaults/sector/getSectors');
-const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
-const { deleteScheduling, createScheduling } = require('../../../defaults/scheduling');
+const { getDynamicBlocks, updateDynamicBlocks, insertDynamicBlocks } = require('../../../defaults/dynamicBlocks');
+const { deleteScheduling, createScheduling, updateScheduling, updateStatusScheduling } = require('../../../defaults/scheduling');
 
 class LimpezaController {
     async getList(req, res) {
@@ -38,43 +38,24 @@ class LimpezaController {
     }
 
     async getModels(req, res) {
-        const { unidadeID } = req.params;
+        const { unidadeID } = req.body
+        if (!unidadeID) return
 
         const sql = `
-        SELECT a.parLimpezaModeloID AS id, a.nome, a.ciclo, a.cabecalho
-        FROM par_limpeza_modelo AS a 
-        WHERE a.unidadeID = ? AND a.status = 1 
-        ORDER BY a.nome ASC`
+        SELECT parLimpezaModeloID AS id, nome, ciclo, cabecalho
+        FROM par_limpeza_modelo
+        WHERE unidadeID = ? AND status = 1 
+        ORDER BY nome ASC`
         const [result] = await db.promise().query(sql, [unidadeID])
 
         return res.status(200).json(result)
     }
 
-    async insertData(req, res) {
-        const data = req.body
-
-        if (!data.model.id || !data.unidadeID) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
-
-        const logID = await executeLog('Criação de formulário de limpeza', data.usuarioID, data.unidadeID, req)
-
-        const sqlInsert = `INSERT INTO limpeza SET parLimpezaModeloID = ?, data = ?, dataInicio = ?, abreProfissionalID = ?, unidadeID = ?`
-        const limpezaID = await executeQuery(sqlInsert, [
-            data.model.id,
-            new Date(),
-            new Date(),
-            data.profissionalID,
-            data.unidadeID
-        ], 'insert', 'limpeza', 'limpezaID', null, logID)
-
-        return res.status(200).json({ limpezaID })
-    }
-
     async getData(req, res) {
-        const { id } = req.params
-        let { modelID, unidadeID } = req.body
+        let { id, modelID, unidadeID } = req.body
 
         try {
-            if (!id || !unidadeID) return res.status(204).json({ error: 'Parâmetros não informados!' })
+            if (!unidadeID) return res.status(204).json({ error: 'Parâmetros não informados!' })
 
             let result = []
             let modeloID = modelID //? Quando vem de um formulário NOVO
@@ -119,7 +100,7 @@ class LimpezaController {
             }
 
             const sqlModelo = `
-            SELECT parLimpezaModeloID AS id, nome
+            SELECT parLimpezaModeloID AS id, nome, ciclo
             FROM par_limpeza_modelo
             WHERE parLimpezaModeloID = ?`
             const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
@@ -193,7 +174,8 @@ class LimpezaController {
                 produtos: rowsProduct ?? [],
                 modelo: {
                     id: resultModelo[0].id,
-                    nome: resultModelo[0].nome
+                    nome: resultModelo[0].nome,
+                    ciclo: resultModelo[0].ciclo
                 },
                 status: {
                     id: result?.[0]?.statusID ?? 10,
@@ -229,30 +211,43 @@ class LimpezaController {
 
     async updateData(req, res) {
         const { id } = req.params
-        const data = req.body.form
-        const { usuarioID, profissionalID, papelID, unidadeID } = req.body.auth
+        const { form, auth } = req.body
+        const { header, blocos } = form
+        const { usuarioID, unidadeID, papelID } = auth
 
         try {
-            if (!id || id == 'undefined') { return res.json({ message: 'ID não recebido!' }); }
+            if (!id || id == 'undefined') return res.status(400).json({ error: 'ID do formulário não informado!' })
 
-            const logID = await executeLog('Edição formulário de limpeza', usuarioID, unidadeID, req)
+            const logID = await executeLog('Edição formulário de Não Conformidade do Recebimento Mp', usuarioID, unidadeID, req)
 
-            //? Atualiza header e footer fixos
-            const sqlStaticlHeader = `
-            UPDATE limpeza SET data = ?, preencheProfissionalID = ?, dataConclusao = ?, aprovaProfissionalID = ?
-            WHERE limpezaID = ? `
-            const resultStaticHeader = await executeQuery(sqlStaticlHeader, [
-                data.fieldsHeader?.data ? `${data?.fieldsHeader?.data} ${data?.fieldsHeader?.hora}` : null,
-                data.fieldsHeader?.profissional?.id ?? null,
-                data.fieldsFooter?.dataConclusao ? `${data.fieldsFooter.dataConclusao} ${data.fieldsFooter.horaConclusao} ` : null,
-                data.fieldsFooter?.profissional?.id ?? null,
+            //? Atualiza itens fixos (header)
+            const sql = `
+            UPDATE limpeza SET 
+                dataInicio = ?, 
+                dataFim = ?,
+                limpezaHigienizacao = ?,
+                prestadorServico = ?,
+                fornecedorID = ?,
+                departamentoID = ?,
+                profissionalID = ?,
+                setorID = ?                
+            WHERE limpezaID = ?`
+            await executeQuery(sql, [
+                header.dataInicio + ' ' + header.horaInicio + ':00',
+                header.dataFim + ' ' + header.horaFim + ':00',
+                header.higienizacao ? '2' : '1',
+                header.prestadorServico ? '1' : '0',
+                header.fornecedor?.id ?? null,
+                header.departamento?.id ?? null,
+                header.profissional?.id ?? null,
+                header.setor.id,
                 id
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 
             //? Atualizar o header dinâmico e setar o status        
-            if (data.fields) {
+            if (header.fields) {
                 //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
-                let dataHeader = await formatFieldsToTable('par_limpeza', data.fields)
+                let dataHeader = await formatFieldsToTable('par_limpeza', header.fields)
                 if (Object.keys(dataHeader).length > 0) {
                     const sqlHeader = `UPDATE limpeza SET ? WHERE limpezaID = ${id} `;
                     const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'limpeza', 'limpezaID', id, logID)
@@ -260,10 +255,28 @@ class LimpezaController {
                 }
             }
 
+            //? Atualiza equipamentos
+            await updateMultipleSelect(
+                'limpeza_equipamento',
+                'limpezaID',
+                'equipamentoID',
+                id,
+                header.equipamentos
+            )
+
+            //? Atualiza produtos
+            await updateMultipleSelect(
+                'limpeza_produto',
+                'limpezaID',
+                'produtoID',
+                id,
+                header.produtos
+            )
+
             //? Atualiza blocos do modelo 
             await updateDynamicBlocks(
                 id,
-                data.blocos,
+                blocos,
                 'limpeza_resposta',
                 'limpezaID',
                 'parLimpezaModeloBlocoID',
@@ -271,88 +284,225 @@ class LimpezaController {
                 logID
             )
 
-            // Observação
-            const sqlUpdateObs = `UPDATE limpeza SET obs = ?, obsConclusao = ? WHERE limpezaID = ? `
-            const resultUpdateObs = await executeQuery(sqlUpdateObs, [data.info?.obs, data?.obsConclusao, id], 'update', 'limpeza', 'limpezaID', id, logID)
-            if (!resultUpdateObs) { return res.json('Error'); }
+            //? Cria agendamento no calendário com a data de vencimento            
+            const subtitle = `${header.dataInicio} ${header.horaInicio} (${header.setor.nome})`
+            await updateScheduling(id, 'limpeza', 'Limpeza e Higienização', subtitle, header.dataInicio, header.modelo.ciclo, unidadeID, logID)
 
-            //* Status
-            const newStatus = data.info.status < 30 ? 30 : data.info.status
-            //* Fecha formulário se status >= 40
-            const concluido = data.info.status >= 40 ? '1' : '0'
-
-            const sqlUpdateStatus = `UPDATE limpeza SET status = ?, dataFim = ?, finalizaProfissionalID = ?, concluido = ? WHERE limpezaID = ? `
-            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
-                newStatus,
-                newStatus >= 40 ? new Date() : null,
-                newStatus >= 40 ? profissionalID : null,
-                concluido,
-                id
-            ], 'update', 'limpeza', 'limpezaID', id, logID)
-
-            //? Gera histórico de alteração de status
-            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, newStatus, data?.obsConclusao)
+            //? Gera histórico de alteração de status 
+            const newStatus = header.status.id < 30 ? 30 : header.status.id
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, newStatus, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
 
-            //? Cria agendamento no calendário com a data de vencimento
-            if (concluido == '1' && newStatus >= 40) {
-                createScheduling(id, 'limpeza', data.unidade?.modelo?.nome, data?.fieldsHeader?.profissional?.nome, data?.fieldsHeader?.data, data.unidade?.modelo?.ciclo, unidadeID, logID)
-            }
-
-            res.status(200).json({ message: 'Dados atualizados!' })
+            return res.status(201).json({ message: "Formulário atualizado com sucesso!" })
 
         } catch (error) {
-            console.log({ error, message: 'Erro ao atualizar os dados!' })
+            console.log("🚀 ~ error:", error)
         }
     }
 
-    async changeFormStatus(req, res) {
+    async insertData(req, res) {
+        const { form, auth } = req.body
+        const { header, blocos } = form
+        const { usuarioID, unidadeID, papelID, profissionalID } = auth
+
+        try {
+            const logID = await executeLog('Criação formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
+
+            //? Insere itens fixos (header)
+            const sql = `
+            INSERT INTO limpeza (
+                parLimpezaModeloID,
+                dataInicio,
+                dataFim,
+                limpezaHigienizacao,
+                prestadorServico,
+                fornecedorID,
+                profissionalID,
+                setorID,                
+                status,
+                unidadeID
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            const id = await executeQuery(sql, [
+                header.modelo.id,
+                header.dataInicio + ' ' + header.horaInicio + ':00',
+                header.dataFim + ' ' + header.horaFim + ':00',
+                header.higienacao ? '2' : '1',
+                header.prestadorServico ? '1' : '0',
+                header.fornecedor?.id ?? null,
+                header.profissional?.id ?? null,
+                header.setor?.id ?? null,
+                30,
+                unidadeID
+            ], 'insert', 'limpeza', 'limpezaID', header.modelo.id, logID)
+            if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
+
+            //? Atualizar o header dinâmico e setar o status        
+            if (header.fields) {
+                //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
+                let dataHeader = await formatFieldsToTable('par_limpeza', header.fields)
+                if (Object.keys(dataHeader).length > 0) {
+                    const sqlHeader = `UPDATE limpeza SET ? WHERE limpezaID = ${id} `;
+                    const resultHeader = await executeQuery(sqlHeader, [dataHeader], 'update', 'limpeza', 'limpezaID', id, logID)
+                    if (resultHeader.length === 0) { return res.status(500).json('Error'); }
+                }
+            }
+
+            //? Insere equipamentos
+            insertMultipleSelect(
+                'limpeza_equipamento',
+                'limpezaID',
+                'equipamentoID',
+                id,
+                header.equipamentos
+            )
+
+            //? Insere produtos
+            insertMultipleSelect(
+                'limpeza_produto',
+                'limpezaID',
+                'produtoID',
+                id,
+                header.produtos
+            )
+
+            //? Insere blocos do modelo 
+            await insertDynamicBlocks(
+                blocos,
+                'parLimpezaModeloBlocoID',
+                'limpeza_resposta',
+                'limpezaID',
+                'limpezaRespostaID',
+                id,
+                logID
+            )
+
+            //? Cria agendamento no calendário com a data de vencimento            
+            const subtitle = `${header.dataInicio} ${header.horaInicio} (${header.setor.nome})`
+            await createScheduling(id, 'limpeza', 'Limpeza e Higienização', subtitle, header.dataInicio, header.modelo.ciclo, unidadeID, logID)
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, 30, null)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+            return res.status(200).json({ id })
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async conclude(req, res) {
+        let { id, usuarioID, papelID, unidadeID, profissionalID } = req.body.params
+        const form = req.body.form
+
+        try {
+            if (!id) {
+                return res.status(400).json({ error: 'Formulário não informado!' })
+            }
+
+            const logID = await executeLog('Conclusão formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
+            const sql = `
+            UPDATE limpeza 
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, concluido = ?
+            WHERE limpezaID = ?`
+            await executeQuery(sql, [
+                form.status,
+                profissionalID,
+                new Date(),
+                form.obsConclusao ?? '',
+                id
+            ], 'update', 'limpeza', 'limpezaID', id, logID)
+
+            updateStatusScheduling(id, '/formularios/limpeza', 1, unidadeID, logID)
+
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+
+            return res.status(201).json({ message: "Formulário concluído com sucesso!" })
+        } catch (error) {
+            console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async reOpen(req, res) {
         const { id } = req.params
         const { status, observacao } = req.body
         const { usuarioID, papelID, unidadeID } = req.body.auth
 
-        if (!status) { return res.status(400).json({ message: 'Status obrigatório!' }) }
+        //? É uma fábrica, e formulário já foi concluído
+        if (status && papelID == 1) {
+            const logID = await executeLog('Edição do status do formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
+            const sqlUpdateStatus = `
+            UPDATE limpeza
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, concluido = ?
+            WHERE limpezaID = ?`
+            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
+                status,
+                null,
+                null,
+                null,
+                id
+            ], 'update', 'limpeza', 'limpezaID', id, logID)
 
-        const logID = await executeLog('Edição do status do formulário de limpeza', usuarioID, unidadeID, req)
+            updateStatusScheduling(id, '/formularios/limpeza', 0, unidadeID, logID)
 
-        const sqlUpdateStatus = `
-        UPDATE limpeza 
-        SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataConclusao = ?, finalizaProfissionalID = ?, concluido = ?  
-        WHERE limpezaID = ?`
-        const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
-            status,
-            null,
-            null,
-            null,
-            null,
-            '0',
-            id
-        ], 'update', 'limpeza', 'limpezaID', id, logID)
-
-        //? Gera histórico de alteração de status
-        const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, status, observacao)
-        if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
-
-        //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
-        deleteScheduling('limpeza', id, unidadeID, logID)
+            //? Gera histórico de alteração de status
+            const movimentation = await addFormStatusMovimentation(4, id, usuarioID, unidadeID, papelID, status, observacao)
+            if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
+        }
 
         res.status(200).json({ message: 'Ok' })
     }
 
-    //* Salva os anexos do formulário na pasta uploads/anexo e insere os dados na tabela anexo
+    async deleteData(req, res) {
+        const { id, usuarioID, unidadeID } = req.params
+        const objDelete = {
+            table: ['limpeza_produto', 'limpeza_equipamento', 'limpeza_resposta', 'limpeza'],
+            column: 'limpezaID'
+        }
+
+        const arrPending = []
+
+        if (!arrPending || arrPending.length === 0) {
+            const logID = await executeLog('Exclusão formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
+            return deleteItem(id, objDelete.table, objDelete.column, logID, res)
+        }
+
+
+        hasPending(id, arrPending)
+            .then(async (hasPending) => {
+                if (hasPending) {
+                    res.status(409).json({ message: "Dado possui pendência." });
+                } else {
+                    const logID = await executeLog('Exclusão formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
+
+                    //? Remove agendamento de vencimento deste formulário (ao concluir criará novamente)
+                    deleteScheduling('limpeza', id, unidadeID, logID)
+
+                    return deleteItem(id, objDelete.table, objDelete.column, logID, res)
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+                res.status(500).json(err);
+            });
+    }
+
     async saveAnexo(req, res) {
         try {
             const { id } = req.params;
             const pathDestination = req.pathDestination
             const files = req.files; //? Array de arquivos
 
-            const { usuarioID, unidadeID, parLimpezaModeloBlocoID, itemOpcaoAnexoID } = req.body;
+            const { usuarioID, unidadeID, grupoAnexoItemID, parLimpezaModeloBlocoID, itemOpcaoAnexoID } = req.body;
 
             //? Verificar se há arquivos enviados
             if (!files || files.length === 0) {
                 return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
             }
-            const logID = await executeLog('Salvo anexo do formulário de limpeza', usuarioID, unidadeID, req)
+            const logID = await executeLog('Salvo anexo do formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
 
             let result = []
             for (let i = 0; i < files.length; i++) {
@@ -372,10 +522,12 @@ class LimpezaController {
                 ], 'insert', 'anexo', 'anexoID', null, logID)
 
                 //? Insere em anexo_busca
-                const sqlInsertBusca = `INSERT INTO anexo_busca(anexoID, limpezaID, parLimpezaModeloBlocoID, itemOpcaoAnexoID) VALUES(?,?,?,?)`;
+                const sqlInsertBusca = `
+                INSERT INTO anexo_busca(anexoID, limpezaID, grupoAnexoItemID, parLimpezaModeloBlocoID, itemOpcaoAnexoID) VALUES(?,?,?,?,?)`;
                 await executeQuery(sqlInsertBusca, [
                     anexoID,
                     id,
+                    grupoAnexoItemID ?? null,
                     parLimpezaModeloBlocoID ?? null,
                     itemOpcaoAnexoID ?? null
                 ], 'insert', 'anexo_busca', 'anexoBuscaID', null, logID)
@@ -419,7 +571,7 @@ class LimpezaController {
             });
         }
 
-        const logID = await executeLog('Remoção de anexo do formulário de limpeza', usuarioID, unidadeID, req)
+        const logID = await executeLog('Remoção de anexo de limpeza e higienização', usuarioID, unidadeID, req)
 
         //? Remove anexo do BD
         const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`;
@@ -430,48 +582,6 @@ class LimpezaController {
 
         res.status(200).json(anexoID);
     }
-
-    async deleteData(req, res) {
-        const { id, usuarioID, unidadeID } = req.params
-        const objDelete = {
-            table: ['anexo_busca', 'limpeza_resposta', 'limpeza'],
-            column: 'limpezaID'
-        }
-
-        const arrPending = []
-
-        if (!arrPending || arrPending.length === 0) {
-            const logID = await executeLog('Exclusão anexo no formulário de limpeza', usuarioID, unidadeID, req)
-            return deleteItem(id, objDelete.table, objDelete.column, logID, res)
-        }
-
-        hasPending(id, arrPending)
-            .then(async (hasPending) => {
-                if (hasPending) {
-                    res.status(409).json({ message: "Dado possui pendência." });
-                } else {
-                    const logID = await executeLog('Exclusão anexo no formulário de limpeza', usuarioID, unidadeID, req)
-                    return deleteItem(id, objDelete.table, objDelete.column, logID, res)
-                }
-            })
-            .catch((err) => {
-                console.log(err);
-                res.status(500).json(err);
-            });
-    }
-
-    async saveRelatorio(req, res) {
-        const pathDestination = req.pathDestination
-        const files = req.files;
-    }
-}
-
-const getSqlOtherInfos = () => {
-    const sql = `
-    SELECT obs, status
-    FROM limpeza
-    WHERE limpezaID = ? `
-    return sql
 }
 
 module.exports = LimpezaController;

@@ -280,6 +280,50 @@ const getTimeNow = () => {
     return `${hourMinute[0]}:${hourMinute[1]}`
 }
 
+/*
+    'limpeza_produto'
+    'limpezaID'
+    'produtoID'
+    limpezaID -> id
+    arrValues -> [{id: 1}, {id: 2}]
+*/
+const updateMultipleSelect = async (table, tableKey, focusKey, id, arrValues) => {
+    const novosProdutosIDs = arrValues.map(row => row.id)
+
+    try {
+        const [produtosExistentes] = await db.promise().query(`SELECT ${focusKey} FROM ${table} WHERE ${tableKey} = ?`, [id])
+        const produtosExistentesIDs = produtosExistentes.map(row => row[focusKey])
+        const produtosParaRemover = produtosExistentesIDs.filter(id => !novosProdutosIDs.includes(id))
+        const produtosParaAdicionar = novosProdutosIDs.filter(id => !produtosExistentesIDs.includes(id))
+        if (produtosParaRemover.length > 0) {
+            await db.promise().query(`DELETE FROM ${table} WHERE ${tableKey} = ? AND ${focusKey} IN (?)`, [id, produtosParaRemover])
+        }
+        if (produtosParaAdicionar.length > 0) {
+            const values = produtosParaAdicionar.map(rowID => `(${id}, ${rowID})`).join(',')
+            await db.promise().query(`INSERT INTO ${table} (${tableKey}, ${focusKey}) VALUES ${values}`)
+        }
+
+        console.log('Dados atualizados com sucesso!')
+    } catch (error) {
+        console.error('Erro ao atualizar produtos:', error)
+    }
+}
+
+const insertMultipleSelect = async (table, tableKey, focusKey, id, arrValues) => {
+    if (!arrValues || arrValues.length == 0) return
+
+    const novosProdutosIDs = arrValues.map(row => row.id)
+
+    try {
+        const values = novosProdutosIDs.map(rowID => `(${id}, ${rowID})`).join(',')
+        await db.promise().query(`INSERT INTO ${table} (${tableKey}, ${focusKey}) VALUES ${values}`)
+
+        console.log('Dados inseridos com sucesso!')
+    } catch (error) {
+        console.error('Erro ao inserir produtos:', error)
+    }
+}
+
 module.exports = {
     addFormStatusMovimentation,
     formatFieldsToTable,
@@ -291,5 +335,7 @@ module.exports = {
     fractionedToFloat,
     floatToFractioned,
     getDateNow,
-    getTimeNow
+    getTimeNow,
+    updateMultipleSelect,
+    insertMultipleSelect
 };

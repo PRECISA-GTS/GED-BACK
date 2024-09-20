@@ -63,15 +63,15 @@ class FabricaController {
             SELECT 
                 lm.nome, 
                 lm.ciclo, 
-                DATE_FORMAT(MAX(l.data), '%d/%m/%Y') AS ultimo,	
-                DATE_FORMAT(DATE_ADD(MAX(l.data), INTERVAL lm.ciclo DAY), '%d/%m/%Y') AS limite,
-                DATEDIFF(DATE_ADD(MAX(l.data), INTERVAL lm.ciclo DAY), CURDATE()) AS diasRestantes,
-                (100 - ((DATEDIFF(DATE_ADD(MAX(l.data), INTERVAL lm.ciclo DAY), CURDATE()) * 100) / lm.ciclo)) AS porcentagem
+                DATE_FORMAT(MAX(l.dataInicio), '%d/%m/%Y') AS ultimo,	
+                DATE_FORMAT(DATE_ADD(MAX(l.dataInicio), INTERVAL lm.ciclo DAY), '%d/%m/%Y') AS limite,
+                DATEDIFF(DATE_ADD(MAX(l.dataInicio), INTERVAL lm.ciclo DAY), CURDATE()) AS diasRestantes,
+                (100 - ((DATEDIFF(DATE_ADD(MAX(l.dataInicio), INTERVAL lm.ciclo DAY), CURDATE()) * 100) / lm.ciclo)) AS porcentagem
             FROM limpeza AS l 
                 JOIN par_limpeza_modelo AS lm ON (l.parLimpezaModeloID = lm.parLimpezaModeloID)
             WHERE l.unidadeID = ? AND lm.status = 1
             GROUP BY lm.parLimpezaModeloID
-            ORDER BY DATEDIFF(DATE_ADD(MAX(l.data), INTERVAL lm.ciclo DAY), CURDATE()) ASC`
+            ORDER BY DATEDIFF(DATE_ADD(MAX(l.dataInicio), INTERVAL lm.ciclo DAY), CURDATE()) ASC`
             const [resultSqlLimpeza] = await db.promise().query(sqlLimpeza, [unidadeID])
 
             //? Não conformidades por fornecedor nos últimos 365 dias
