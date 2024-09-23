@@ -156,7 +156,7 @@ class LimpezaController {
                 horaInicio: result?.[0]?.horaInicio ?? time,
                 dataFim: result?.[0]?.dataFim ?? today,
                 horaFim: result?.[0]?.horaFim ?? time,
-                limpeza: (result?.[0]?.limpezaHigienizacao === 1 || result?.[0]?.limpezaHigienizacao === 2) ? true : false,
+                limpeza: true,
                 higienizacao: result?.[0]?.limpezaHigienizacao === 2 ? true : false,
                 prestadorServico: result?.[0]?.prestadorServico === 1 ? true : false,
                 fornecedor: {
