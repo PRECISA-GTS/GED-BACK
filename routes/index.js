@@ -34,6 +34,10 @@ routes.use(urlBase, conformidadeRouter);
 const limpezaRouter = require("./formularios/limpeza/limpezaRoutes"); 1
 routes.use(urlBase, limpezaRouter);
 
+// Limpeza / Conformidade
+const conformidadeLimpezaRouter = require("./formularios/limpeza/nao-conformidade/naoConformidadeRoutes");
+routes.use(urlBase, conformidadeLimpezaRouter);
+
 // Cadastros 
 const atividadeRouter = require("./cadastros/atividade/atividadeRoutes");
 const itemRouter = require("./cadastros/item/itemRoutes");

@@ -25,7 +25,8 @@ class LimpezaController {
             s.statusID,
             s.nome AS status,
             s.cor,
-            l.concluido
+            l.concluido,
+            l.naoConformidade
         FROM limpeza AS l
             JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
             JOIN status AS s ON (l.status = s.statusID)
@@ -81,9 +82,12 @@ class LimpezaController {
                     s2.nome AS setor,
                     l.temperaturaAgua,
                     l.obs,
+                    l.naoConformidade,
                     s.statusID,
                     s.nome AS statusNome,
-                    s.cor AS statusCor
+                    s.cor AS statusCor,
+                    DATE_FORMAT(l.dataConclusao, "%Y-%m-%d") AS dataConclusao,
+                    DATE_FORMAT(l.dataConclusao, "%H:%i") AS horaConclusao
                 FROM limpeza AS l
                     JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
                     LEFT JOIN status AS s ON (l.status = s.statusID)    
@@ -182,9 +186,15 @@ class LimpezaController {
                     label: result?.[0]?.statusNome ?? 'Novo',
                     color: result?.[0]?.statusCor ?? 'primary'
                 },
+                naoConformidade: result?.[0]?.naoConformidade == '1' ? true : false,
                 fields,
                 departamentosPreenchimento: departments.fill ?? [],
-                departamentosConclusao: departments.conclude ?? []
+                departamentosConclusao: departments.conclude ?? [],
+            }
+
+            const fieldsFooter = {
+                dataConclusao: result[0]?.dataConclusao ?? today,
+                horaConclusao: result[0]?.horaConclusao ?? time,
             }
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
@@ -203,7 +213,7 @@ class LimpezaController {
                 'par_limpeza_modelo_bloco_departamento'
             )
 
-            return res.json({ header, blocos });
+            return res.json({ header, blocos, fieldsFooter });
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }
@@ -320,9 +330,10 @@ class LimpezaController {
                 profissionalID,
                 setorID,                
                 status,
-                unidadeID
+                unidadeID,
+                dataCadastro
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             const id = await executeQuery(sql, [
                 header.modelo.id,
                 header.dataInicio + ' ' + header.horaInicio + ':00',
@@ -333,7 +344,8 @@ class LimpezaController {
                 header.profissional?.id ?? null,
                 header.setor?.id ?? null,
                 30,
-                unidadeID
+                unidadeID,
+                new Date()
             ], 'insert', 'limpeza', 'limpezaID', header.modelo.id, logID)
             if (!id) return res.status(400).json({ message: 'Erro ao inserir formulário!' })
 
@@ -404,13 +416,15 @@ class LimpezaController {
             const logID = await executeLog('Conclusão formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
             const sql = `
             UPDATE limpeza 
-            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, concluido = ?
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, obsConclusao = ?, concluido = ?, naoConformidade = ?
             WHERE limpezaID = ?`
             await executeQuery(sql, [
                 form.status,
                 profissionalID,
-                new Date(),
+                form.dataConclusao + ' ' + form.horaConclusao + ':00',
                 form.obsConclusao ?? '',
+                1,
+                form.naoConformidade ? '1' : '0',
                 id
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 
@@ -436,13 +450,14 @@ class LimpezaController {
             const logID = await executeLog('Edição do status do formulário de Limpeza e Higienização', usuarioID, unidadeID, req)
             const sqlUpdateStatus = `
             UPDATE limpeza
-            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, concluido = ?
+            SET status = ?, profissionalIDConclusao = ?, dataConclusao = ?, concluido = ?, naoConformidade = ?
             WHERE limpezaID = ?`
             const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [
                 status,
                 null,
                 null,
                 null,
+                0,
                 id
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 
