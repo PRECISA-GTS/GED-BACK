@@ -473,7 +473,6 @@ class NaoConformidade {
 
     async getNCLimpeza(req, res) {
         const { id } = req.body
-        console.log("🚀 ~ getNCLimpeza id:", id)
 
         try {
             if (!id) return res.status(400).json({ error: 'Limpeza não informada!' })

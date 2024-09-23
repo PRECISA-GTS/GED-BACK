@@ -19,9 +19,11 @@ class LimpezaController {
         const sql = `
         SELECT 
             l.limpezaID AS id, 
-            IF(MONTH(l.dataInicio) > 0, DATE_FORMAT(l.dataInicio, "%d/%m/%Y"), '--') AS data, 
+            IF(MONTH(l.dataInicio) > 0, DATE_FORMAT(l.dataInicio, "%d/%m/%Y"), '--') AS dataInicio, 
+            IF(MONTH(l.dataFim) > 0, DATE_FORMAT(l.dataFim, "%d/%m/%Y"), '--') AS dataFim, 
             plm.nome AS modelo,
-            s2.nome AS setor,
+            COALESCE(s2.nome, '--') AS setor,
+            COALESCE(IF(l.limpezaHigienizacao = 1, 'Limpeza', 'Limpeza e Higienização'), '--') AS limpezaHigienizacao,
             s.statusID,
             s.nome AS status,
             s.cor,
@@ -104,7 +106,7 @@ class LimpezaController {
             }
 
             const sqlModelo = `
-            SELECT parLimpezaModeloID AS id, nome, ciclo
+            SELECT parLimpezaModeloID AS id, nome, ciclo, cabecalho
             FROM par_limpeza_modelo
             WHERE parLimpezaModeloID = ?`
             const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
@@ -179,7 +181,8 @@ class LimpezaController {
                 modelo: {
                     id: resultModelo[0].id,
                     nome: resultModelo[0].nome,
-                    ciclo: resultModelo[0].ciclo
+                    ciclo: resultModelo[0].ciclo,
+                    cabecalho: resultModelo[0].cabecalho
                 },
                 status: {
                     id: result?.[0]?.statusID ?? 10,
