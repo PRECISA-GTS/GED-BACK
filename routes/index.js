@@ -26,10 +26,6 @@ routes.use(urlBase, recebimentoMpRouter);
 const conformidadeRouter = require("./formularios/recebimento-mp/nao-conformidade/naoConformidadeRoutes");
 routes.use(urlBase, conformidadeRouter);
 
-// Recebimento de MP / Não Conformidade
-// const naoConformidadeRouter = require("./formularios/recebimento-mp/nao-conformidade/naoConformidadeRoutes");
-// routes.use(urlBase, naoConformidadeRouter);
-
 // Limpeza
 const limpezaRouter = require("./formularios/limpeza/limpezaRoutes"); 1
 routes.use(urlBase, limpezaRouter);
@@ -85,6 +81,7 @@ const formularios = require("./configuracoes/formularios/formulariosRoutes");
 const formularioFornecedor = require("./configuracoes/formularios/fornecedor/fornecedorRoutes");
 const formularioRecebimentoMp = require("./configuracoes/formularios/recebimentoMp/recebimentoMpRoutes");
 const formularioRecebimentoMpNaoConformidade = require("./configuracoes/formularios/recebimentoMpNaoConformidade/recebimentoMpNaoConformidadeRoutes");
+const formularioLimpezaNaoConformidade = require("./configuracoes/formularios/limpezaNaoConformidade/limpezaNaoConformidadeRoutes");
 const formularioLimpeza = require("./configuracoes/formularios/limpeza/limpezaRoutes");
 const unidade = require("./configuracoes/unidade/unidadeRoutes");
 const UsuarioRouter = require("./configuracoes/usuario/usuarioRoutes");
@@ -97,6 +94,7 @@ routes.use(urlBase + '/configuracoes', formularios);
 routes.use(urlBase + '/configuracoes', formularioFornecedor);
 routes.use(urlBase + '/configuracoes', formularioRecebimentoMp);
 routes.use(urlBase + '/configuracoes', formularioRecebimentoMpNaoConformidade);
+routes.use(urlBase + '/configuracoes', formularioLimpezaNaoConformidade);
 routes.use(urlBase + '/configuracoes', formularioLimpeza);
 routes.use(urlBase + '/configuracoes', unidade);
 routes.use(urlBase + '/configuracoes', UsuarioRouter);

@@ -13,7 +13,6 @@ naoConformidadeRoutes.post(`${route}/getModels`, naoConformidadeController.getMo
 naoConformidadeRoutes.post(`${route}/insertData`, naoConformidadeController.insertData);
 naoConformidadeRoutes.post(`${route}/updateData/:id`, naoConformidadeController.updateData);
 naoConformidadeRoutes.post(`${route}/conclude`, naoConformidadeController.conclude);
-naoConformidadeRoutes.post(`${route}/fornecedor-preenche`, naoConformidadeController.fornecedorPreenche);
 naoConformidadeRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, naoConformidadeController.deleteData);
 naoConformidadeRoutes.post(`${route}/reOpen/:id`, naoConformidadeController.reOpen);
 naoConformidadeRoutes.post(`${route}/getLimpezaNC`, naoConformidadeController.getLimpezaNC);
