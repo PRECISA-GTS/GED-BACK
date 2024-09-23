@@ -287,14 +287,14 @@ class NaoConformidade {
                 blocos,
                 'limpeza_naoconformidade_resposta',
                 'limpezaNaoConformidadeID',
-                'limpezaNaoConformidadeModeloBlocoID',
+                'parLimpezaNaoConformidadeModeloBlocoID',
                 'limpezaNaoConformidadeRespostaID',
                 logID
             )
 
             //? Cria agendamento no calendário com a data de vencimento            
-            const subtitle = `${header.dataInicio} ${header.horaInicio} (${header.setor.nome})`
-            await updateScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.dataInicio, header.prazoSolucao, unidadeID, logID)
+            const subtitle = `${header.data} ${header.hora} (${header.setor})`
+            await updateScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.data, header.prazoSolucao, unidadeID, logID)
 
             //? Gera histórico de alteração de status 
             const newStatus = header.status.id < 30 ? 30 : header.status.id
@@ -324,18 +324,16 @@ class NaoConformidade {
                 data,
                 profissionalIDPreenchimento,
                 prazoSolucao,
-                usuarioID,
                 status,
                 unidadeID
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            VALUES (?, ?, ?, ?, ?, ?, ?)`
             const id = await executeQuery(sql, [
                 header.modelo.id,
                 header.limpeza.id,
                 header.data + ' ' + header.hora + ':00',
                 profissionalID,
                 header.prazoSolucao,
-                usuarioID,
                 30,
                 unidadeID
             ], 'insert', 'limpeza_naoconformidade', 'limpezaNaoConformidadeID', header.limpeza.id, logID)
@@ -374,8 +372,8 @@ class NaoConformidade {
             )
 
             //? Cria agendamento no calendário com a data de vencimento            
-            const subtitle = `${header.data} ${header.hora} (${header.setor.nome})`
-            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.dataInicio, header.prazoSolucao, unidadeID, logID)
+            const subtitle = `${header.data} ${header.hora} (${header.setor})`
+            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.data, header.prazoSolucao, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, 30, null)
@@ -475,6 +473,7 @@ class NaoConformidade {
 
     async getNCLimpeza(req, res) {
         const { id } = req.body
+        console.log("🚀 ~ getNCLimpeza id:", id)
 
         try {
             if (!id) return res.status(400).json({ error: 'Limpeza não informada!' })
@@ -490,7 +489,6 @@ class NaoConformidade {
             const [result] = await db.promise().query(sql, [id])
 
             const formatedResult = result.map(item => {
-
                 return {
                     id: item.id,
                     nome: item.data + ' - ' + item.status + ' - ID: ' + item.id
