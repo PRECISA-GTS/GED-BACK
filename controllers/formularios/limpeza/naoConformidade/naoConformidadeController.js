@@ -109,12 +109,14 @@ class NaoConformidade {
             const sqlLimpeza = `
             SELECT 
                 l.limpezaID,
-                DATE_FORMAT(l.dataInicio, "%d/%m/%Y") AS data,
-                DATE_FORMAT(l.dataInicio, "%H:%i") AS hora,
+                DATE_FORMAT(l.dataInicio, "%d/%m/%Y %H:%i") AS dataInicio,
+                DATE_FORMAT(l.dataFim, "%d/%m/%Y %H:%i") AS dataFim,                
+                plm.nome AS modelo,
                 se.nome AS setor,
                 s.nome AS status,
                 s.cor AS statusCor
             FROM limpeza AS l
+                JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
                 JOIN status AS s ON (l.status = s.statusID)    
                 JOIN setor AS se ON (se.setorID = l.setorID)
             WHERE l.limpezaID = ?`
@@ -166,8 +168,9 @@ class NaoConformidade {
             const header = {
                 limpeza: {
                     id: limpezaID,
-                    dataLimpeza: resultLimpeza[0].data,
-                    horaLimpeza: resultLimpeza[0].hora,
+                    dataInicio: resultLimpeza[0].dataInicio,
+                    dataFim: resultLimpeza[0].dataFim,
+                    modelo: resultLimpeza[0].modelo,
                     setor: resultLimpeza[0].setor,
                     status: {
                         label: resultLimpeza[0].status,

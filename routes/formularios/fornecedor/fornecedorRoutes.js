@@ -45,6 +45,7 @@ fornecedorRoutes.post(`${route}/getGruposAnexo`, fornecedorController.getGruposA
 fornecedorRoutes.post(`${route}/sendNotification`, fornecedorController.sendNotification);
 fornecedorRoutes.post(`${route}/getFornecedoresAprovados`, fornecedorController.getFornecedoresAprovados);
 fornecedorRoutes.post(`${route}/getFornecedores`, fornecedorController.getFornecedores);
+fornecedorRoutes.post(`${route}/getFornecedoresPrestadorServico`, fornecedorController.getFornecedoresPrestadorServico);
 fornecedorRoutes.get(`${route}/verifyIfHasModel/:id`, fornecedorController.verifyIfHasModel);
 
 //Envia email baseado no status do fornecedor

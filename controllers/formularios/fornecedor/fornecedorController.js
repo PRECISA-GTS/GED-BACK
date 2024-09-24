@@ -57,6 +57,31 @@ class FornecedorController {
         }
     }
 
+    async getFornecedoresPrestadorServico(req, res) {
+        const { unidadeID } = req.body
+        if (!unidadeID) return res.status(400).json({ error: 'Unidade não informada!' })
+
+        try {
+            const sql = `
+            SELECT 
+                fornecedorID AS id, 
+                NULLIF(CONCAT_WS(" - ", cnpj, nome, NULLIF(CONCAT_WS("/", cidade, estado), '')), '') AS nome
+            FROM fornecedor 
+            WHERE 
+                unidadeID = ? 
+                AND atual = 1 
+                AND status IN (60, 70)
+                AND prestadorServico = 1
+                AND dataExpiracao >= CURDATE()
+            ORDER BY nome ASC`
+            const [result] = await db.promise().query(sql, [unidadeID]);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
     async verifyIfHasModel(req, res) {
         const { id } = req.params
         const sql = `SELECT * FROM fornecedor WHERE fornecedorID = ?`
