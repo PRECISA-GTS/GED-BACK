@@ -3,6 +3,7 @@ const { executeQuery } = require('../config/executeQuery');
 require('dotenv/config');
 
 const getCalendarDetails = (type) => {
+    console.log("🚀 ~ type:", type)
     switch (type) {
         case 'fornecedor':
             return {
@@ -19,6 +20,12 @@ const getCalendarDetails = (type) => {
             return {
                 type: 'Limpeza',
                 route: '/formularios/limpeza',
+            };
+        case 'limpeza-naoconformidade':
+            return {
+                type: 'Não Conformidade da Limpeza e Higienização',
+                route: '/formularios/limpeza/?aba=nao-conformidade',
+                routePermission: '/formularios/limpeza'
             };
         default:
             return {

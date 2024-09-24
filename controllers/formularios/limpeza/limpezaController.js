@@ -330,20 +330,22 @@ class LimpezaController {
                 limpezaHigienizacao,
                 prestadorServico,
                 fornecedorID,
+                departamentoID,
                 profissionalID,
                 setorID,                
                 status,
                 unidadeID,
                 dataCadastro
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             const id = await executeQuery(sql, [
                 header.modelo.id,
                 header.dataInicio + ' ' + header.horaInicio + ':00',
                 header.dataFim + ' ' + header.horaFim + ':00',
-                header.higienacao ? '2' : '1',
+                header.higienizacao ? '2' : '1',
                 header.prestadorServico ? '1' : '0',
                 header.fornecedor?.id ?? null,
+                header.departamento?.id ?? null,
                 header.profissional?.id ?? null,
                 header.setor?.id ?? null,
                 30,

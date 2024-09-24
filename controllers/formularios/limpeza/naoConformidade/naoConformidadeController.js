@@ -371,10 +371,6 @@ class NaoConformidade {
                 logID
             )
 
-            //? Cria agendamento no calendário com a data de vencimento            
-            const subtitle = `${header.data} ${header.hora} (${header.setor})`
-            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.data, header.prazoSolucao, unidadeID, logID)
-
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, 30, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -408,8 +404,10 @@ class NaoConformidade {
                 id
             ], 'update', 'limpeza_naoconformidade', 'limpezaNaoConformidadeID', id, logID)
 
-
-            updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 1, unidadeID, logID)
+            //? Cria agendamento no calendário com a data de vencimento            
+            const formatedDate = form.data.split('-').reverse().join('/')
+            const subtitle = `${formatedDate} ${form.hora} (Prazo de ${form.prazo} ${form.prazo == 1 ? 'dia' : 'dias'})`
+            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, form.data, form.prazo, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
@@ -441,7 +439,8 @@ class NaoConformidade {
                 id
             ], 'update', 'limpeza_naoconformidade', 'limpezaNaoConformidadeID', id, logID)
 
-            updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 0, unidadeID, logID)
+            deleteScheduling('limpeza-naoconformidade', id, unidadeID, logID)
+            // updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 0, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, status, observacao)

@@ -31,6 +31,7 @@ class CalendarioController {
 
             const result = resultCalendar.map(item => {
                 var { variant, rgb } = defineEventColor(item)
+                console.log("🚀 ~ variant, rgb:", variant, rgb)
 
                 return {
                     title: item.qtd,
