@@ -29,6 +29,13 @@ const { getHeaderDepartments } = require('../../../defaults/sector/getSectors');
 const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dynamicBlocks');
 const { createScheduling, deleteScheduling } = require('../../../defaults/scheduling');
 
+const calculateExpirationDate = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    const expirationDate = date.toISOString().split('T')[0];
+    return expirationDate
+}
+
 class FornecedorController {
     async getFornecedores(req, res) {
         const { unidadeID } = req.body
@@ -574,7 +581,7 @@ class FornecedorController {
                 e.statusID,
                 e.nome AS status,
                 e.cor,
-                COALESCE(GROUP_CONCAT(p.nome SEPARATOR ', '), '--') AS produtos
+                COALESCE(IF(f.prestadorServico = 1, 'Serviço', GROUP_CONCAT(p.nome SEPARATOR ', ')), '--') AS produtos
             FROM fornecedor AS f
                 LEFT JOIN unidade AS u ON(f.unidadeID = u.unidadeID)
                 LEFT JOIN status AS e ON (f.status = e.statusID)
@@ -647,6 +654,7 @@ class FornecedorController {
                 f.status,
                 f.obs,
                 f.cpf,
+                f.prestadorServico,
                 
                 DATE_FORMAT(f.dataFim, '%d/%m/%Y') AS dataFim, 
                 DATE_FORMAT(f.dataFim, '%H:%i') AS horaFim, 
@@ -919,6 +927,7 @@ class FornecedorController {
                     //? Departamentos que preenchem
                     departamentos: sectors.fill,
                     cpf: resultFornecedor[0].cpf === 1 ? true : false,
+                    prestadorServico: resultFornecedor[0].prestadorServico === 1 ? true : false,
                 },
                 fieldsFooter: {
                     concluded: resultFornecedor[0].dataFim ? true : false,
@@ -954,6 +963,7 @@ class FornecedorController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
+        console.log("🚀 ~ data:", data)
         const currentStatus = req.body.currentStatus //? Status atual do formulário
         const { usuarioID, papelID, unidadeID } = req.body.auth
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
@@ -1021,11 +1031,12 @@ class FornecedorController {
 
         if (newStatus > 40) {
             const sqlStaticlFooter = `
-            UPDATE fornecedor SET dataFim = ?, aprovaProfissionalID = ?
+            UPDATE fornecedor SET dataFim = ?, aprovaProfissionalID = ?, dataExpiracao = ?
             WHERE fornecedorID = ?`
             const resultStaticFooter = await executeQuery(sqlStaticlFooter, [
                 new Date(),
                 resultProfissional[0]?.profissionalID ?? 0,
+                calculateExpirationDate(data.unidade.ciclo),
                 id
             ], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
@@ -1102,8 +1113,8 @@ class FornecedorController {
 
         //? É uma fábrica, e formulário já foi concluído pelo fornecedor
         if (status && papelID == 1) {
-            const sqlUpdateStatus = `UPDATE fornecedor SET status = ?, dataFim = ?, aprovaProfissionalID = ? WHERE fornecedorID = ? `
-            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, null, null, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
+            const sqlUpdateStatus = `UPDATE fornecedor SET status = ?, dataFim = ?, aprovaProfissionalID = ?, dataExpiracao = ? WHERE fornecedorID = ? `
+            const resultUpdateStatus = await executeQuery(sqlUpdateStatus, [status, null, null, null, id], 'update', 'fornecedor', 'fornecedorID', id, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(1, id, usuarioID, unidadeID, papelID, status, observacao)
@@ -1408,15 +1419,15 @@ class FornecedorController {
         }
 
         //? Se fornecedor foi criado com preenchimento da fábrica, já foi definido a categoria e risco e portanto já é possível definir o modelo
-        const modeloID = await getModelByCategoryAndRisk(values.cnpj, values?.risco?.id, unidadeID)
+        const { modeloID, ciclo } = await getModelByCategoryAndRisk(values.cnpj, values?.risco?.id, unidadeID)
 
         //? Gera um novo formulário em branco, pro fornecedor preencher depois quando acessar o sistema
         const initialStatus = 10
         const sqlFornecedor = `
         INSERT INTO fornecedor
-            (parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche, telefone, cep, logradouro, numero, complemento, bairro, cidade, estado, pais, principaisClientes, registroSipeagro, ie, cpf) 
+            (parFornecedorModeloID, cnpj, razaoSocial, nome, email, unidadeID, status, atual, dataInicio, profissionalID, quemPreenche, telefone, cep, logradouro, numero, complemento, bairro, cidade, estado, pais, principaisClientes, registroSipeagro, ie, cpf, prestadorServico) 
         VALUES
-            (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            (?, "${values.cnpj}", ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         const fornecedorID = await executeQuery(sqlFornecedor, [
             modeloID ?? null,
             values.razaoSocial,
@@ -1440,7 +1451,8 @@ class FornecedorController {
             values.principaisClientes,
             values.registroSipeagro,
             values.ie,
-            (isCpf ? 1 : 0)
+            (isCpf ? 1 : 0),
+            values?.prestadorServico ? '1' : '0'
         ], 'insert', 'fornecedor', 'fornecedorID', null, logID)
 
         //? Grava grupos de anexo do fornecedor
@@ -1806,15 +1818,21 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
     //* Verifica qual o modelo para esta categoria e risco
     if (!risk) return null
     const sql = `
-    SELECT frm.parFornecedorModeloID
+    SELECT frm.parFornecedorModeloID, pfm.ciclo
     FROM fornecedorcategoria_risco AS fr
         JOIN fornecedorcategoria_risco_modelo AS frm ON (fr.fornecedorCategoriaRiscoID = frm.fornecedorCategoriaRiscoID)
+        JOIN par_fornecedor_modelo AS pfm ON (frm.parFornecedorModeloID = pfm.parFornecedorModeloID)
     WHERE fr.fornecedorCategoriaRiscoID = ${risk} AND frm.unidadeID = ${unityID}`
     const [result] = await db.promise().query(sql)
 
     if (!result) return null
 
-    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? result[0]['parFornecedorModeloID'] : null
+    const data = {
+        modeloID: result[0]['parFornecedorModeloID'],
+        ciclo: result[0]['ciclo']
+    }
+
+    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? data : null
 }
 
 const getSqlBloco = () => {
