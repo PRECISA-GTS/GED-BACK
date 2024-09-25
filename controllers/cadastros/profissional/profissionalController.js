@@ -737,6 +737,14 @@ class ProfissionalController {
             {
                 table: 'profissional_departamento',
                 column: ['profissionalID'],
+            },
+            {
+                table: 'limpeza',
+                column: ['profissionalID', 'profissionalIDConclusao'],
+            },
+            {
+                table: 'limpeza_naoconformidade',
+                column: ['profissionalIDPreenchimento', 'profissionalIDConclusao'],
             }
         ]
 

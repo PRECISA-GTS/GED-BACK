@@ -19,7 +19,6 @@ const FormData = require('form-data');
 const apiToken = process.env.AUTENTIQUE_TOKEN
 const url = 'https://api.autentique.com.br/v2/graphql';
 
-
 const port = process.env.PORT ?? 3333;
 
 app.listen(port, () => {

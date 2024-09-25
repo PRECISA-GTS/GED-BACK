@@ -138,7 +138,16 @@ class EquipamentoController {
             column: 'equipamentoID'
         }
 
-        const arrPending = []
+        const arrPending = [
+            {
+                table: 'setor_equipamento',
+                column: ['equipamentoID'],
+            },
+            {
+                table: 'limpeza_equipamento',
+                column: ['equipamentoID'],
+            }
+        ]
 
         if (!arrPending || arrPending.length === 0) {
             const logID = await executeLog('Exclusão de equipamento', usuarioID, unidadeID, req)
