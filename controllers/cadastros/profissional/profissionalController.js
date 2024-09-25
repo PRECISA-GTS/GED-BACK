@@ -50,7 +50,12 @@ class ProfissionalController {
 
         //? Busca usuários da unidade e papel atual 
         const sql = `
-        SELECT profissionalID AS id, nome            
+        SELECT 
+            profissionalID AS id, 
+            nome,
+            (SELECT GROUP_CONCAT(departamentoID SEPARATOR ', ')
+            FROM profissional_departamento 
+            WHERE profissionalID = profissional.profissionalID) AS departamentos
         FROM profissional            
         WHERE unidadeID = ? AND status = 1
         ORDER BY nome ASC`

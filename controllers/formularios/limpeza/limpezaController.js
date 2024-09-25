@@ -126,7 +126,12 @@ class LimpezaController {
 
             //? Equipamentos 
             const sqlEquipment = `
-            SELECT e.equipamentoID AS id, e.nome
+            SELECT 
+                e.equipamentoID AS id, 
+                e.nome, 
+                (SELECT GROUP_CONCAT(setorID SEPARATOR ', ')
+                FROM setor_equipamento 
+                WHERE equipamentoID = e.equipamentoID) AS setores
             FROM limpeza_equipamento AS le 
                 JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
             WHERE le.limpezaID = ?

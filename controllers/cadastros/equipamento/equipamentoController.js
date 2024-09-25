@@ -40,7 +40,11 @@ class EquipamentoController {
             const sql = `
             SELECT 
                 equipamentoID AS id, 
-                nome                
+                nome,
+                
+                (SELECT GROUP_CONCAT(setorID SEPARATOR ', ')
+                FROM setor_equipamento 
+                WHERE equipamentoID = equipamento.equipamentoID) AS setores
             FROM equipamento
             WHERE unidadeID = ? AND status = 1
             ORDER BY nome ASC`
