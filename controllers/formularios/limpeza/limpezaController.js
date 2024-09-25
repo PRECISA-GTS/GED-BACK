@@ -253,7 +253,7 @@ class LimpezaController {
                 header.fornecedor?.id ?? null,
                 header.departamento?.id ?? null,
                 header.profissional?.id ?? null,
-                header.setor.id,
+                header.setor?.id ?? null,
                 id
             ], 'update', 'limpeza', 'limpezaID', id, logID)
 

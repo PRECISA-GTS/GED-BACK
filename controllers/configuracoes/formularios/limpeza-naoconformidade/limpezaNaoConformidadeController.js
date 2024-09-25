@@ -228,6 +228,7 @@ class LimpezaNaoConformidadeController {
                     }
                 }
             }
+
             //? Insere departamentos que concluem
             if (model && model.departamentosConcluem && model.departamentosConcluem.length > 0) {
                 for (let i = 0; i < model.departamentosConcluem.length; i++) {

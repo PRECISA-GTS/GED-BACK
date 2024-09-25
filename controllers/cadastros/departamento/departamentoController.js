@@ -81,6 +81,9 @@ class DepartamentoController {
                 case 4: //* Limpeza
                     result = await getDepartamentosPreenchimento('par_limpeza_modelo_departamento', 'parLimpezaModeloID', modeloID)
                     break;
+                case 5: //* Não conformidade da Limpeza
+                    result = await getDepartamentosPreenchimento('par_limpeza_naoconformidade_modelo_departamento', 'parLimpezaNaoConformidadeModeloID', modeloID)
+                    break;
             }
 
             return res.status(200).json(result)

@@ -118,7 +118,7 @@ class NaoConformidade {
             FROM limpeza AS l
                 JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
                 JOIN status AS s ON (l.status = s.statusID)    
-                JOIN setor AS se ON (se.setorID = l.setorID)
+                LEFT JOIN setor AS se ON (se.setorID = l.setorID)
             WHERE l.limpezaID = ?`
             const [resultLimpeza] = await db.promise().query(sqlLimpeza, [limpezaID])
 
@@ -132,12 +132,18 @@ class NaoConformidade {
                 FROM limpeza_naoconformidade_equipamento AS lne
                     JOIN limpeza_naoconformidade AS ln ON (lne.limpezaNaoConformidadeID = ln.limpezaNaoConformidadeID)
                 WHERE ln.limpezaNaoConformidadeID = ? AND lne.limpezaEquipamentoID = le.limpezaEquipamentoID
-                ) AS checked_                
+                ) AS checked_,
+                 
+                (SELECT lne.descricao
+                FROM limpeza_naoconformidade_equipamento AS lne
+                    JOIN limpeza_naoconformidade AS ln ON (lne.limpezaNaoConformidadeID = ln.limpezaNaoConformidadeID)
+                WHERE ln.limpezaNaoConformidadeID = ? AND lne.limpezaEquipamentoID = le.limpezaEquipamentoID) AS descricao
+
             FROM limpeza_equipamento AS le
                 JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)                                
             WHERE le.limpezaID = ?
             ORDER BY e.nome ASC`
-            let [resultEquipamentos] = await db.promise().query(sqlEquipamentos, [id, limpezaID])
+            let [resultEquipamentos] = await db.promise().query(sqlEquipamentos, [id, id, limpezaID])
             resultEquipamentos = resultEquipamentos.map(row => ({
                 ...row,
                 checked_: row.checked_ === 1 ? true : false
@@ -258,7 +264,7 @@ class NaoConformidade {
 
             //? Atualiza equipamentos marcados
             if (header.equipamentos && header.equipamentos.length > 0) {
-                const checkedEquip = header.equipamentos.filter(row => row.checked_ === true)
+                const checkedEquip = header.equipamentos.filter(row => row.checked_ === true);
                 const checkedEquipsId = checkedEquip.map(row => row.limpezaEquipamentoID);
                 const existingEquips = await db.promise().query(
                     'SELECT limpezaEquipamentoID FROM limpeza_naoconformidade_equipamento WHERE limpezaNaoConformidadeID = ?', [id]
@@ -266,21 +272,36 @@ class NaoConformidade {
                 const existingEquipIds = existingEquips[0].map(row => row.limpezaEquipamentoID);
                 const equipToDelete = existingEquipIds.filter(id => !checkedEquipsId.includes(id));
                 const equipToInsert = checkedEquip.filter(row => !existingEquipIds.includes(row.limpezaEquipamentoID));
+                const equipToUpdate = checkedEquip.filter(row => existingEquipIds.includes(row.limpezaEquipamentoID));
+
                 // Deletar os equipamentos desmarcados
                 if (equipToDelete.length > 0) {
                     await executeQuery(
                         'DELETE FROM limpeza_naoconformidade_equipamento WHERE limpezaNaoConformidadeID = ? AND limpezaEquipamentoID IN (?)',
-                        [id, equipToDelete, equipToDelete.join(',')],
+                        [id, equipToDelete.join(',')],
                         'delete', 'limpeza_naoconformidade_equipamento', 'limpezaNaoConformidadeID', id, logID
                     );
                 }
-                // Inserir os novos equipamentos marcados
+
+                // Inserir os novos equipamentos marcados com descrição
                 if (equipToInsert.length > 0) {
-                    const insertValues = equipToInsert.map(row => `(${id}, ${row.limpezaEquipamentoID})`).join(',');
+                    const insertValues = equipToInsert.map(row => `(${id}, ${row.limpezaEquipamentoID}, '${row.descricao.replace(/'/g, "''")}')`).join(',');
                     await executeQuery(
-                        `INSERT INTO limpeza_naoconformidade_equipamento (limpezaNaoConformidadeID, limpezaEquipamentoID) VALUES ${insertValues}`, null,
+                        `INSERT INTO limpeza_naoconformidade_equipamento (limpezaNaoConformidadeID, limpezaEquipamentoID, descricao) VALUES ${insertValues}`,
+                        null,
                         'insert', 'limpeza_naoconformidade_equipamento', 'limpezaNaoConformidadeID', null, logID
                     );
+                }
+
+                // Atualizar a descrição dos equipamentos marcados
+                if (equipToUpdate.length > 0) {
+                    for (const equip of equipToUpdate) {
+                        await executeQuery(
+                            'UPDATE limpeza_naoconformidade_equipamento SET descricao = ? WHERE limpezaNaoConformidadeID = ? AND limpezaEquipamentoID = ?',
+                            [equip.descricao, id, equip.limpezaEquipamentoID],
+                            'update', 'limpeza_naoconformidade_equipamento', 'limpezaNaoConformidadeID', id, logID
+                        );
+                    }
                 }
             }
 
@@ -295,8 +316,9 @@ class NaoConformidade {
                 logID
             )
 
-            //? Cria agendamento no calendário com a data de vencimento            
-            const subtitle = `${header.data} ${header.hora} (${header.setor})`
+            //? Cria agendamento no calendário com a data de vencimento        
+            const formatedDate = header.data.split('-').reverse().join('/')
+            const subtitle = `${formatedDate} ${header.hora} (${header.setor})`
             await updateScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.data, header.prazoSolucao, unidadeID, logID)
 
             //? Gera histórico de alteração de status 
@@ -374,6 +396,11 @@ class NaoConformidade {
                 logID
             )
 
+            //? Cria agendamento no calendário com a data de vencimento            
+            const formatedDate = header.data.split('-').reverse().join('/')
+            const subtitle = `${formatedDate} ${header.hora} (Prazo de ${header.prazoSolucao} ${header.prazoSolucao == 1 ? 'dia' : 'dias'})`
+            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, header.data, header.prazoSolucao, unidadeID, logID)
+
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, 30, null)
             if (!movimentation) { return res.status(201).json({ message: "Erro ao atualizar status do formulário! " }) }
@@ -407,10 +434,7 @@ class NaoConformidade {
                 id
             ], 'update', 'limpeza_naoconformidade', 'limpezaNaoConformidadeID', id, logID)
 
-            //? Cria agendamento no calendário com a data de vencimento            
-            const formatedDate = form.data.split('-').reverse().join('/')
-            const subtitle = `${formatedDate} ${form.hora} (Prazo de ${form.prazo} ${form.prazo == 1 ? 'dia' : 'dias'})`
-            await createScheduling(id, 'limpeza-naoconformidade', 'Não Conformidade da Limpeza e Higienização', subtitle, form.data, form.prazo, unidadeID, logID)
+            updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 1, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, form.status, form.obsConclusao)
@@ -442,8 +466,7 @@ class NaoConformidade {
                 id
             ], 'update', 'limpeza_naoconformidade', 'limpezaNaoConformidadeID', id, logID)
 
-            deleteScheduling('limpeza-naoconformidade', id, unidadeID, logID)
-            // updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 0, unidadeID, logID)
+            updateStatusScheduling(id, '/formularios/limpeza/?aba=nao-conformidade', 0, unidadeID, logID)
 
             //? Gera histórico de alteração de status
             const movimentation = await addFormStatusMovimentation(5, id, usuarioID, unidadeID, papelID, status, observacao)

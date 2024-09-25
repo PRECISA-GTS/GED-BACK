@@ -176,7 +176,7 @@ class ItemController {
 
         try {
             //? Pra trazer o formulário selecionado conforme o tipo (rota), no modal de novo item nas cnfg dos formulários
-            const indexDefaultForm = type === 'fornecedor' ? 0 : type === 'recebimento-mp' ? 1 : type === 'recebimentomp-naoconformidade' ? 2 : type === 'limpeza' ? 3 : null
+            const indexDefaultForm = type === 'fornecedor' ? 0 : type === 'recebimento-mp' ? 1 : type === 'recebimentomp-naoconformidade' ? 2 : type === 'limpeza' ? 3 : type === 'limpeza-naoconformidade' ? 4 : null
 
             // Opções de seleção de formulário  
             const sqlOptionsFormulario = `SELECT parFormularioID AS id, nome FROM par_formulario`
