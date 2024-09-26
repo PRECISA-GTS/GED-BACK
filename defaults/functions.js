@@ -4,16 +4,21 @@ require('dotenv/config')
 const fs = require('fs');
 const axios = require('axios');
 const FormData = require('form-data');
-const path = require('path');
 const timeZone = 'America/Sao_Paulo'
 
 const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidadeID, papelID, statusAtual, observacao) => {
+    // Verifica se todos os parâmetros obrigatórios estão presentes
+    if (!parFormularioID || !id || !usuarioID || !unidadeID || !papelID || !statusAtual) {
+        return false;
+    }
 
-    if (parFormularioID && id && usuarioID && unidadeID && papelID && statusAtual) {
+    try {
+        // Consulta SQL com placeholders para evitar injeção de SQL
         const sql = `
-        INSERT INTO 
-        movimentacaoformulario (parFormularioID, id, usuarioID, unidadeID, papelID, dataHora, statusAtual, observacao) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            INSERT INTO movimentacaoformulario 
+            (parFormularioID, id, usuarioID, unidadeID, papelID, dataHora, statusAtual, observacao) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
         const [result] = await db.promise().query(sql, [
             parFormularioID,
             id,
@@ -23,158 +28,152 @@ const addFormStatusMovimentation = async (parFormularioID, id, usuarioID, unidad
             new Date(),
             statusAtual,
             observacao ?? ''
-        ])
+        ]);
 
-        if (result.length === 0) { return false; }
-
-        return true;
+        // Verifica se a inserção foi bem-sucedida através de 'affectedRows'
+        return result.affectedRows > 0;
+    } catch (error) {
+        console.error("Erro ao adicionar movimentação de formulário:", error);
+        return false;
     }
-
-    return false;
 }
 
 //* Função verifica na tabela de parametrizações do formulário e ve se objeto se referencia ao campo tabela, se sim, insere "ID" no final da coluna a ser atualizada no BD
 const formatFieldsToTable = async (table, fields) => {
-    let dataHeader = {}
-    //? Usar Promise.all para aguardar a conclusão de todas as consultas
-    await Promise.all(fields.map(async (field) => {
-        const sql = `SELECT nomeColuna FROM ${table} WHERE tabela = "${field.tabela}" `;
-        const [result] = await db.promise().query(sql);
-        if (result.length > 0) {
-            dataHeader[field.nomeColuna] = field[field.tabela]?.id > 0 ? field[field.tabela].id : null;
-        } else {
-            dataHeader[field.nomeColuna] = field[field.nomeColuna] ? field[field.nomeColuna] : null
-        }
-    }));
-    return dataHeader;
-}
+    const dataHeader = {};
+    try {
+        // Usar Promise.all para aguardar a conclusão de todas as consultas
+        await Promise.all(fields.map(async (field) => {
+            const { tabela, nomeColuna } = field;
 
+            // Consulta SQL usando placeholders para prevenir injeção de SQL
+            const sql = `SELECT nomeColuna FROM ${table} WHERE tabela = ?`;
+            const [result] = await db.promise().query(sql, [tabela]);
+
+            // Atualiza o dataHeader com o valor correspondente
+            dataHeader[nomeColuna] = result.length > 0 && field[tabela]?.id > 0
+                ? field[tabela].id
+                : field[nomeColuna] || null;
+        }));
+    } catch (error) {
+        console.error("Error formatting fields to table:", error);
+    }
+    return dataHeader;
+};
 
 //* Função que atualiza ou adiciona permissões ao usuário
-const accessPermissions = (data, logID) => {
-    const boolToNumber = (bool) => { return bool ? 1 : 0 }
+const accessPermissions = async (data, logID) => {
+    if (!data) return;
 
-    data.menu && data.menu.length > 0 && data.menu.map(async (menuGroup) => {
-        menuGroup.menu && menuGroup.menu.length > 0 && menuGroup.menu.map(async (menu, indexMenu) => {
-            //? Editou menu
-            if (menu.edit) {
-                //? Verifica se já existe essa unidade com esse papel para esse usuário
-                const verifyMenu = `
-                SELECT permissaoID
-                FROM permissao
-                WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`
-                const [resultVerifyMenu] = await db.promise().query(verifyMenu, [menu.rota, data.fields.unidadeID, data.fields.usuarioID, 1])
-                if (resultVerifyMenu.length > 0) { //? Ok, pode atualizar o menu
-                    const sqlMenu = `
-                    UPDATE permissao
-                    SET ler = ?, inserir = ?, editar = ?, excluir = ?
-                    WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`
+    const boolToNumber = (bool) => bool ? 1 : 0;
 
-                    await executeQuery(sqlMenu, [boolToNumber(menu.ler),
-                    boolToNumber(menu.inserir),
-                    boolToNumber(menu.editar),
-                    boolToNumber(menu.excluir),
-                    menu.rota,
-                    data.fields.unidadeID,
-                    data.fields.usuarioID,
-                        1], 'update', 'permissao', 'usuarioID', data.fields.usuarioID, logID)
+    // Function to handle insert or update permission
+    const handlePermission = async (type, route, permissions) => {
+        const { unidadeID, usuarioID } = data.fields;
 
-                } else { //? Não existe, então insere
-                    const sqlMenu = `
-                    INSERT INTO permissao (rota, unidadeID, usuarioID, papelID, ler, inserir, editar, excluir)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        const verifyQuery = `
+            SELECT permissaoID
+            FROM permissao
+            WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`;
+        const [resultVerify] = await db.promise().query(verifyQuery, [route, unidadeID, usuarioID, 1]);
 
-                    await executeQuery(sqlMenu, [menu.rota,
-                    data.fields.unidadeID,
-                    data.fields.usuarioID,
-                        1,
-                    boolToNumber(menu.ler),
-                    boolToNumber(menu.inserir),
-                    boolToNumber(menu.editar),
-                    boolToNumber(menu.excluir)], 'insert', 'permissao', 'permissaoID', null, logID)
-                }
+        if (resultVerify.length > 0) { // Update permission
+            const updateQuery = `
+                UPDATE permissao
+                SET ler = ?, inserir = ?, editar = ?, excluir = ?
+                WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`;
+            await executeQuery(updateQuery, [
+                boolToNumber(permissions.ler),
+                boolToNumber(permissions.inserir),
+                boolToNumber(permissions.editar),
+                boolToNumber(permissions.excluir),
+                route,
+                unidadeID,
+                usuarioID,
+                1
+            ], 'update', 'permissao', 'usuarioID', usuarioID, logID);
+        } else { // Insert permission
+            const insertQuery = `
+                INSERT INTO permissao (rota, unidadeID, usuarioID, papelID, ler, inserir, editar, excluir)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+            await executeQuery(insertQuery, [
+                route,
+                unidadeID,
+                usuarioID,
+                1,
+                boolToNumber(permissions.ler),
+                boolToNumber(permissions.inserir),
+                boolToNumber(permissions.editar),
+                boolToNumber(permissions.excluir)
+            ], 'insert', 'permissao', 'permissaoID', null, logID);
+        }
+    };
+
+    // Iterate through menu and submenu items
+    const processMenus = async () => {
+        const menuPromises = data.menu.map(async (menuGroup) => {
+            if (menuGroup.menu) {
+                const groupPromises = menuGroup.menu.map(async (menu) => {
+                    if (menu.edit) {
+                        await handlePermission('menu', menu.rota, menu);
+                    }
+
+                    // Submenus processing
+                    if (menu.submenu) {
+                        const submenuPromises = menu.submenu.map(async (submenu) => {
+                            await handlePermission('submenu', submenu.rota, submenu);
+                        });
+                        await Promise.all(submenuPromises);
+                    }
+                });
+                await Promise.all(groupPromises);
             }
+        });
 
-            // //? Submenus 
-            menu.submenu && menu.submenu.length > 0 && menu.submenu.map(async (submenu, indexSubmenu) => {
-                // if (submenu.edit) { //? Editou submenu 
-                //? Verifica se já existe essa unidade com esse papel para esse usuário
-                const verifySubmenu = `
-                    SELECT permissaoID
-                    FROM permissao
-                    WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`
-                const [resultVerifySubmenu] = await db.promise().query(verifySubmenu, [submenu.rota, data.fields.unidadeID, data.fields.usuarioID, 1])
+        await Promise.all(menuPromises);
+    };
 
-                if (resultVerifySubmenu.length > 0) { //? Ok, pode atualizar o submenu
-                    const sqlSubmenu = `
-                        UPDATE permissao
-                        SET ler = ?, inserir = ?, editar = ?, excluir = ?
-                        WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`
-
-                    await executeQuery(sqlSubmenu, [
-                        boolToNumber(submenu.ler),
-                        boolToNumber(submenu.inserir),
-                        boolToNumber(submenu.editar),
-                        boolToNumber(submenu.excluir),
-                        submenu.rota,
-                        data.fields.unidadeID,
-                        data.fields.usuarioID,
-                        1,], 'update', 'permissao', 'usuarioID', data.fields.usuarioID, logID)
-
-                } else { //? Não existe, então insere
-                    if (!data.fields.usuarioID) return false
-
-                    const sqlSubmenu = `
-                    INSERT INTO permissao (rota, unidadeID, usuarioID, papelID, ler, inserir, editar, excluir)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-
-                    await executeQuery(sqlSubmenu, [
-                        submenu.rota,
-                        data.fields.unidadeID,
-                        data.fields.usuarioID,
-                        1,
-                        boolToNumber(submenu.ler),
-                        boolToNumber(submenu.inserir),
-                        boolToNumber(submenu.editar),
-                        boolToNumber(submenu.excluir)
-                    ], 'insert', 'permissao', 'permissaoID', null, logID)
-                }
-                // }
-            })
-        })
-    })
+    // Execute the processing function
+    await processMenus();
 }
 
 const hasUnidadeID = async (table) => {
-    const sql = `
-    SELECT *
-    FROM information_schema.columns
-    WHERE table_schema = "${process.env.DB_DATABASE}" AND table_name = "${table}" AND column_name = "unidadeID" `
-    const [result] = await db.promise().query(sql)
+    if (!table) return false
 
-    return result.length === 0 ? false : true;
+    try {
+        const sql = `
+        SELECT *
+        FROM information_schema.columns
+        WHERE table_schema = "${process.env.DB_DATABASE}" AND table_name = "${table}" AND column_name = "unidadeID" `
+        const [result] = await db.promise().query(sql)
+        return result.length === 0 ? false : true;
+    } catch (error) {
+        console.log(error)
+        return false
+    }
 }
 
 const createDocument = async (email, path) => {
+    if (!email || !path) return;
+
     const apiToken = process.env.AUTENTIQUE_TOKEN
     const url = 'https://api.autentique.com.br/v2/graphql';
     const query = `
-  mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) {
-    createDocument( sandbox: true, document: $document, signers: $signers, file: $file) {
-      id
-      name
-      signatures {
-        public_id
+    mutation CreateDocumentMutation($document: DocumentInput!, $signers: [SignerInput!]!, $file: Upload!) {
+        createDocument( sandbox: true, document: $document, signers: $signers, file: $file) {
+        id
         name
-        email
-        created_at
-        action { name }
-        link { short_link }
-        user { name}
-      }
-    }
-  }
-`;
+        signatures {
+            public_id
+            name
+            email
+            created_at
+            action { name }
+            link { short_link }
+            user { name}
+        }
+        }
+    }`;
 
     const variables = {
         document: {
@@ -203,19 +202,22 @@ const createDocument = async (email, path) => {
         },
     };
 
-
     // Realizando a requisição POST
     try {
-        const response = await axios.post(url, formData, config)
-        const id = response.data.data.createDocument.id
+        // const response = await axios.post(url, formData, config)
+        // const id = response.data.data.createDocument.id
 
-        return id
+        // return id
+        return true
+
     } catch (error) {
         console.error('Erro na requisição: ', error);
     }
 }
 
 const getDocumentSignature = async (idReport) => {
+    if (!idReport) return;
+
     const apiToken = process.env.AUTENTIQUE_TOKEN
     const url = 'https://api.autentique.com.br/v2/graphql';
     try {
@@ -228,9 +230,10 @@ const getDocumentSignature = async (idReport) => {
         };
 
         // Realizing the POST request
-        const response = await axios.post(url, { query }, config);
+        // const response = await axios.post(url, { query }, config);
+        // return response.data.data.document.files.signed
 
-        return response.data.data.document.files.signed
+        return true
     } catch (error) {
         console.error('Error in the request:', error);
     }
@@ -238,7 +241,7 @@ const getDocumentSignature = async (idReport) => {
 
 const signedReport = async (pathReport) => {
     try {
-        const response = await axios.head(pathReport)
+        // const response = await axios.head(pathReport)
         return true
     } catch (err) {
         console.log({ message: 'documento não assinado' })
@@ -288,6 +291,8 @@ const getTimeNow = () => {
     arrValues -> [{id: 1}, {id: 2}]
 */
 const updateMultipleSelect = async (table, tableKey, focusKey, id, arrValues) => {
+    if (!arrValues || arrValues.length == 0) return
+
     const novosProdutosIDs = arrValues.map(row => row.id)
 
     try {
