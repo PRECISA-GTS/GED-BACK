@@ -51,6 +51,7 @@ class FabricaController {
                 recebimentomp AS r
             WHERE 
                 r.data IS NOT NULL
+                AND YEAR(r.data) > 0
                 AND r.unidadeID = ?
             GROUP BY 
                 MONTH(r.data), YEAR(r.data)

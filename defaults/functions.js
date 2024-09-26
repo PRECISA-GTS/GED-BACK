@@ -67,74 +67,88 @@ const accessPermissions = async (data, logID) => {
 
     const boolToNumber = (bool) => bool ? 1 : 0;
 
-    // Function to handle insert or update permission
+    // Função para gerenciar a inserção ou atualização da permissão
     const handlePermission = async (type, route, permissions) => {
         const { unidadeID, usuarioID } = data.fields;
 
-        const verifyQuery = `
-            SELECT permissaoID
-            FROM permissao
-            WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`;
-        const [resultVerify] = await db.promise().query(verifyQuery, [route, unidadeID, usuarioID, 1]);
-
-        if (resultVerify.length > 0) { // Update permission
-            const updateQuery = `
-                UPDATE permissao
-                SET ler = ?, inserir = ?, editar = ?, excluir = ?
+        try {
+            const verifyQuery = `
+                SELECT permissaoID
+                FROM permissao
                 WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`;
-            await executeQuery(updateQuery, [
-                boolToNumber(permissions.ler),
-                boolToNumber(permissions.inserir),
-                boolToNumber(permissions.editar),
-                boolToNumber(permissions.excluir),
-                route,
-                unidadeID,
-                usuarioID,
-                1
-            ], 'update', 'permissao', 'usuarioID', usuarioID, logID);
-        } else { // Insert permission
-            const insertQuery = `
-                INSERT INTO permissao (rota, unidadeID, usuarioID, papelID, ler, inserir, editar, excluir)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-            await executeQuery(insertQuery, [
-                route,
-                unidadeID,
-                usuarioID,
-                1,
-                boolToNumber(permissions.ler),
-                boolToNumber(permissions.inserir),
-                boolToNumber(permissions.editar),
-                boolToNumber(permissions.excluir)
-            ], 'insert', 'permissao', 'permissaoID', null, logID);
+            const [resultVerify] = await db.promise().query(verifyQuery, [route, unidadeID, usuarioID, 1]);
+
+            if (resultVerify.length > 0) { // Atualizar permissão
+                const updateQuery = `
+                    UPDATE permissao
+                    SET ler = ?, inserir = ?, editar = ?, excluir = ?
+                    WHERE rota = ? AND unidadeID = ? AND usuarioID = ? AND papelID = ?`;
+                await executeQuery(updateQuery, [
+                    boolToNumber(permissions.ler),
+                    boolToNumber(permissions.inserir),
+                    boolToNumber(permissions.editar),
+                    boolToNumber(permissions.excluir),
+                    route,
+                    unidadeID,
+                    usuarioID,
+                    1
+                ], 'update', 'permissao', 'usuarioID', usuarioID, logID);
+            } else { // Inserir permissão
+                const insertQuery = `
+                    INSERT INTO permissao (rota, unidadeID, usuarioID, papelID, ler, inserir, editar, excluir)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                await executeQuery(insertQuery, [
+                    route,
+                    unidadeID,
+                    usuarioID,
+                    1,
+                    boolToNumber(permissions.ler),
+                    boolToNumber(permissions.inserir),
+                    boolToNumber(permissions.editar),
+                    boolToNumber(permissions.excluir)
+                ], 'insert', 'permissao', 'permissaoID', null, logID);
+            }
+        } catch (error) {
+            console.error(`Erro ao processar permissão para a rota ${route}:`, error);
+            throw error; // Re-throw para propagar o erro e lidar no nível superior
         }
     };
 
-    // Iterate through menu and submenu items
+    // Iterar através dos itens de menu e submenu
     const processMenus = async () => {
-        const menuPromises = data.menu.map(async (menuGroup) => {
-            if (menuGroup.menu) {
-                const groupPromises = menuGroup.menu.map(async (menu) => {
-                    if (menu.edit) {
-                        await handlePermission('menu', menu.rota, menu);
-                    }
+        try {
+            const menuPromises = data.menu.map(async (menuGroup) => {
+                if (menuGroup.menu) {
+                    const groupPromises = menuGroup.menu.map(async (menu) => {
+                        if (menu.edit) {
+                            await handlePermission('menu', menu.rota, menu);
+                        }
 
-                    // Submenus processing
-                    if (menu.submenu) {
-                        const submenuPromises = menu.submenu.map(async (submenu) => {
-                            await handlePermission('submenu', submenu.rota, submenu);
-                        });
-                        await Promise.all(submenuPromises);
-                    }
-                });
-                await Promise.all(groupPromises);
-            }
-        });
+                        // Processamento de submenus
+                        if (menu.submenu) {
+                            const submenuPromises = menu.submenu.map(async (submenu) => {
+                                await handlePermission('submenu', submenu.rota, submenu);
+                            });
+                            await Promise.all(submenuPromises);
+                        }
+                    });
+                    await Promise.all(groupPromises);
+                }
+            });
 
-        await Promise.all(menuPromises);
+            await Promise.all(menuPromises);
+        } catch (error) {
+            console.error('Erro ao processar menus:', error);
+            throw error; // Propagar o erro para o nível superior
+        }
     };
 
-    // Execute the processing function
-    await processMenus();
+    // Executar a função de processamento
+    try {
+        await processMenus();
+    } catch (error) {
+        console.error('Erro ao executar accessPermissions:', error);
+    }
 }
 
 const hasUnidadeID = async (table) => {
