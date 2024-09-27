@@ -158,9 +158,9 @@ class LimpezaController {
 
             const header = {
                 dataInicio: result?.[0]?.dataInicio ?? today,
-                horaInicio: result?.[0]?.horaInicio ?? time,
+                horaInicio: result?.[0]?.horaInicio ?? '08:00',
                 dataFim: result?.[0]?.dataFim ?? today,
-                horaFim: result?.[0]?.horaFim ?? time,
+                horaFim: result?.[0]?.horaFim ?? '18:00',
                 limpeza: true,
                 higienizacao: result?.[0]?.limpezaHigienizacao === 2 ? true : false,
                 prestadorServico: result?.[0]?.prestadorServico === 1 ? true : false,

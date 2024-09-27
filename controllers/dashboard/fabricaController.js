@@ -43,20 +43,16 @@ class FabricaController {
                     '/',
                     DATE_FORMAT(r.data, '%y')
                 ) AS month,
-                COUNT(*) AS mp,
-                (SELECT COUNT(*) 
-                FROM recebimentomp_naoconformidade AS nc
-                WHERE nc.recebimentompID = r.recebimentompID ) AS nc
-            FROM 
-                recebimentomp AS r
+                COUNT(DISTINCT r.recebimentoMpID) AS mp,
+                COUNT(nc.recebimentoMpNaoConformidadeID) AS nc
+            FROM recebimentomp AS r
+            LEFT JOIN recebimentomp_naoconformidade AS nc ON r.recebimentoMpID = nc.recebimentoMpID
             WHERE 
                 r.data IS NOT NULL
                 AND YEAR(r.data) > 0
                 AND r.unidadeID = ?
-            GROUP BY 
-                MONTH(r.data), YEAR(r.data)
-            ORDER BY 
-                r.data ASC`
+            GROUP BY MONTH(r.data), YEAR(r.data)
+            ORDER BY r.data ASC`
             const [resultSqlTotalRecebimentoNC] = await db.promise().query(sqlTotalRecebimentoNC, [unidadeID])
 
             //? Limpeza
