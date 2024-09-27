@@ -590,7 +590,8 @@ class FornecedorController {
     }
 
     async getList(req, res) {
-        const { unidadeID, papelID, cnpj } = req.body;
+        const { unidadeID, papelID, cnpj, status } = req.body;
+        console.log("🚀 ~ status:", status)
 
         //* Fábrica 
         if (papelID == 1) {
@@ -612,7 +613,7 @@ class FornecedorController {
                 LEFT JOIN status AS e ON (f.status = e.statusID)
                 LEFT JOIN fornecedor_produto AS fp ON (f.fornecedorID = fp.fornecedorID)
                 LEFT JOIN produto AS p ON (fp.produtoID = p.produtoID)
-            WHERE f.unidadeID = ? AND 1 = 2
+            WHERE f.unidadeID = ? ${status && status.type === 'open' ? ` AND f.status IN (10, 20, 30, 40)` : ''}
             GROUP BY f.fornecedorID
             ORDER BY f.fornecedorID DESC, f.status ASC`
             const [result] = await db.promise().query(sql, [unidadeID])

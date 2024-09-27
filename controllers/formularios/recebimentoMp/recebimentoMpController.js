@@ -15,7 +15,7 @@ const { getDynamicBlocks, updateDynamicBlocks } = require('../../../defaults/dyn
 
 class RecebimentoMpController {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID } = req.params;
+        const { unidadeID, papelID, usuarioID, status } = req.body;
 
         if (!unidadeID || !papelID) return res.status(400).json({ error: 'unidadeID não informado!' })
 
@@ -42,7 +42,7 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE l.unidadeID = ? AND l.status < 40
+            WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status IN (10, 20, 30)` : ''}
             GROUP BY l.recebimentoMpID
             ORDER BY l.data DESC, l.status ASC`
 
