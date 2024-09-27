@@ -378,9 +378,11 @@ class NaoConformidade {
             //? Insere equipamentos marcados
             if (header.equipamentos && header.equipamentos.length > 0) {
                 const checkedEquipments = header.equipamentos.filter(row => row.checked_ === true)
-                const insertValues = checkedEquipments.map(row => `(${id}, ${row.limpezaEquipamentoID}, "${row.descricao ?? ''}")`).join(',');
-                const sql = `INSERT INTO limpeza_naoconformidade_equipamento (limpezaNaoConformidadeID, limpezaEquipamentoID, descricao) VALUES ${insertValues}`
-                await executeQuery(sql, null, 'insert', 'limpeza_naoconformidade_equipamento', 'limpezaNaoConformidadeID', id, logID)
+                if (checkedEquipments && checkedEquipments.length > 0) {
+                    const insertValues = checkedEquipments.map(row => `(${id}, ${row.limpezaEquipamentoID}, "${row.descricao ?? ''}")`).join(',');
+                    const sql = `INSERT INTO limpeza_naoconformidade_equipamento (limpezaNaoConformidadeID, limpezaEquipamentoID, descricao) VALUES ${insertValues}`
+                    await executeQuery(sql, null, 'insert', 'limpeza_naoconformidade_equipamento', 'limpezaNaoConformidadeID', id, logID)
+                }
             }
 
             //? Insere blocos do modelo 

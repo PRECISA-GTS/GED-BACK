@@ -6,6 +6,6 @@ const formulariosController = new Formularios();
 
 const route = '/formularios';
 
-formulariosRoutes.get(`${route}`, formulariosController.getList);
+formulariosRoutes.post(`${route}`, formulariosController.getList);
 
 module.exports = formulariosRoutes;
