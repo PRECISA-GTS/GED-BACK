@@ -42,7 +42,7 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE l.unidadeID = ?
+            WHERE l.unidadeID = ? AND l.status < 40
             GROUP BY l.recebimentoMpID
             ORDER BY l.data DESC, l.status ASC`
 
