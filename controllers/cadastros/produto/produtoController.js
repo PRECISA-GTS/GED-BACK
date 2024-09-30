@@ -104,13 +104,13 @@ class ProdutoController {
             WHERE gp.produtoID = ?`
             const [resultClassificacao] = await db.promise().query(sqlClassificacao, [id]);
 
+            //? Anexos
             const sqlAnexos = `
             SELECT pa.*, f.nome AS formularioNome
             FROM produto_anexo AS pa
                 JOIN par_formulario AS f ON (pa.parFormularioID = f.parFormularioID)
             WHERE pa.produtoID = ?`
             const [resultAnexos] = await db.promise().query(sqlAnexos, [id])
-
             for (let anexo of resultAnexos) {
                 anexo['formulario'] = {
                     id: anexo.parFormularioID,
@@ -124,8 +124,20 @@ class ProdutoController {
             const sqlOptionsClassificacao = `SELECT nome, classificacaoProdutoID AS id FROM classificacao_produto WHERE unidadeID = ?`;
             const [resultOptionsClassificacao] = await db.promise().query(sqlOptionsClassificacao, [unidadeID]);
 
+            //? Análise 
+            const sqlAnalise = `
+            SELECT *
+            FROM produto_analise
+            WHERE produtoID = ?`
+            const [resultAnalise] = await db.promise().query(sqlAnalise, [id]);
+
             const result = {
-                fields: resultData[0],
+                fields: {
+                    ...resultData[0],
+                    limpeza: resultData[0].limpeza === 1 ? true : false,
+                    usaLaboratorio: resultData[0].usaLaboratorio === 1 ? true : false,
+                    analises: resultAnalise ?? []
+                },
                 anexos: resultAnexos,
                 unidadeMedida: {
                     fields: resultUnidadeMedida[0],
@@ -191,10 +203,11 @@ class ProdutoController {
 
             //? Insere novo item
             const classificacaoID = values.classificacao.fields ? values.classificacao.fields.id : null
-            const sqlInsert = `INSERT INTO produto (nome, limpeza, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?, ?)`
+            const sqlInsert = `INSERT INTO produto (nome, limpeza, usaLaboratorio, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?, ?, ?)`
             const id = await executeQuery(sqlInsert, [
                 values.fields.nome,
                 (values.fields.limpeza ? '1' : '0'),
+                (values.fields.usaLaboratorio ? '1' : '0'),
                 (values.fields.status ? '1' : '0'),
                 values.unidadeMedida.fields.id, classificacaoID,
                 values.unidadeID
@@ -210,12 +223,25 @@ class ProdutoController {
             const [resultSqlGetProduto] = await db.promise().query(sqlGetProduto, [id]);
 
             //? Adiciona anexos
-            if (values.anexos.length > 0) {
-                const sqlInsertAnexo = 'INSERT INTO produto_anexo (nome, parFormularioID, descricao, obrigatorio, status, produtoID) VALUES (?, ?, ?, ?, ?, ?)'
-                values.anexos.map(async (item) => {
+            // if (values.anexos.length > 0) {
+            //     const sqlInsertAnexo = 'INSERT INTO produto_anexo (nome, parFormularioID, descricao, obrigatorio, status, produtoID) VALUES (?, ?, ?, ?, ?, ?)'
+            //     values.anexos.map(async (item) => {
 
-                    await executeQuery(sqlInsertAnexo, [item.nome, item.formulario.id, item.descricao, item.obrigatorio ? '1' : '0', item.status ? '1' : '0', id], 'insert', 'produto_anexo', 'produtoAnexoID', null, logID)
-                })
+            //         await executeQuery(sqlInsertAnexo, [item.nome, item.formulario.id, item.descricao, item.obrigatorio ? '1' : '0', item.status ? '1' : '0', id], 'insert', 'produto_anexo', 'produtoAnexoID', null, logID)
+            //     })
+            // }
+
+            //? Análises
+            for (const row of values.fields.analises) {
+                const sqlItem = 'INSERT INTO produto_analise (produtoID, nome, unidade, minimo, maximo, ajuda) VALUES (?, ?, ?, ?, ?, ?)'
+                await executeQuery(sqlItem, [
+                    id,
+                    row.nome,
+                    row.unidade,
+                    row.minimo,
+                    row.maximo,
+                    row.ajuda
+                ], 'insert', 'produto_analise', 'produtoAnaliseID', null, logID)
             }
 
             const data = {
@@ -250,36 +276,75 @@ class ProdutoController {
 
             const logID = await executeLog('Atualização de produto', values.usuarioID, values.unidadeID, req)
 
-
             //? Atualiza produto
             const classificacaoID = values.classificacao.fields?.id ?? null
-            const sqlUpdate = `UPDATE produto SET nome = ?, limpeza = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, status = ? WHERE produtoID = ?`;
+            const sqlUpdate = `UPDATE produto SET nome = ?, limpeza = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, usaLaboratorio = ?, status = ? WHERE produtoID = ?`;
             await executeQuery(sqlUpdate, [
                 values.fields.nome,
                 (values.fields.limpeza ? '1' : '0'),
                 values.unidadeMedida.fields.id,
                 classificacaoID,
+                (values.fields.usaLaboratorio ? '1' : '0'),
                 (values.fields.status ? '1' : '0'),
                 id
             ], 'update', 'produto', 'produtoID', id, logID)
 
             //? Insere ou atualiza anexos
-            if (values.anexos.length > 0) {
-                values.anexos.map(async (item) => {
-                    if (item && item.produtoAnexoID > 0) { //? Já existe, atualiza
-                        const sqlUpdateItem = `UPDATE produto_anexo SET nome = ?, parFormularioID = ?, descricao = ?, status = ?, obrigatorio = ? WHERE produtoAnexoID = ?`
-                        await executeQuery(sqlUpdateItem, [item.nome, item.formulario.id, item.descricao, (item.status ? '1' : '0'), (item.obrigatorio ? '1' : '0'), item.produtoAnexoID], 'update', 'produto_anexo', 'produtoID', id, logID)
+            // if (values.anexos.length > 0) {
+            //     values.anexos.map(async (item) => {
+            //         if (item && item.produtoAnexoID > 0) { //? Já existe, atualiza
+            //             const sqlUpdateItem = `UPDATE produto_anexo SET nome = ?, parFormularioID = ?, descricao = ?, status = ?, obrigatorio = ? WHERE produtoAnexoID = ?`
+            //             await executeQuery(sqlUpdateItem, [item.nome, item.formulario.id, item.descricao, (item.status ? '1' : '0'), (item.obrigatorio ? '1' : '0'), item.produtoAnexoID], 'update', 'produto_anexo', 'produtoID', id, logID)
 
-                    } else if (item && !item.produtoAnexoID) {                   //? Novo, insere
-                        const sqlInsertItem = `INSERT INTO produto_anexo (nome, parFormularioID, descricao, produtoID, status, obrigatorio) VALUES (?, ?, ?, ?, ?, ?)`
-                        await executeQuery(sqlInsertItem, [item.nome, item.formulario.id, item.descricao, id, (item.status ? '1' : '0'), (item.obrigatorio ? '1' : '0')], 'insert', 'produto_anexo', 'produtoID', null, logID)
-                    }
-                })
+            //         } else if (item && !item.produtoAnexoID) {                   //? Novo, insere
+            //             const sqlInsertItem = `INSERT INTO produto_anexo (nome, parFormularioID, descricao, produtoID, status, obrigatorio) VALUES (?, ?, ?, ?, ?, ?)`
+            //             await executeQuery(sqlInsertItem, [item.nome, item.formulario.id, item.descricao, id, (item.status ? '1' : '0'), (item.obrigatorio ? '1' : '0')], 'insert', 'produto_anexo', 'produtoID', null, logID)
+            //         }
+            //     })
+            // }
+
+            // if (values.removedItems.length > 0) {
+            //     const sqlDeleteAnexos = `DELETE FROM produto_anexo WHERE produtoAnexoID IN (${values.removedItems.join(',')})`
+            //     await executeQuery(sqlDeleteAnexos, [], 'delete', 'produto_anexo', 'produtoID', id, logID)
+            // }
+
+            //? Análises
+            const existingItems = await db.promise().query(`SELECT produtoAnaliseID FROM produto_analise WHERE produtoID = ?`, [id]);
+            const incomingItemIDs = new Set(values.fields.analises.map(item => item.id));
+
+            // Remove os itens que não estão mais na nova lista
+            for (const existingItem of existingItems[0]) {
+                if (!incomingItemIDs.has(existingItem.produtoAnaliseID)) {
+                    const sqlItemDelete = `DELETE FROM produto_analise WHERE produtoAnaliseID = ? AND produtoID = ?`;
+                    await executeQuery(sqlItemDelete, [existingItem.produtoAnaliseID, id], 'delete', 'produto_analise', 'produtoAnaliseID', existingItem.produtoAnaliseID, logID);
+                }
             }
 
-            if (values.removedItems.length > 0) {
-                const sqlDeleteAnexos = `DELETE FROM produto_anexo WHERE produtoAnexoID IN (${values.removedItems.join(',')})`
-                await executeQuery(sqlDeleteAnexos, [], 'delete', 'produto_anexo', 'produtoID', id, logID)
+            // Atualiza ou insere os itens recebidos
+            for (const item of values.fields.analises) {
+                if (item.id) {
+                    const sqlItemUpdate = `UPDATE produto_analise SET nome = ?, unidade = ?, minimo = ?, maximo = ?, ajuda = ? WHERE produtoAnaliseID = ? AND produtoID = ?`;
+                    await executeQuery(sqlItemUpdate, [
+                        item.nome,
+                        item.unidade,
+                        item.minimo ?? 0,
+                        item.maximo ?? 0,
+                        item.ajuda,
+                        item.id,
+                        id
+                    ], 'update', 'produto_analise', 'produtoAnaliseID', item.id, logID);
+                } else {
+                    const sqlItemInsert = `INSERT INTO produto_analise (produtoID, nome, unidade, minimo, maximo, ajuda, status) VALUES (?, ?, ?, ?, ?, ?, ?)`
+                    await executeQuery(sqlItemInsert, [
+                        id,
+                        item.nome,
+                        item.unidade,
+                        item.minimo ?? 0,
+                        item.maximo ?? 0,
+                        item.ajuda,
+                        item.status ? '1' : '0'
+                    ], 'insert', 'produto_analise', 'produtoID', id, logID);
+                }
             }
 
             return res.status(200).json({ message: 'Dados atualizados com sucesso!' })
