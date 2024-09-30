@@ -1,12 +1,10 @@
 const db = require('../../../config/db');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 require('dotenv/config')
 const { addFormStatusMovimentation, formatFieldsToTable, hasUnidadeID, fractionedToFloat, floatToFractioned, getTimeNow, getDateNow } = require('../../../defaults/functions');
-const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
+const { hasPending, deleteItem, criptoMd5, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
-const { send } = require('process');
 const fornecedorPreenche = require('../../../email/template/recebimentoMP/naoConformidade/fornecedorPreenche');
 const sendMailConfig = require('../../../config/email');
 const { getDynamicHeaderFields } = require('../../../defaults/dynamicFields');
@@ -829,11 +827,6 @@ class RecebimentoMpController {
             });
     }
 
-    async saveRelatorio(req, res) {
-        const pathDestination = req.pathDestination
-        const files = req.files;
-    }
-
     async getNaoConformidadeModels(req, res) {
         const { unidadeID } = req.params
 
@@ -1201,7 +1194,6 @@ const checkNotificationFornecedor = async (recebimentoMpID, fornecedor, arrNaoCo
     }
 
     if (needNotify) {
-        // send axios post to api
         const data = {
             unidadeID: unidadeID,
             usuarioID: usuarioID,

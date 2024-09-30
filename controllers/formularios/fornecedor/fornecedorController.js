@@ -4,13 +4,12 @@ const path = require('path');
 const axios = require('axios');
 
 require('dotenv/config')
-const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenha, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
+const { hasPending, deleteItem, criptoMd5, onlyNumbers, gerarSenhaCaracteresIniciais, removeSpecialCharts } = require('../../../config/defaultConfig');
 const conclusionFormFornecedor = require('../../../email/template/fornecedor/conclusionFormFornecedor');
 const sendMailConfig = require('../../../config/email');
 const {
     addFormStatusMovimentation,
     formatFieldsToTable,
-    hasUnidadeID,
     createDocument,
     getDocumentSignature,
     signedReport,
@@ -327,7 +326,6 @@ class FornecedorController {
                     const groupedProducts = {};
 
                     // Itera sobre os produtos para agrupá-los por produtoID
-                    // console.log("🚀 ~ resultProdutos:", resultProdutos)
                     for (const produto of resultProdutos) {
                         // Cria a estrutura do produto
                         const produtoInfo = {
@@ -441,61 +439,7 @@ class FornecedorController {
         }
     }
 
-    //* Salva os anexos do formulário na pasta uploads/anexo e insere os dados na tabela anexo
-
     // Salva relatório quando o status for maior ou igual a 40 e tipo igual fabrica
-    async saveRelatorio(req, res) {
-        const pathDestination = req.pathDestination
-        const { id, usuarioID, unidadeID } = req.params;
-        const file = req.files[0];
-
-        try {
-            //? Verificar se há arquivos enviados
-            if (!file || file.length === 0) {
-                return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
-            }
-
-            const logID = await executeLog('Salvo relatório no formulário do fornecedor', usuarioID, unidadeID, req)
-
-            const sqlAnexoId = `SELECT anexoID FROM anexo_busca WHERE fornecedorID = ? AND principal = 1`
-            const [resultAnexoId] = await db.promise().query(sqlAnexoId, [id])
-            const anexoId = resultAnexoId[0]?.anexoID
-
-            // delete anexo busca
-            const sqlDeleteBusca = `DELETE FROM anexo_busca WHERE anexoID = ?`
-            await executeQuery(sqlDeleteBusca, [anexoId], 'delete', 'anexo_busca', 'anexoBuscaID', null, logID)
-
-            //Deletar o atual
-            const sqlDelete = `DELETE FROM anexo WHERE anexoID = ?`
-            await executeQuery(sqlDelete, [anexoId], 'delete', 'anexo', 'anexoID', null, logID)
-
-            //? Insere em anexodd
-            const sqlInsert = `INSERT INTO anexo(titulo, diretorio, arquivo, tamanho, tipo, usuarioID, unidadeID, dataHora) VALUES(?,?,?,?,?,?,?,?)`;
-            const anexoID = await executeQuery(sqlInsert, [
-                removeSpecialCharts(file.originalname),
-                pathDestination,
-                file.filename,
-                file.size,
-                file.mimetype,
-                usuarioID,
-                unidadeID,
-                new Date()], 'insert', 'anexo', 'anexoID', null, logID)
-
-            //? Insere em anexo_busca
-            const sqlInsertBusca = `INSERT INTO anexo_busca(anexoID, fornecedorID, unidadeID, principal) VALUES(?,?,?,?)`;
-            await executeQuery(sqlInsertBusca, [anexoID,
-                id,
-                unidadeID,
-                1
-            ], 'insert', 'anexo_busca', 'anexoBuscaID', null, logID)
-
-            return res.status(200).json({ message: 'Relatório salvo com sucesso!' })
-
-        } catch (error) {
-            console.log(error)
-        }
-    }
-
     async saveAnexo(req, res) {
 
         try {
@@ -591,7 +535,6 @@ class FornecedorController {
 
     async getList(req, res) {
         const { unidadeID, papelID, cnpj, status } = req.body;
-        console.log("🚀 ~ status:", status)
 
         //* Fábrica 
         if (papelID == 1) {
@@ -974,7 +917,7 @@ class FornecedorController {
                 info: {
                     obs: resultOtherInformations[0].obs,
                     status: resultOtherInformations[0].status,
-                    cabecalhoModelo: resultCabecalhoModelo[0].cabecalho,
+                    cabecalhoModelo: resultCabecalhoModelo[0]?.cabecalho,
                     usuarioID: resultFornecedor[0].usuarioID
                 },
                 link: `${process.env.BASE_URL}formularios/fornecedor?id=${id}`,
@@ -989,7 +932,6 @@ class FornecedorController {
     async updateData(req, res) {
         const { id } = req.params
         const data = req.body.form
-        console.log("🚀 ~ data:", data)
         const currentStatus = req.body.currentStatus //? Status atual do formulário
         const { usuarioID, papelID, unidadeID } = req.body.auth
         const logID = await executeLog('Edição formulário do fornecedor', usuarioID, unidadeID, req)
@@ -1376,7 +1318,6 @@ class FornecedorController {
             // Verifica se CNPJ já tem um usuario cadastrado, se não tiver cadastra
             const userExists = "SELECT * FROM usuario WHERE cnpj = ?"
             const [resultUserExists] = await db.promise().query(userExists, [resultUnity[0].cnpj])
-            console.log("🚀 ~ resultUserExists:", resultUserExists)
 
             const dataEmail = {
                 // fabrica
@@ -1793,7 +1734,6 @@ class FornecedorController {
         const { parFormularioID } = req.body;
 
         //? Fornecedor
-
         const sql = `SELECT * FROM recebimentomp WHERE fornecedorID = ? `
         const [result] = await db.promise().query(sql, [id])
 
@@ -1961,31 +1901,6 @@ const sendMail = async (data, logID) => {
     let assunto = `${assuntoFormat} - ${data.nomeFantasiaFabrica}`
     await sendMailConfig(data.email, assunto, html, logID, data)
 }
-
-// const createSignedDocumentAndSave = async (pathAutentique, pathDestination) => {
-//     console.log("🚀 ~ pathAutentique:", pathAutentique)
-//     try {
-//         const response = await axios({
-//             method: 'get',
-//             url: pathAutentique,
-//             responseType: 'stream',
-//             maxRedirects: 5, // ajuste conforme necessário
-//         })
-
-//         // Salvar o PDF localmente usando o fs
-//         const stream = fs.createWriteStream(pathDestination);
-//         response.data.pipe(stream);
-
-//         return new Promise((resolve, reject) => {
-//             stream.on('finish', resolve);
-//             stream.on('error', reject);
-//         });
-
-//     } catch (e) {
-//         console.log(e, 'error', pathAutentique, pathDestination)
-//         return false;
-//     }
-// }
 
 const createSignedDocumentAndSave = async (pathAutentique, pathDestination) => {
     return res.status(200).json('pathAutentique, pathDestination', pathAutentique, pathDestination)

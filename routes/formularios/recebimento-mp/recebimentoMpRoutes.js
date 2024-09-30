@@ -27,11 +27,4 @@ recebimentoMpRoutes.post(`${route}/saveAnexo/:id/:folder/:usuarioID/:unidadeID`,
     configureMulterMiddleware(req, res, next, req.params.usuarioID, req.params.unidadeID, pathDestination)
 }, recebimentoMpController.saveAnexo);
 
-//? MULTER: Salva relatório
-recebimentoMpRoutes.post(`${route}/saveRelatorio/:id/:usuarioID/:unidadeID`, (req, res, next) => {
-    const pathDestination = `uploads/${req.params.unidadeID}/recebimento-mp/relatorio/original`
-    req.pathDestination = pathDestination
-    configureMulterMiddleware(req, res, next, req.params.usuarioID, req.params.unidadeID, pathDestination, false)
-}, recebimentoMpController.saveRelatorio);
-
 module.exports = recebimentoMpRoutes;
