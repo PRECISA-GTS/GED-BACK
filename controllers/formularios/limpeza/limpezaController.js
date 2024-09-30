@@ -12,7 +12,7 @@ const { deleteScheduling, createScheduling, updateScheduling, updateStatusSchedu
 
 class LimpezaController {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID } = req.params;
+        const { unidadeID, papelID, usuarioID, status } = req.body;
 
         if (!unidadeID) return res.status(400).json({ error: 'unidadeID não informado!' })
 
@@ -33,7 +33,7 @@ class LimpezaController {
             JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
             JOIN status AS s ON (l.status = s.statusID)
             LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)
-        WHERE l.unidadeID = ?
+        WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status <= 30` : ''}
         ORDER BY l.dataInicio DESC, l.status ASC`
 
         const [result] = await db.promise().query(sql, [unidadeID])

@@ -12,7 +12,7 @@ const { getHeaderDepartments } = require('../../../../defaults/sector/getSectors
 
 class NaoConformidade {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID } = req.body;
+        const { unidadeID, papelID, usuarioID, status } = req.body;
 
         try {
             if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
@@ -33,7 +33,7 @@ class NaoConformidade {
                 LEFT JOIN limpeza_naoconformidade_equipamento AS lne ON (ln.limpezaNaoConformidadeID = lne.limpezaNaoConformidadeID)
                 LEFT JOIN limpeza_equipamento AS le ON (lne.limpezaEquipamentoID = le.limpezaEquipamentoID)
                 LEFT JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
-            WHERE ln.unidadeID = ?
+            WHERE ln.unidadeID = ? ${status && status.type === 'open' ? ` AND ln.status <= 30` : ''}
             GROUP BY ln.limpezaNaoConformidadeID
             ORDER BY ln.data DESC, ln.status ASC`
             const [result] = await db.promise().query(sql, [unidadeID])

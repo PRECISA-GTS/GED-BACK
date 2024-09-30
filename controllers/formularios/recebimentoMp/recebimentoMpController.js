@@ -42,7 +42,7 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status IN (10, 20, 30)` : ''}
+            WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status <= 30` : ''}
             GROUP BY l.recebimentoMpID
             ORDER BY l.data DESC, l.status ASC`
 
@@ -78,7 +78,10 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE f.cnpj = ? AND rnc.quemPreenche = 2 AND rnc.fornecedorAcessaRecebimento = 1
+            WHERE f.cnpj = ? 
+                AND rnc.quemPreenche = 2 
+                AND rnc.fornecedorAcessaRecebimento = 1 
+                ${status && status.type === 'open' ? ` AND l.status <= 30` : ''}
             GROUP BY l.recebimentoMpID
             ORDER BY l.recebimentoMpID DESC, l.status ASC`
 

@@ -14,7 +14,7 @@ const fornecedorPreenche = require('../../../../email/template/recebimentoMP/nao
 
 class NaoConformidade {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID } = req.body;
+        const { unidadeID, papelID, usuarioID, status } = req.body;
 
         try {
             if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
@@ -38,7 +38,7 @@ class NaoConformidade {
                     LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
                     LEFT JOIN recebimentomp_produto AS rp ON (rnp.recebimentoMpProdutoID = rp.recebimentoMpProdutoID)
                     LEFT JOIN produto AS p ON (rp.produtoID = p.produtoID)
-                WHERE rn.unidadeID = ?
+                WHERE rn.unidadeID = ? ${status && status.type === 'open' ? ` AND rn.status <= 30` : ''}
                 GROUP BY rn.recebimentoMpNaoConformidadeID
                 ORDER BY rn.data DESC, rn.status ASC`
                 const [result] = await db.promise().query(sql, [unidadeID])
@@ -67,7 +67,7 @@ class NaoConformidade {
                     LEFT JOIN recebimentomp_naoconformidade_produto AS rnp ON (rn.recebimentoMpNaoConformidadeID = rnp.recebimentoMpNaoConformidadeID)
                     LEFT JOIN recebimentomp_produto AS rp ON (rnp.recebimentoMpProdutoID = rp.recebimentoMpProdutoID)
                     LEFT JOIN produto AS p ON (rp.produtoID = p.produtoID)
-                WHERE f.cnpj = ? AND rn.quemPreenche = 2
+                WHERE f.cnpj = ? AND rn.quemPreenche = 2 ${status && status.type === 'open' ? ` AND rn.status <= 30` : ''}
                 GROUP BY rn.recebimentoMpNaoConformidadeID
                 ORDER BY rn.data DESC, rn.status ASC`
                 const [result] = await db.promise().query(sql, [resultCnpj[0]['cnpj'] ?? resultCnpj[0]['cpf']])
