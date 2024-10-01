@@ -88,7 +88,7 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
         let resultAlternativa = []
         for (const item of resultBloco) {
             if (status && status > 40) {
-                if (columnKeyResponse === 'recebimentoMpRespostaID') columnKeyResponse = 'recebimentompRespostaID' // correção coluna errada no BD
+                if (columnKeyResponse === 'recebimentoMpRespostaID') columnKeyResponse = 'recebimentompRespostaID' //! Correção coluna errada/diferente no BD
                 const sqlAlternativa = `
                 SELECT ai.alternativaItemID AS id, ai.nome, io.anexo, io.bloqueiaFormulario, io.observacao
                 FROM ${tableResponse} AS prbi
@@ -157,11 +157,11 @@ const getDynamicBlocks = async (id, modeloID, status, rootKey, tableConfig, colu
             }
             item.alternativas = resultAlternativa
 
-            // Cria objeto da resposta (se for de selecionar)
+            //* Cria objeto da resposta (se for de selecionar)
             if (item?.respostaID > 0) {
                 item.resposta = {
-                    id: item.respostaID,
-                    nome: item.resposta,
+                    id: item?.respostaID,
+                    nome: item?.resposta,
                     bloqueiaFormulario: item.alternativas.find(a => a.id == item.respostaID)?.bloqueiaFormulario,
                     observacao: item.alternativas.find(a => a.id == item.respostaID)?.observacao,
                     anexo: resultRespostaAnexos.find(a => a.alternativaItemID == item.respostaID)?.anexo,
