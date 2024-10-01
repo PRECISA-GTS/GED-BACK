@@ -128,7 +128,8 @@ class ProdutoController {
             const sqlAnalise = `
             SELECT *
             FROM produto_analise
-            WHERE produtoID = ?`
+            WHERE produtoID = ?
+            ORDER BY status DESC`
             const [resultAnalise] = await db.promise().query(sqlAnalise, [id]);
 
             const result = {
@@ -285,7 +286,7 @@ class ProdutoController {
                 values.unidadeMedida.fields.id,
                 classificacaoID,
                 (values.fields.usaLaboratorio ? '1' : '0'),
-                (values.fields.status ? '1' : '0'),
+                values.fields.status,
                 id
             ], 'update', 'produto', 'produtoID', id, logID)
 
