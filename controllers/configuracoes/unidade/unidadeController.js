@@ -40,14 +40,6 @@ class UnidadeController {
             WHERE a.unidadeID = ?`
             const [resultSqlGetData] = await db.promise().query(sqlGetData, id)
 
-            //? Todas as extensões da unidade
-            const sqlMyExtensions = `SELECT extensaoID AS id, nome FROM extensao WHERE extensaoID IN (SELECT extensaoID FROM unidade_extensao WHERE unidadeID = ?)`
-            const [resultExtensions] = await db.promise().query(sqlMyExtensions, id)
-
-            //? Todas as extensões
-            const sqlExtensions = `SELECT extensaoID AS id, nome FROM extensao`
-            const [resultAllExtensions] = await db.promise().query(sqlExtensions)
-
             const result = {
                 fields: {
                     ...resultSqlGetData[0],
@@ -61,8 +53,6 @@ class UnidadeController {
                         id: resultSqlGetData[0].riscoID,
                         nome: resultSqlGetData[0].riscoNome
                     } : null,
-                    extensoes: resultExtensions.length > 0 ? resultExtensions : [],
-                    allExtensions: resultAllExtensions.length > 0 ? resultAllExtensions : []
                 }
             }
             res.status(200).json(result);
@@ -99,9 +89,6 @@ class UnidadeController {
         try {
             const logID = await executeLog('Edição de unidade', data.usuarioID, data.unidadeID, req)
 
-            const extensoes = data.fields.extensoes
-            delete data.fields.extensoes
-            delete data.fields.allExtensions
             delete data.fields.cabecalhoRelatorioTitle
             delete data.fields.categoria
             delete data.fields.risco
@@ -122,17 +109,6 @@ class UnidadeController {
 
             //? Copia as informações da unidade para o formulário de fornecedor
             await copyUnityToForm(data.fields)
-
-            //? Atualiza extensões da unidade na tabela unidade_extensao 
-            if (extensoes.length > 0) {
-                const sqlDelete = 'DELETE FROM unidade_extensao WHERE unidadeID = ?'
-                await db.promise().query(sqlDelete, id)
-                const resultDelete = await executeQuery(sqlDelete, [id], 'delete', 'unidade_extensao', 'unidadeID', id, logID)
-
-                const sqlInsert = 'INSERT INTO unidade_extensao (unidadeID, extensaoID) VALUES ?'
-                const values = extensoes.map(extensao => [id, extensao.id])
-                const resultInsert = await executeQuery(sqlInsert, [values], 'insert', 'unidade_extensao', 'unidadeExtensaoID', null, logID)
-            }
 
             //? Atualiza o primeiro acesso pra 0
             const sqlUpdateFirstAccess = 'UPDATE usuario_unidade SET primeiroAcesso = 0 WHERE usuarioID = ? AND unidadeID = ?'
@@ -277,7 +253,7 @@ class UnidadeController {
         const { id, usuarioID, unidadeID } = req.params
 
         const objDelete = {
-            table: ['unidade_extensao', 'unidade'],
+            table: ['unidade'],
             column: 'unidadeID'
         }
         const arrPending = [

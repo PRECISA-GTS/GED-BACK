@@ -512,7 +512,7 @@ class FornecedorController {
 
         //? Remover arquivo do diretório
         if (resultCurrentFile) {
-            const pathFile = `uploads / ${unidadeID} /fornecedor/${folder} /`
+            const pathFile = `uploads/${unidadeID}/fornecedor/${folder}/`
             const previousFile = path.resolve(pathFile, resultCurrentFile);
             fs.unlink(previousFile, (error) => {
                 if (error) {
@@ -1365,6 +1365,8 @@ class FornecedorController {
             fornecedorCategoriaRiscoID,
             isCpf
         } = req.body;
+        console.log("🚀 ~ unidadeID:", unidadeID)
+
         const quemPreenche = habilitaQuemPreencheFormFornecedor ?? 2
         let message = 'Fornecedor criado com sucesso!'
 
@@ -1782,7 +1784,7 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
     }
 
     //* Verifica qual o modelo para esta categoria e risco
-    if (!risk) return null
+    if (!risk) return { modeloID: null, ciclo: null }
     const sql = `
     SELECT frm.parFornecedorModeloID, pfm.ciclo
     FROM fornecedorcategoria_risco AS fr
@@ -1791,14 +1793,17 @@ const getModelByCategoryAndRisk = async (cnpj, risk, unityID) => {
     WHERE fr.fornecedorCategoriaRiscoID = ${risk} AND frm.unidadeID = ${unityID}`
     const [result] = await db.promise().query(sql)
 
-    if (!result) return null
+    if (!result) return {
+        modeloID: null,
+        ciclo: null
+    }
 
     const data = {
         modeloID: result[0]['parFornecedorModeloID'],
         ciclo: result[0]['ciclo']
     }
 
-    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? data : null
+    return result.length > 0 && result[0]['parFornecedorModeloID'] > 0 ? data : { modeloID: null, ciclo: null }
 }
 
 const getSqlBloco = () => {

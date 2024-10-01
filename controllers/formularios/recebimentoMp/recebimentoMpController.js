@@ -775,7 +775,7 @@ class RecebimentoMpController {
 
         //? Remover arquivo do diretório
         if (resultCurrentFile) {
-            const pathFile = `uploads / ${unidadeID} /recebimento-mp/${folder} /`
+            const pathFile = `uploads/${unidadeID}/recebimento-mp/${folder}/`
             const previousFile = path.resolve(pathFile, resultCurrentFile);
             fs.unlink(previousFile, (error) => {
                 if (error) {
