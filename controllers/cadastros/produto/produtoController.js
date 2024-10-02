@@ -1,6 +1,7 @@
 const db = require('../../../config/db');
 const { hasConflict, hasPending, deleteItem } = require('../../../config/defaultConfig');
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
+const { fractionedToFloat, floatToFractioned } = require('../../../defaults/functions');
 
 class ProdutoController {
 
@@ -131,13 +132,20 @@ class ProdutoController {
             WHERE produtoID = ?
             ORDER BY status DESC`
             const [resultAnalise] = await db.promise().query(sqlAnalise, [id]);
+            const formattedAnalise = resultAnalise.map((analise) => {
+                return {
+                    ...analise,
+                    minimo: floatToFractioned(analise.minimo),
+                    maximo: floatToFractioned(analise.maximo),
+                }
+            });
 
             const result = {
                 fields: {
                     ...resultData[0],
                     limpeza: resultData[0].limpeza === 1 ? true : false,
                     usaLaboratorio: resultData[0].usaLaboratorio === 1 ? true : false,
-                    analises: resultAnalise ?? []
+                    analises: formattedAnalise ?? []
                 },
                 anexos: resultAnexos,
                 unidadeMedida: {
@@ -234,14 +242,15 @@ class ProdutoController {
 
             //? Análises
             for (const row of values.fields.analises) {
-                const sqlItem = 'INSERT INTO produto_analise (produtoID, nome, unidade, minimo, maximo, ajuda) VALUES (?, ?, ?, ?, ?, ?)'
+                const sqlItem = 'INSERT INTO produto_analise (produtoID, nome, unidade, minimo, maximo, ajuda, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
                 await executeQuery(sqlItem, [
                     id,
                     row.nome,
                     row.unidade,
-                    row.minimo,
-                    row.maximo,
-                    row.ajuda
+                    fractionedToFloat(row.minimo),
+                    fractionedToFloat(row.maximo),
+                    row.ajuda,
+                    1
                 ], 'insert', 'produto_analise', 'produtoAnaliseID', null, logID)
             }
 
@@ -328,8 +337,8 @@ class ProdutoController {
                     await executeQuery(sqlItemUpdate, [
                         item.nome,
                         item.unidade,
-                        item.minimo ?? 0,
-                        item.maximo ?? 0,
+                        fractionedToFloat(item.minimo ?? 0),
+                        fractionedToFloat(item.maximo ?? 0),
                         item.ajuda,
                         item.id,
                         id
@@ -340,8 +349,8 @@ class ProdutoController {
                         id,
                         item.nome,
                         item.unidade,
-                        item.minimo ?? 0,
-                        item.maximo ?? 0,
+                        fractionedToFloat(item.minimo ?? 0),
+                        fractionedToFloat(item.maximo ?? 0),
                         item.ajuda,
                         item.status ? '1' : '0'
                     ], 'insert', 'produto_analise', 'produtoID', id, logID);
