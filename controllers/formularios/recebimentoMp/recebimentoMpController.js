@@ -605,7 +605,7 @@ class RecebimentoMpController {
                                     produto.recebimentoMpProdutoID
                                 ], 'update', 'recebimentomp_produto', 'recebimentoMpProdutoID', null, logID)
                                 arrActiveProducts.push(produto.recebimentoMpProdutoID)
-                            } else if (fractionedToFloat(produto.quantidade) > 0) { //? Insere
+                            } else if (blocoProduto.produtoID > 0) { //? Insere
                                 const sqlInsertProduto = `
                                 INSERT INTO recebimentomp_produto(recebimentoMpID, produtoID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
                                 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`

@@ -546,13 +546,14 @@ class LimpezaController {
                     new Date()
                 ], 'insert', 'anexo', 'anexoID', null, logID)
 
+                console.log("🚀 ~ parLimpezaModeloBlocoID:", parLimpezaModeloBlocoID, anexoID, itemOpcaoAnexoID)
+
                 //? Insere em anexo_busca
                 const sqlInsertBusca = `
-                INSERT INTO anexo_busca(anexoID, limpezaID, grupoAnexoItemID, parLimpezaModeloBlocoID, itemOpcaoAnexoID) VALUES(?,?,?,?,?)`;
+                INSERT INTO anexo_busca(anexoID, limpezaID, parLimpezaModeloBlocoID, itemOpcaoAnexoID) VALUES(?,?,?,?)`;
                 await executeQuery(sqlInsertBusca, [
                     anexoID,
                     id,
-                    grupoAnexoItemID ?? null,
                     parLimpezaModeloBlocoID ?? null,
                     itemOpcaoAnexoID ?? null
                 ], 'insert', 'anexo_busca', 'anexoBuscaID', null, logID)

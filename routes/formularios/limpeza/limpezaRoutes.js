@@ -19,7 +19,7 @@ limpezaRoutes.delete(`${route}/deleteAnexo/:id/:anexoID/:unidadeID/:usuarioID/:f
 
 limpezaRoutes.post(`${route}/saveAnexo/:id/:folder/:usuarioID/:unidadeID`, (req, res, next) => {
     const folder = req.params.folder ?? '/' //? Pasta destino do arquivo (grupo-anexo/produto/item/...)
-    const pathDestination = `uploads/${req.params.unidadeID}/recebimento-mp-nao-conformidade/${folder}/`
+    const pathDestination = `uploads/${req.params.unidadeID}/limpeza/${folder}/`
     req.pathDestination = pathDestination
     console.log("🚀 ~ pathDestination:", pathDestination)
     configureMulterMiddleware(req, res, next, req.params.usuarioID, req.params.unidadeID, pathDestination)
