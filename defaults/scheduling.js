@@ -3,7 +3,6 @@ const { executeQuery } = require('../config/executeQuery');
 require('dotenv/config');
 
 const getCalendarDetails = (type) => {
-    console.log("🚀 ~ type:", type)
     switch (type) {
         case 'fornecedor':
             return {
