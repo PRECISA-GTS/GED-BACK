@@ -333,13 +333,14 @@ class ProdutoController {
             // Atualiza ou insere os itens recebidos
             for (const item of values.fields.analises) {
                 if (item.id) {
-                    const sqlItemUpdate = `UPDATE produto_analise SET nome = ?, unidade = ?, minimo = ?, maximo = ?, ajuda = ? WHERE produtoAnaliseID = ? AND produtoID = ?`;
+                    const sqlItemUpdate = `UPDATE produto_analise SET nome = ?, unidade = ?, minimo = ?, maximo = ?, ajuda = ?, status = ? WHERE produtoAnaliseID = ? AND produtoID = ?`;
                     await executeQuery(sqlItemUpdate, [
                         item.nome,
                         item.unidade,
                         fractionedToFloat(item.minimo ?? 0),
                         fractionedToFloat(item.maximo ?? 0),
                         item.ajuda,
+                        item.status,
                         item.id,
                         id
                     ], 'update', 'produto_analise', 'produtoAnaliseID', item.id, logID);
@@ -352,7 +353,7 @@ class ProdutoController {
                         fractionedToFloat(item.minimo ?? 0),
                         fractionedToFloat(item.maximo ?? 0),
                         item.ajuda,
-                        item.status ? '1' : '0'
+                        '1'
                     ], 'insert', 'produto_analise', 'produtoID', id, logID);
                 }
             }
