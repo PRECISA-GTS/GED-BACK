@@ -144,7 +144,7 @@ class ProdutoController {
                 fields: {
                     ...resultData[0],
                     limpeza: resultData[0].limpeza === 1 ? true : false,
-                    usaLaboratorio: resultData[0].usaLaboratorio === 1 ? true : false,
+                    analiseProduto: resultData[0].analiseProduto === 1 ? true : false,
                     analises: formattedAnalise ?? []
                 },
                 anexos: resultAnexos,
@@ -212,11 +212,11 @@ class ProdutoController {
 
             //? Insere novo item
             const classificacaoID = values.classificacao.fields ? values.classificacao.fields.id : null
-            const sqlInsert = `INSERT INTO produto (nome, limpeza, usaLaboratorio, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?, ?, ?)`
+            const sqlInsert = `INSERT INTO produto (nome, limpeza, analiseProduto, status, unidadeMedidaID, classificacaoProdutoID, unidadeID) VALUES (?, ?, ?, ?, ?, ?, ?)`
             const id = await executeQuery(sqlInsert, [
                 values.fields.nome,
                 (values.fields.limpeza ? '1' : '0'),
-                (values.fields.usaLaboratorio ? '1' : '0'),
+                (values.fields.analiseProduto ? '1' : '0'),
                 (values.fields.status ? '1' : '0'),
                 values.unidadeMedida.fields.id, classificacaoID,
                 values.unidadeID
@@ -288,13 +288,13 @@ class ProdutoController {
 
             //? Atualiza produto
             const classificacaoID = values.classificacao.fields?.id ?? null
-            const sqlUpdate = `UPDATE produto SET nome = ?, limpeza = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, usaLaboratorio = ?, status = ? WHERE produtoID = ?`;
+            const sqlUpdate = `UPDATE produto SET nome = ?, limpeza = ?, unidadeMedidaID = ?, classificacaoProdutoID = ?, analiseProduto = ?, status = ? WHERE produtoID = ?`;
             await executeQuery(sqlUpdate, [
                 values.fields.nome,
                 (values.fields.limpeza ? '1' : '0'),
                 values.unidadeMedida.fields.id,
                 classificacaoID,
-                (values.fields.usaLaboratorio ? '1' : '0'),
+                (values.fields.analiseProduto ? '1' : '0'),
                 values.fields.status,
                 id
             ], 'update', 'produto', 'produtoID', id, logID)
