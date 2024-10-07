@@ -33,9 +33,10 @@ class LimpezaController {
             JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
             JOIN status AS s ON (l.status = s.statusID)
             LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)
-
             LEFT JOIN limpeza_naoconformidade AS ln ON (l.limpezaID = ln.limpezaID)
-        WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND (l.status <= 30 OR ln.status <= 30)` : ''}
+        WHERE l.unidadeID = ? 
+            ${status && status.type === 'open' ? ` AND (l.status <= 30 OR ln.status <= 30)` : ''} 
+            ${status && status.type === 'nc' ? ` AND l.naoConformidade = 1` : ``}
         GROUP BY l.limpezaID
         ORDER BY l.dataInicio DESC, l.status ASC`
 

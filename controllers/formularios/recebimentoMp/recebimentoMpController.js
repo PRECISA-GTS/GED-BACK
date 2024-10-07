@@ -40,7 +40,10 @@ class RecebimentoMpController {
 
                 LEFT JOIN recebimentomp_produto AS rp ON (l.recebimentoMpID = rp.recebimentoMpID)
                 LEFT JOIN produto AS pd ON (rp.produtoID = pd.produtoID)
-            WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status <= 30` : ''}
+                LEFT JOIN recebimentomp_naoconformidade AS rn ON (l.recebimentoMpID = rn.recebimentoMpID)
+            WHERE l.unidadeID = ? 
+                ${status && status.type === 'open' ? ` AND (l.status <= 30 OR rn.status <= 30)` : ''}
+                ${status && status.type === 'nc' ? ` AND l.naoConformidade = 1` : ``}
             GROUP BY l.recebimentoMpID
             ORDER BY l.data DESC, l.status ASC`
 
