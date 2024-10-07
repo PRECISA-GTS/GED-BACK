@@ -33,7 +33,10 @@ class LimpezaController {
             JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
             JOIN status AS s ON (l.status = s.statusID)
             LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)
-        WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND l.status <= 30` : ''}
+
+            LEFT JOIN limpeza_naoconformidade AS ln ON (l.limpezaID = ln.limpezaID)
+        WHERE l.unidadeID = ? ${status && status.type === 'open' ? ` AND (l.status <= 30 OR ln.status <= 30)` : ''}
+        GROUP BY l.limpezaID
         ORDER BY l.dataInicio DESC, l.status ASC`
 
         const [result] = await db.promise().query(sql, [unidadeID])
@@ -70,6 +73,8 @@ class LimpezaController {
                     l.parLimpezaModeloID AS modeloID,
                     DATE_FORMAT(l.dataInicio, "%Y-%m-%d") AS dataInicio,
                     DATE_FORMAT(l.dataInicio, "%H:%i") AS horaInicio,
+                    DATE_FORMAT(l.dataInicio, "%d/%m/%Y %H:%i") AS dataInicio_,
+                    DATE_FORMAT(l.dataFim, "%d/%m/%Y %H:%i") AS dataFim_,                    
                     DATE_FORMAT(l.dataFim, "%Y-%m-%d") AS dataFim,
                     DATE_FORMAT(l.dataFim, "%H:%i") AS horaFim,
                     l.limpezaHigienizacao,
@@ -89,7 +94,11 @@ class LimpezaController {
                     s.nome AS statusNome,
                     s.cor AS statusCor,
                     DATE_FORMAT(l.dataConclusao, "%Y-%m-%d") AS dataConclusao,
-                    DATE_FORMAT(l.dataConclusao, "%H:%i") AS horaConclusao
+                    DATE_FORMAT(l.dataConclusao, "%H:%i") AS horaConclusao,
+
+                    (SELECT COUNT(*)
+                    FROM limpeza_naoconformidade AS ln
+                    WHERE l.limpezaID = ln.limpezaID) AS totalNc
                 FROM limpeza AS l
                     JOIN par_limpeza_modelo AS plm ON (l.parLimpezaModeloID = plm.parLimpezaModeloID)
                     LEFT JOIN status AS s ON (l.status = s.statusID)    
@@ -157,11 +166,22 @@ class LimpezaController {
             const time = getTimeNow()
 
             const header = {
+                limpeza: {
+                    id: result?.[0]?.id,
+                    dataInicio: result?.[0]?.dataInicio_,
+                    dataFim: result?.[0]?.dataFim_,
+                    modelo: resultModelo[0].nome,
+                    setor: result?.[0]?.setor,
+                    status: {
+                        label: result?.[0]?.statusNome,
+                        color: result?.[0]?.statusCor
+                    }
+                },
                 dataInicio: result?.[0]?.dataInicio ?? today,
                 horaInicio: result?.[0]?.horaInicio ?? '08:00',
                 dataFim: result?.[0]?.dataFim ?? today,
                 horaFim: result?.[0]?.horaFim ?? '18:00',
-                limpeza: true,
+                totalNc: result?.[0]?.totalNc,
                 higienizacao: result?.[0]?.limpezaHigienizacao === 2 ? true : false,
                 prestadorServico: result?.[0]?.prestadorServico === 1 ? true : false,
                 fornecedor: {

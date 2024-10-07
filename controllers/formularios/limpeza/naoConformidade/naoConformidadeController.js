@@ -12,10 +12,10 @@ const { getHeaderDepartments } = require('../../../../defaults/sector/getSectors
 
 class NaoConformidade {
     async getList(req, res) {
-        const { unidadeID, papelID, usuarioID, status } = req.body;
+        const { unidadeID, papelID, usuarioID, limpezaID } = req.body;
 
         try {
-            if (!unidadeID || !papelID) return res.status(400).json({ error: 'Unidade não informada!' })
+            if (!unidadeID || !papelID || !limpezaID) return res.status(400).json({ error: 'Unidade não informada!' })
 
             const sql = `
             SELECT 
@@ -33,10 +33,10 @@ class NaoConformidade {
                 LEFT JOIN limpeza_naoconformidade_equipamento AS lne ON (ln.limpezaNaoConformidadeID = lne.limpezaNaoConformidadeID)
                 LEFT JOIN limpeza_equipamento AS le ON (lne.limpezaEquipamentoID = le.limpezaEquipamentoID)
                 LEFT JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
-            WHERE ln.unidadeID = ? ${status && status.type === 'open' ? ` AND ln.status <= 30` : ''}
+            WHERE ln.unidadeID = ? AND ln.limpezaID = ?
             GROUP BY ln.limpezaNaoConformidadeID
             ORDER BY ln.data DESC, ln.status ASC`
-            const [result] = await db.promise().query(sql, [unidadeID])
+            const [result] = await db.promise().query(sql, [unidadeID, limpezaID])
 
             return res.json(result);
         } catch (error) {
@@ -70,7 +70,6 @@ class NaoConformidade {
             if (!id && !limpezaID) return res.status(204).json({ error: 'Limpeza não informada!' })
 
             let result = []
-            // let limpezaID = limpezaID //? Quando vem de um formulário NOVO
             let modeloID = modelID //? Quando vem de um formulário NOVO
 
             if (id && id > 0) {
@@ -88,7 +87,11 @@ class NaoConformidade {
                     plnm.nome AS modelo,
                     s.statusID,
                     s.nome AS statusNome,
-                    s.cor AS statusCor
+                    s.cor AS statusCor,
+
+                    (SELECT COUNT(*)
+                    FROM limpeza_naoconformidade AS lni
+                    WHERE lni.limpezaID = ln.limpezaID) AS totalNc
                 FROM limpeza_naoconformidade AS ln
                     JOIN par_limpeza_naoconformidade_modelo AS plnm ON (ln.parLimpezaNaoConformidadeModeloID = plnm.parLimpezaNaoConformidadeModeloID)
                     LEFT JOIN status AS s ON (ln.status = s.statusID)    
@@ -183,9 +186,9 @@ class NaoConformidade {
                         color: resultLimpeza[0].statusCor
                     }
                 },
-
                 data: result?.[0]?.data ?? today,
                 hora: result?.[0]?.hora ?? time,
+                totalNc: result?.[0]?.totalNc ?? 0,
                 equipamentos: resultEquipamentos ?? [],
                 descricao: result?.[0]?.descricao,
                 prazoSolucao: result?.[0]?.prazoSolucao,

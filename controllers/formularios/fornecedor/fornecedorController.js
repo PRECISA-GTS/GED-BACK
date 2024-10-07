@@ -1365,7 +1365,6 @@ class FornecedorController {
             fornecedorCategoriaRiscoID,
             isCpf
         } = req.body;
-        console.log("🚀 ~ unidadeID:", unidadeID)
 
         const quemPreenche = habilitaQuemPreencheFormFornecedor ?? 2
         let message = 'Fornecedor criado com sucesso!'
