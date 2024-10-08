@@ -35,11 +35,10 @@ class LimpezaController {
             LEFT JOIN setor AS s2 ON (l.setorID = s2.setorID)
             LEFT JOIN limpeza_naoconformidade AS ln ON (l.limpezaID = ln.limpezaID)
         WHERE l.unidadeID = ? 
-            ${status && status.type === 'open' ? ` AND (l.status <= 30 OR ln.status <= 30)` : ''} 
+            ${status && status.type === 'open' ? ` AND ((l.status <= 30 OR ln.status <= 30) OR (l.naoConformidade = 1 AND ln.limpezaNaoConformidadeID IS NULL))` : ''} 
             ${status && status.type === 'nc' ? ` AND l.naoConformidade = 1` : ``}
         GROUP BY l.limpezaID
         ORDER BY l.dataInicio DESC, l.status ASC`
-
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.json(result);
     }
