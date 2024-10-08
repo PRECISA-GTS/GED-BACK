@@ -111,7 +111,7 @@ class LimpezaController {
                 ORDER BY l.dataInicio DESC, l.status ASC`
                 const [rows] = await db.promise().query(sql, [id, unidadeID])
                 result = rows
-                modeloID = rows[0].modeloID
+                modeloID = rows[0]?.modeloID
             }
 
             const sqlModelo = `

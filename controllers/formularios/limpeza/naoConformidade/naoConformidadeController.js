@@ -98,9 +98,10 @@ class NaoConformidade {
                 WHERE ln.limpezaNaoConformidadeID = ? AND ln.unidadeID = ?
                 ORDER BY ln.data DESC, ln.status ASC`
                 const [rows] = await db.promise().query(sql, [id, unidadeID])
+
                 result = rows
-                modeloID = rows[0].modeloID
-                limpezaID = rows[0].limpezaID
+                modeloID = rows[0]?.modeloID
+                limpezaID = rows[0]?.limpezaID
             }
 
             const sqlModelo = `
