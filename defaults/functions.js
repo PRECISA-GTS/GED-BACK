@@ -330,6 +330,7 @@ const updateMultipleSelect = async (table, tableKey, focusKey, id, arrValues) =>
 
 const insertMultipleSelect = async (table, tableKey, focusKey, id, arrValues) => {
     if (!arrValues || arrValues.length == 0) return
+    console.log("🚀 ~ arrValues:", arrValues)
 
     const novosProdutosIDs = arrValues.map(row => row.id)
 
@@ -339,7 +340,7 @@ const insertMultipleSelect = async (table, tableKey, focusKey, id, arrValues) =>
 
         console.log('Dados inseridos com sucesso!')
     } catch (error) {
-        console.error('Erro ao inserir produtos:', error)
+        console.error('Erro ao inserir dados:', error)
     }
 }
 
