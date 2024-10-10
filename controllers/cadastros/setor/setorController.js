@@ -141,6 +141,11 @@ class SetorController {
             SELECT 
                 setorID,
                 nome, 
+                localizacao, 
+                funcao, 
+                numeroFuncionarios, 
+                observacao, 
+                orientacoesLimpeza,
                 status
             FROM setor                
             WHERE setorID = ?`
@@ -197,8 +202,17 @@ class SetorController {
             }
 
             const logID = await executeLog('Criação de setor', usuarioID, 1, req)
-            const sql = 'INSERT INTO setor (nome, unidadeID, status) VALUES (?, ?, ?)'
-            const id = await executeQuery(sql, [fields.nome, unidadeID, 1], 'insert', 'setor', 'setorID', null, logID)
+            const sql = 'INSERT INTO setor (nome, localizacao, funcao, numeroFuncionarios, observacao, orientacoesLimpeza, unidadeID, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            const id = await executeQuery(sql, [
+                fields.nome,
+                fields.localizacao,
+                fields.funcao,
+                fields.numeroFuncionarios,
+                fields.observacao,
+                fields.orientacoesLimpeza,
+                unidadeID,
+                1
+            ], 'insert', 'setor', 'setorID', null, logID)
             if (!id) return
 
             for (const row of fields.equipamentos) {
@@ -232,8 +246,20 @@ class SetorController {
             }
 
             const logID = await executeLog('Atualização de setor', usuarioID, 1, req)
-            const sql = `UPDATE setor SET nome = ?, status = ? WHERE setorID = ?`
-            await executeQuery(sql, [fields.nome, fields?.status ? 1 : 0, id], 'update', 'setor', 'setorID', id, logID)
+            const sql = `
+            UPDATE setor 
+            SET nome = ?, localizacao = ?, funcao = ?, numeroFuncionarios = ?, observacao = ?, orientacoesLimpeza = ?, status = ? 
+            WHERE setorID = ?`
+            await executeQuery(sql, [
+                fields.nome,
+                fields.localizacao,
+                fields.funcao,
+                fields.numeroFuncionarios,
+                fields.observacao,
+                fields.orientacoesLimpeza,
+                fields?.status ? 1 : 0,
+                id
+            ], 'update', 'setor', 'setorID', id, logID)
 
             const existingItems = await db.promise().query(`SELECT setorEquipamentoID FROM setor_equipamento WHERE setorID = ?`, [id]);
             const incomingItemIDs = new Set(fields.equipamentos.map(item => item.id));
