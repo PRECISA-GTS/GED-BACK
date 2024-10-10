@@ -38,7 +38,7 @@ class LimpezaController {
             ${status && status.type === 'open' ? ` AND ((l.status <= 30 OR ln.status <= 30) OR (l.naoConformidade = 1 AND ln.limpezaNaoConformidadeID IS NULL))` : ''} 
             ${status && status.type === 'nc' ? ` AND l.naoConformidade = 1` : ``}
         GROUP BY l.limpezaID
-        ORDER BY l.dataInicio DESC, l.status ASC`
+        ORDER BY l.dataInicio, l.limpezaID DESC`
         const [result] = await db.promise().query(sql, [unidadeID])
         return res.json(result);
     }

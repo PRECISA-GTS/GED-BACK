@@ -3,6 +3,24 @@ const { hasConflict, hasPending, deleteItem } = require('../../../config/default
 const { executeLog, executeQuery } = require('../../../config/executeQuery');
 
 class ItemController {
+
+    async getItems(req, res) {
+        const { parFormularioID, unidadeID } = req.body
+        if (!parFormularioID || !unidadeID) return res.status(400).json({ message: "Dados não informados!" })
+
+        try {
+            const sql = `
+            SELECT i.itemID AS id, CONCAT(i.nome, ' (', a.nome, ')') AS nome
+            FROM item AS i
+                JOIN alternativa AS a ON (i.alternativaID = a.alternativaID)
+            WHERE i.parFormularioID = ? AND i.unidadeID = ? AND i.status = 1 
+            ORDER BY i.nome ASC`
+            const [result] = await db.promise().query(sql, [parFormularioID, unidadeID])
+            return res.status(200).json(result)
+        } catch (error) {
+            console.log(error)
+        }
+    }
     async getItemConfigs(req, res) {
         try {
             const { itemID, alternativaItemID } = req.body
