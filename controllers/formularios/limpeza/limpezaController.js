@@ -114,47 +114,47 @@ class LimpezaController {
                 modeloID = rows[0]?.modeloID
             }
 
-            const sqlModelo = `
-            SELECT parLimpezaModeloID AS id, nome, ciclo, cabecalho
-            FROM par_limpeza_modelo
-            WHERE parLimpezaModeloID = ?`
-            const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
+            // const sqlModelo = `
+            // SELECT parLimpezaModeloID AS id, nome, ciclo, cabecalho
+            // FROM par_limpeza_modelo
+            // WHERE parLimpezaModeloID = ?`
+            // const [resultModelo] = await db.promise().query(sqlModelo, [modeloID])
 
-            //? Função que retorna fields dinâmicos definidos no modelo!
-            const fields = await getDynamicHeaderFields(
-                id,
-                modeloID,
-                unidadeID,
-                result?.[0]?.['status'] ?? 0,
-                'par_limpeza',
-                'parLimpezaID',
-                'parLimpezaModeloID',
-                'limpeza',
-                'limpezaID'
-            )
+            // //? Função que retorna fields dinâmicos definidos no modelo!
+            // const fields = await getDynamicHeaderFields(
+            //     id,
+            //     modeloID,
+            //     unidadeID,
+            //     result?.[0]?.['status'] ?? 0,
+            //     'par_limpeza',
+            //     'parLimpezaID',
+            //     'parLimpezaModeloID',
+            //     'limpeza',
+            //     'limpezaID'
+            // )
 
             //? Equipamentos 
-            const sqlEquipment = `
-            SELECT 
-                e.equipamentoID AS id, 
-                e.nome, 
-                (SELECT GROUP_CONCAT(setorID SEPARATOR ', ')
-                FROM setor_equipamento 
-                WHERE equipamentoID = e.equipamentoID) AS setores
-            FROM limpeza_equipamento AS le 
-                JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
-            WHERE le.limpezaID = ?
-            ORDER BY e.nome ASC`
-            const [rowsEquipment] = await db.promise().query(sqlEquipment, [id])
+            // const sqlEquipment = `
+            // SELECT 
+            //     e.equipamentoID AS id, 
+            //     e.nome, 
+            //     (SELECT GROUP_CONCAT(setorID SEPARATOR ', ')
+            //     FROM setor_equipamento 
+            //     WHERE equipamentoID = e.equipamentoID) AS setores
+            // FROM limpeza_equipamento AS le 
+            //     JOIN equipamento AS e ON (le.equipamentoID = e.equipamentoID)
+            // WHERE le.limpezaID = ?
+            // ORDER BY e.nome ASC`
+            // const [rowsEquipment] = await db.promise().query(sqlEquipment, [id])
 
             //? Produtos
-            const sqlProduct = `
-            SELECT p.produtoID AS id, p.nome
-            FROM limpeza_produto AS lp 
-                JOIN produto AS p ON (lp.produtoID = p.produtoID)
-            WHERE lp.limpezaID = ?
-            ORDER BY p.nome ASC`
-            const [rowsProduct] = await db.promise().query(sqlProduct, [id])
+            // const sqlProduct = `
+            // SELECT p.produtoID AS id, p.nome
+            // FROM limpeza_produto AS lp 
+            //     JOIN produto AS p ON (lp.produtoID = p.produtoID)
+            // WHERE lp.limpezaID = ?
+            // ORDER BY p.nome ASC`
+            // const [rowsProduct] = await db.promise().query(sqlProduct, [id])
 
             const departments = await getHeaderDepartments(
                 modeloID,
@@ -170,7 +170,7 @@ class LimpezaController {
                     id: result?.[0]?.id,
                     dataInicio: result?.[0]?.dataInicio_,
                     dataFim: result?.[0]?.dataFim_,
-                    modelo: resultModelo[0].nome,
+                    modelo: 'sairá..', //resultModelo[0].nome,
                     setor: result?.[0]?.setor,
                     status: {
                         label: result?.[0]?.statusNome,
@@ -201,21 +201,21 @@ class LimpezaController {
                     nome: result?.[0]?.profissional
                 },
                 temperaturaAgua: result?.[0]?.temperaturaAgua,
-                equipamentos: rowsEquipment ?? [],
-                produtos: rowsProduct ?? [],
-                modelo: {
-                    id: resultModelo[0].id,
-                    nome: resultModelo[0].nome,
-                    ciclo: resultModelo[0].ciclo,
-                    cabecalho: resultModelo[0].cabecalho
-                },
+                // equipamentos: rowsEquipment ?? [],
+                // produtos: rowsProduct ?? [],
+                // modelo: {
+                //     id: resultModelo[0].id,
+                //     nome: resultModelo[0].nome,
+                //     ciclo: resultModelo[0].ciclo,
+                //     cabecalho: resultModelo[0].cabecalho
+                // },
                 status: {
                     id: result?.[0]?.statusID ?? 10,
                     label: result?.[0]?.statusNome ?? 'Novo',
                     color: result?.[0]?.statusCor ?? 'primary'
                 },
                 naoConformidade: result?.[0]?.naoConformidade == '1' ? true : false,
-                fields,
+                // fields,
                 departamentosPreenchimento: departments.fill ?? [],
                 departamentosConclusao: departments.conclude ?? [],
             }
@@ -226,22 +226,22 @@ class LimpezaController {
             }
 
             //? Função que retorna blocos dinâmicos definidos no modelo!
-            const blocos = await getDynamicBlocks(
-                id,
-                modeloID,
-                result?.[0]?.['statusID'] ?? 0,
-                'limpezaID',
-                'par_limpeza_modelo_bloco',
-                'parLimpezaModeloID',
-                'limpeza_resposta',
-                'limpezaRespostaID',
-                'par_limpeza_modelo_bloco_item',
-                'parLimpezaModeloBlocoItemID',
-                'parLimpezaModeloBlocoID',
-                'par_limpeza_modelo_bloco_departamento'
-            )
+            // const blocos = await getDynamicBlocks(
+            //     id,
+            //     modeloID,
+            //     result?.[0]?.['statusID'] ?? 0,
+            //     'limpezaID',
+            //     'par_limpeza_modelo_bloco',
+            //     'parLimpezaModeloID',
+            //     'limpeza_resposta',
+            //     'limpezaRespostaID',
+            //     'par_limpeza_modelo_bloco_item',
+            //     'parLimpezaModeloBlocoItemID',
+            //     'parLimpezaModeloBlocoID',
+            //     'par_limpeza_modelo_bloco_departamento'
+            // )
 
-            return res.json({ header, blocos, fieldsFooter });
+            return res.json({ header, fieldsFooter });
         } catch (error) {
             console.log("🚀 ~ error:", error)
         }
@@ -467,6 +467,76 @@ class LimpezaController {
             return res.status(201).json({ message: "Formulário concluído com sucesso!" })
         } catch (error) {
             console.log("🚀 ~ error:", error)
+        }
+    }
+
+    async getEquipamentos(req, res) {
+        const { unidadeID, setorID } = req.body;
+
+        if (!unidadeID || !setorID) {
+            return res.status(400).json({ error: 'unidadeID ou setorID não informado!' });
+        }
+
+        try {
+            const sql = `
+            SELECT 
+                se.equipamentoID, 
+                e.nome,
+                e.marca, 
+                e.modelo, 
+                e.codigoInventario,
+                e.orientacoesLimpeza
+            FROM setor_equipamento AS se 
+                JOIN equipamento AS e ON (se.equipamentoID = e.equipamentoID)
+            WHERE se.setorID = ? AND e.unidadeID = ? AND e.status = 1
+            ORDER BY e.nome`;
+
+            const [result] = await db.promise().query(sql, [setorID, unidadeID]);
+
+            const updatedResult = await Promise.all(
+                result.map(async (item) => {
+                    const fullName = [item.nome, item.marca, item.modelo, item.codigoInventario].filter(Boolean).join(', ')
+
+                    //? Itens do equipamento
+                    const sqlItem = `
+                    SELECT * 
+                    FROM equipamento_limpeza AS el 
+                        JOIN item AS i ON (el.itemID = i.itemID)
+                    WHERE el.equipamentoID = ?`;
+                    const [resultItem] = await db.promise().query(sqlItem, [item.equipamentoID]);
+
+                    //? Alternativas do item
+                    const updatedItems = await Promise.all(
+                        resultItem.map(async (item, index) => {
+                            const sqlAlternativa = `
+                            SELECT ai.alternativaItemID AS id, ai.nome
+                            FROM alternativa_item AS ai                        
+                            WHERE ai.alternativaID = ?`;
+                            const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item.alternativaID]);
+
+                            return {
+                                ...item,
+                                ordem: index + 1,
+                                resposta: null,
+                                alternativas: resultAlternativa,
+                            };
+                        })
+                    );
+
+                    return {
+                        equipamentoID: item.equipamentoID,
+                        nome: fullName,
+                        orientacoesLimpeza: item.orientacoesLimpeza,
+                        itens: updatedItems,
+                    }
+                })
+            );
+
+            return res.status(200).json(updatedResult);
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error);
+            return res.status(500).json({ error: 'Erro no servidor' });
         }
     }
 

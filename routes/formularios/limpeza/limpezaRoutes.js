@@ -13,6 +13,7 @@ limpezaRoutes.post(`${route}/getModels`, limpezaController.getModels);
 limpezaRoutes.post(`${route}/insertData`, limpezaController.insertData);
 limpezaRoutes.post(`${route}/updateData/:id`, limpezaController.updateData);
 limpezaRoutes.post(`${route}/conclude`, limpezaController.conclude);
+limpezaRoutes.post(`${route}/getEquipamentos`, limpezaController.getEquipamentos);
 limpezaRoutes.delete(`${route}/delete/:id/:usuarioID/:unidadeID`, limpezaController.deleteData);
 limpezaRoutes.post(`${route}/reOpen/:id`, limpezaController.reOpen);
 limpezaRoutes.delete(`${route}/deleteAnexo/:id/:anexoID/:unidadeID/:usuarioID/:folder`, limpezaController.deleteAnexo);
