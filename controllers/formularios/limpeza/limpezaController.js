@@ -177,6 +177,129 @@ class LimpezaController {
         }
     }
 
+    async getEquipamentos(req, res) {
+        const { id, unidadeID, setorID } = req.body;
+
+        if (!id || !unidadeID || !setorID) {
+            return res.status(400).json({ error: 'id, unidadeID ou setorID não informado!' });
+        }
+
+        try {
+            const sql = `
+            SELECT 
+                se.equipamentoID, 
+                e.nome,
+                e.marca, 
+                e.modelo, 
+                e.codigoInventario,
+                e.orientacoesLimpeza,
+
+                COALESCE((
+                SELECT le.limpezaEquipamentoID
+                FROM limpeza_equipamento AS le 
+                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
+                ), 0) AS limpezaEquipamentoID,
+                
+                (SELECT IF(COUNT(*) > 0, 1, 0)
+                FROM limpeza_equipamento AS le 
+                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
+                ) AS checked,
+
+                (SELECT le.higienizacao
+                FROM limpeza_equipamento AS le 
+                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
+                ) AS higienizacao
+            FROM setor_equipamento AS se 
+                JOIN equipamento AS e ON (se.equipamentoID = e.equipamentoID)
+            WHERE se.setorID = ? AND e.unidadeID = ? AND e.status = 1
+            ORDER BY e.nome`;
+            const [result] = await db.promise().query(sql, [id, id, id, setorID, unidadeID]);
+
+            const updatedResult = await Promise.all(
+                result.map(async (item) => {
+                    const fullName = [item.nome, item.marca, item.modelo, item.codigoInventario].filter(Boolean).join(', ')
+
+                    //? Produtos do equipamento
+                    const sqlProduct = `
+                    SELECT 
+                        p.produtoID AS id,
+                        CONCAT(p.nome, ' (', um.nome, ')') AS nome
+                    FROM limpeza_equipamento_produto AS lep
+                        JOIN produto AS p ON (lep.produtoID = p.produtoID)
+                        JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
+                    WHERE lep.limpezaID = ? AND lep.equipamentoID = ?`;
+                    const [resultProduct] = await db.promise().query(sqlProduct, [id, item.equipamentoID]);
+
+                    //? Itens do equipamento
+                    const sqlItem = `
+                    SELECT 
+                        el.equipamentoLimpezaID, 
+                        i.itemID, 
+                        i.alternativaID,
+                        i.nome,
+                        i.ajuda,
+
+                        (SELECT lr.limpezaRespostaID
+                        FROM limpeza_resposta AS lr 
+                        WHERE lr.limpezaID = ? AND lr.limpezaEquipamentoID = ? AND lr.itemID = el.itemID
+                        ) AS limpezaRespostaID,
+
+                        (SELECT lr.respostaID
+                        FROM limpeza_resposta AS lr 
+                        WHERE lr.limpezaID = ? AND lr.limpezaEquipamentoID = ? AND lr.itemID = el.itemID
+                        ) AS respostaID,
+                        
+                        (SELECT lr.resposta
+                        FROM limpeza_resposta AS lr 
+                        WHERE lr.limpezaID = ? AND lr.limpezaEquipamentoID = ? AND lr.itemID = el.itemID
+                        ) AS resposta
+                    FROM equipamento_limpeza AS el 
+                        JOIN item AS i ON (el.itemID = i.itemID)
+                    WHERE el.equipamentoID = ?`;
+                    const [resultItem] = await db.promise().query(sqlItem, [id, item.limpezaEquipamentoID, id, item.limpezaEquipamentoID, id, item.limpezaEquipamentoID, item.equipamentoID]);
+
+                    //? Alternativas do item
+                    const updatedItems = await Promise.all(
+                        resultItem.map(async (item, index) => {
+                            const sqlAlternativa = `
+                            SELECT ai.alternativaItemID AS id, ai.nome
+                            FROM alternativa_item AS ai                        
+                            WHERE ai.alternativaID = ?`
+                            const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item.alternativaID])
+
+                            const resposta = item.respostaID && item.respostaID > 0 ? { id: item.respostaID, resposta: item.resposta } : item.resposta
+                            delete item.respostaID
+
+                            return {
+                                ...item,
+                                resposta,
+                                ordem: index + 1,
+                                alternativas: resultAlternativa,
+                            }
+                        })
+                    )
+
+                    return {
+                        limpezaEquipamentoID: item.limpezaEquipamentoID,
+                        equipamentoID: item.equipamentoID,
+                        nome: fullName,
+                        orientacoesLimpeza: item.orientacoesLimpeza,
+                        checked: item.checked == 1 ? true : false,
+                        produtos: resultProduct,
+                        higienizacao: item.higienizacao == 1 ? true : false,
+                        itens: updatedItems,
+                    }
+                })
+            );
+
+            return res.status(200).json(updatedResult);
+
+        } catch (error) {
+            console.log("🚀 ~ error:", error);
+            return res.status(500).json({ error: 'Erro no servidor' });
+        }
+    }
+
     async updateData(req, res) {
         const { id } = req.params
         const { form, auth } = req.body
@@ -222,44 +345,40 @@ class LimpezaController {
                         // atualizar checkbox higienização..
                         if (equipment.itens && equipment.itens.length > 0) {  //? Atualiza os itens do equipamento
                             for (const item of equipment.itens) {
-                                if (item && item.equipamentoLimpezaID && item.equipamentoLimpezaID > 0) { //? Atualiza 
+                                if (item && item.limpezaRespostaID && item.limpezaRespostaID > 0) { //? Atualiza 
                                     const sqlUpdate = `
                                     UPDATE limpeza_resposta SET resposta = ?, respostaID = ?, obs = ?
                                     WHERE limpezaID = ? AND limpezaEquipamentoID = ? AND itemID = ?`
                                     const resultUpdate = await executeQuery(sqlUpdate, [
-                                        item.resposta?.nome ?? null,
+                                        item.resposta?.nome ? item.resposta?.nome : item.resposta ?? null,
                                         item.resposta?.id ?? null,
                                         item.observacao ?? null,
                                         id,
-                                        item.limpezaEquipamentoID,
+                                        equipment.limpezaEquipamentoID,
                                         item.itemID
                                     ], 'update', 'limpeza_resposta', 'equipamentoLimpezaID', null, logID)
-                                    arrActiveEquipments.push(item.equipamentoLimpezaID)
-                                } else if (equipment.itemID > 0) { //? Insere
-                                    const sqlInsertProduto = `
-                                    INSERT INTO recebimentomp_item(recebimentoMpID, itemID, quantidade, quantidadeEntrada, dataFabricacao, lote, nf, dataValidade, apresentacaoID)
-                                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                                    const resultInsertProduto = await executeQuery(sqlInsertProduto, [
+                                    arrActiveEquipments.push(item.limpezaRespostaID)
+                                } else if (item.itemID > 0) { //? Insere
+                                    const sqlInsert = `
+                                    INSERT INTO limpeza_resposta(limpezaID, limpezaEquipamentoID, itemID, resposta, respostaID, obs) VALUES(?, ?, ?, ?, ?, ?)`
+                                    const resultInsert = await executeQuery(sqlInsert, [
                                         id,
-                                        equipment.itemID,
-                                        fractionedToFloat(item.quantidade) ?? null,
-                                        fractionedToFloat(item.quantidade) ?? null,
-                                        item.dataFabricacao ?? null,
-                                        item.lote ?? null,
-                                        item.nf ?? null,
-                                        item.dataValidade ?? null,
-                                        item.apresentacao?.id ?? null
-                                    ], 'insert', 'recebimentomp_item', 'equipamentoLimpezaID', null, logID)
-                                    arrActiveEquipments.push(resultInsertProduto)
+                                        equipment.limpezaEquipamentoID,
+                                        item.itemID,
+                                        item.resposta?.nome ? item.resposta?.nome : item.resposta ?? null,
+                                        item.resposta?.id ?? null,
+                                        item.observacao ?? null
+                                    ], 'insert', 'limpeza_resposta', 'equipamentoLimpezaID', null, logID)
+                                    arrActiveEquipments.push(resultInsert)
                                 }
                             }
                         }
                     }
                 }
 
-                //? Deleta os produtos que não foram mantidos
-                const sqlDeleteProdutos = `DELETE FROM recebimentomp_produto WHERE recebimentoMpID = ${id} AND recebimentoMpProdutoID NOT IN (${arrActiveProducts.join(',')})`
-                await executeQuery(sqlDeleteProdutos, null, 'delete', 'recebimentomp_produto', 'recebimentoMpID', id, logID)
+                //? Deleta as respostas dos equipamentos que não foram mantidos marcados
+                const sqlDelete = `DELETE FROM limpeza_resposta WHERE limpezaID = ? AND limpezaRespostaID NOT IN (${arrActiveEquipments})`
+                await executeQuery(sqlDelete, [id], 'delete', 'limpeza_resposta', 'equipamentoLimpezaID', null, logID)
             }
 
             //? Atualizar o header dinâmico e setar o status        
@@ -447,123 +566,6 @@ class LimpezaController {
             return res.status(201).json({ message: "Formulário concluído com sucesso!" })
         } catch (error) {
             console.log("🚀 ~ error:", error)
-        }
-    }
-
-    async getEquipamentos(req, res) {
-        const { id, unidadeID, setorID } = req.body;
-
-        if (!id || !unidadeID || !setorID) {
-            return res.status(400).json({ error: 'id, unidadeID ou setorID não informado!' });
-        }
-
-        try {
-            const sql = `
-            SELECT 
-                se.equipamentoID, 
-                e.nome,
-                e.marca, 
-                e.modelo, 
-                e.codigoInventario,
-                e.orientacoesLimpeza,
-
-                COALESCE((
-                SELECT le.limpezaEquipamentoID
-                FROM limpeza_equipamento AS le 
-                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
-                ), 0) AS limpezaEquipamentoID,
-                
-                (SELECT IF(COUNT(*) > 0, 1, 0)
-                FROM limpeza_equipamento AS le 
-                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
-                ) AS checked,
-
-                (SELECT le.higienizacao
-                FROM limpeza_equipamento AS le 
-                WHERE le.limpezaID = ? AND le.equipamentoID = se.equipamentoID                
-                ) AS higienizacao
-            FROM setor_equipamento AS se 
-                JOIN equipamento AS e ON (se.equipamentoID = e.equipamentoID)
-            WHERE se.setorID = ? AND e.unidadeID = ? AND e.status = 1
-            ORDER BY e.nome`;
-            const [result] = await db.promise().query(sql, [id, id, id, setorID, unidadeID]);
-
-            const updatedResult = await Promise.all(
-                result.map(async (item) => {
-                    const fullName = [item.nome, item.marca, item.modelo, item.codigoInventario].filter(Boolean).join(', ')
-
-                    //? Produtos do equipamento
-                    const sqlProduct = `
-                    SELECT 
-                        p.produtoID AS id,
-                        CONCAT(p.nome, ' (', um.nome, ')') AS nome
-                    FROM limpeza_equipamento_produto AS lep
-                        JOIN produto AS p ON (lep.produtoID = p.produtoID)
-                        JOIN unidademedida AS um ON (p.unidadeMedidaID = um.unidadeMedidaID)
-                    WHERE lep.limpezaID = ? AND lep.equipamentoID = ?`;
-                    const [resultProduct] = await db.promise().query(sqlProduct, [id, item.equipamentoID]);
-
-                    //? Itens do equipamento
-                    const sqlItem = `
-                    SELECT 
-                        el.equipamentoLimpezaID, 
-                        i.itemID, 
-                        i.alternativaID,
-                        i.nome,
-                        i.ajuda,
-
-                        (SELECT lr.respostaID
-                        FROM limpeza_resposta AS lr 
-                        WHERE lr.limpezaID = ? AND lr.limpezaEquipamentoID = ? AND lr.itemID = el.itemID
-                        ) AS respostaID,
-                        
-                        (SELECT lr.resposta
-                        FROM limpeza_resposta AS lr 
-                        WHERE lr.limpezaID = ? AND lr.limpezaEquipamentoID = ? AND lr.itemID = el.itemID
-                        ) AS resposta
-                    FROM equipamento_limpeza AS el 
-                        JOIN item AS i ON (el.itemID = i.itemID)
-                    WHERE el.equipamentoID = ?`;
-                    const [resultItem] = await db.promise().query(sqlItem, [id, item.limpezaEquipamentoID, id, item.limpezaEquipamentoID, item.equipamentoID]);
-
-                    //? Alternativas do item
-                    const updatedItems = await Promise.all(
-                        resultItem.map(async (item, index) => {
-                            const sqlAlternativa = `
-                            SELECT ai.alternativaItemID AS id, ai.nome
-                            FROM alternativa_item AS ai                        
-                            WHERE ai.alternativaID = ?`
-                            const [resultAlternativa] = await db.promise().query(sqlAlternativa, [item.alternativaID])
-
-                            const resposta = item.respostaID && item.respostaID > 0 ? { id: item.respostaID, resposta: item.resposta } : item.resposta
-
-                            return {
-                                ...item,
-                                resposta,
-                                ordem: index + 1,
-                                alternativas: resultAlternativa,
-                            }
-                        })
-                    )
-
-                    return {
-                        limpezaEquipamentoID: item.limpezaEquipamentoID,
-                        equipamentoID: item.equipamentoID,
-                        nome: fullName,
-                        orientacoesLimpeza: item.orientacoesLimpeza,
-                        checked: item.checked == 1 ? true : false,
-                        produtos: resultProduct,
-                        higienizacao: item.higienizacao == 1 ? true : false,
-                        itens: updatedItems,
-                    }
-                })
-            );
-
-            return res.status(200).json(updatedResult);
-
-        } catch (error) {
-            console.log("🚀 ~ error:", error);
-            return res.status(500).json({ error: 'Erro no servidor' });
         }
     }
 
