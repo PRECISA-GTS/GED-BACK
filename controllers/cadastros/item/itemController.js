@@ -53,20 +53,26 @@ class ItemController {
     async getAlternatives(req, res) {
         const { alternativa } = req.body
 
-        const sql = `
-        SELECT alternativaItemID AS id, nome
-        FROM alternativa_item 
-        WHERE alternativaID = ? `
-        const [result] = await db.promise().query(sql, [alternativa.id])
+        if (!alternativa.id) return res.status(400).json({ message: "Dados não informados!" })
 
-        for (let i = 0; i < result.length; i++) {
-            result[i].anexo = false
-            result[i].bloqueiaFormulario = false
-            result[i].observacao = false
-            result[i].anexos = [{ nome: '' }]
+        try {
+            const sql = `
+            SELECT alternativaItemID AS id, nome
+            FROM alternativa_item 
+            WHERE alternativaID = ? `
+            const [result] = await db.promise().query(sql, [alternativa.id])
+
+            for (let i = 0; i < result.length; i++) {
+                result[i].anexo = false
+                result[i].bloqueiaFormulario = false
+                result[i].observacao = false
+                result[i].anexos = [{ nome: '' }]
+            }
+
+            res.status(200).json(result)
+        } catch (error) {
+            console.log(error)
         }
-
-        res.status(200).json(result)
     }
 
     async getList(req, res) {

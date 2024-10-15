@@ -8,6 +8,10 @@ const authFornecedor = require("./auth/authFornecedorRoutes");
 routes.use(urlBase + '/', authFornecedor);
 routes.use(urlBase + '/', auth);
 
+//? Info
+const infoRouter = require("./info/infoRoutes");
+routes.use(urlBase, infoRouter);
+
 // Dashborards
 const fabricaRouter = require("./dashboard/fabricaRoutes")
 const fornecedorDashboardRouter = require("./dashboard/fornecedorDashboardRoutes")

@@ -753,7 +753,7 @@ class RecebimentoMpController {
                 const objAnexo = {
                     exist: true,
                     anexoID: anexoID,
-                    path: `${process.env.BASE_URL_API}${pathDestination}${file.filename} `,
+                    path: `${process.env.BASE_URL_API}${pathDestination}${file.filename}`,
                     nome: file.originalname,
                     tipo: file.mimetype,
                     size: file.size,
