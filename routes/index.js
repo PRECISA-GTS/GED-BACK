@@ -80,6 +80,7 @@ routes.use(urlBase + '/cadastros', DepartamentoRouter);
 routes.use(urlBase + '/cadastros', EquipamentoRouter);
 routes.use(urlBase + '/cadastros', SetorRouter);
 
+
 //? Configuracoes
 const formularios = require("./configuracoes/formularios/formulariosRoutes");
 const formularioFornecedor = require("./configuracoes/formularios/fornecedor/fornecedorRoutes");
